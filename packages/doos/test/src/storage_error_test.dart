@@ -86,7 +86,7 @@ void main() {
       const error = DoosStorageDeserializationError(
         key: 'test_key',
         type: 'String',
-        originalError: 'test error',
+        error: 'test error',
       );
       expect(
         error.message,
@@ -109,7 +109,7 @@ void main() {
       const error = DoosStorageDeserializationError(
         key: 'test_key',
         type: 'String',
-        originalError: 'test error',
+        error: 'test error',
       );
       expect(
         error.toString(),

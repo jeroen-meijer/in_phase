@@ -83,10 +83,13 @@ final class DoosStorageDeserializationError extends DoosStorageReadError {
   const DoosStorageDeserializationError({
     required String key,
     required String type,
-    Object? originalError,
+    Object? error,
+    StackTrace? stackTrace,
   }) : super(
          'Failed to deserialize "$key" to '
-         '$type${originalError != null ? ': $originalError' : ''}',
+         '$type'
+         '${error != null ? ': $error' : ''}'
+         '${stackTrace != null ? '\nStack trace:\n$stackTrace' : ''}',
        );
 
   @override

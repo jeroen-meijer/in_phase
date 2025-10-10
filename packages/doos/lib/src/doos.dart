@@ -137,7 +137,7 @@ class Doos with Disposable {
         DoosStorageDeserializationError(
           key: key,
           type: 'JSON',
-          originalError: e,
+          error: e,
         ),
       );
     }
@@ -495,12 +495,13 @@ class DoosStorageEntry<T> with EquatableMixin, Disposable {
       try {
         final deserializedValue = _deserializer(val);
         return DoosOk(deserializedValue);
-      } catch (error) {
+      } catch (error, stackTrace) {
         return DoosErr(
           DoosStorageDeserializationError(
             key: key,
             type: T.toString(),
-            originalError: error,
+            error: error,
+            stackTrace: stackTrace,
           ),
         );
       }

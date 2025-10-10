@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["jobs"],
+  "properties": {
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "output_playlist", "filters", "options", "inputs"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique identifier for the job"
+          },
+          "output_playlist": {
+            "type": "object",
+            "required": ["name", "description", "public"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Playlist name with template variables"
+              },
+              "description": {
+                "type": "string",
+                "description": "Playlist description with template variables"
+              },
+              "public": {
+                "type": "boolean",
+                "description": "Whether the playlist is public"
+              }
+            }
+          },
+          "cover": {
+            "type": "object",
+            "required": ["image", "caption"],
+            "properties": {
+              "image": {
+                "type": "string",
+                "description": "Filename of cover image"
+              },
+              "caption": {
+                "type": "string",
+                "description": "Caption text with template variables"
+              }
+            }
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "added_between_days": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of days to look back for added tracks"
+              }
+            }
+          },
+          "options": {
+            "type": "object",
+            "required": ["deduplicate", "append_to_existing"],
+            "properties": {
+              "deduplicate": {
+                "type": "string",
+                "enum": ["on_match", "never"],
+                "description": "Deduplication strategy"
+              },
+              "append_to_existing": {
+                "type": "boolean",
+                "description": "Whether to append to existing playlist or replace"
+              }
+            }
+          },
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "playlists": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9]{22}$",
+                  "description": "Spotify playlist ID"
+                }
+              },
+              "artists": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9]{22}$",
+                  "description": "Spotify artist ID"
+                }
+              },
+              "labels": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Label name"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -49,7 +49,7 @@ class SyncCommand extends Command<int> {
     try {
       final syncConfig = await SyncConfig.fromFile(Constants.syncConfigFile);
 
-      final syncCache = await SyncCache.fromFile(Constants.syncCacheFile);
+      var syncCache = await SyncCache.fromFile(Constants.syncCacheFile);
       teardown.add(() => syncCache.write(Constants.syncCacheFile));
 
       final api = await spotifyLogin();
@@ -69,20 +69,26 @@ class SyncCommand extends Command<int> {
         spPlaylists = await _getPlaylistsFromConfig(api, syncConfig);
       }
 
-      // Start fetching tracks in advance, so we can do other work while waiting
-      // for the tracks
-      final spPlaylistTrackListFutures = [
-        for (final playlist in spPlaylists)
-          requestPool.request(
-            () => api.playlists.getTracksByPlaylistId(playlist.id).all(50),
-            identifier: '${playlist.uri!}-tracks',
-          ),
-      ];
+      // Check which playlists need fetching and start all requests concurrently
+      final playlistFetchFutures =
+          <SpotifyPlaylistId, Future<Iterable<PlaylistTrack>>>{};
+      for (final spPlaylist in spPlaylists) {
+        final spPlaylistId = SpotifyPlaylistId(spPlaylist.id!);
+        final spSnapshotId = spPlaylist.snapshotId ?? '';
+
+        // Only fetch if snapshot has changed or not cached
+        if (syncCache.isPlaylistChanged(spPlaylistId, spSnapshotId)) {
+          playlistFetchFutures[spPlaylistId] = requestPool.request(
+            () => api.playlists.getTracksByPlaylistId(spPlaylistId).all(50),
+            identifier: '${spPlaylist.uri!}-tracks',
+          );
+        }
+      }
 
       final rbAllSongsAndArtists = await db
           .select(db.djmdContent)
           .join([
-            leftOuterJoin(
+          leftOuterJoin(
               db.djmdArtist,
               db.djmdContent.artistID.equalsExp(db.djmdArtist.id),
             ),
@@ -100,13 +106,59 @@ class SyncCommand extends Command<int> {
           .where((e) => _camelotKeyRegex.hasMatch(e.scaleName ?? ''))
           .toSet();
 
-      for (final (i, spPlaylist) in spPlaylists.indexed) {
+      for (final spPlaylist in spPlaylists) {
+        final spPlaylistId = SpotifyPlaylistId(spPlaylist.id!);
         final spPlaylistName = spPlaylist.name!;
+        final spSnapshotId = spPlaylist.snapshotId ?? '';
+
         void logPlaylist(String message) {
           log.info('[${green(spPlaylistName)}] $message');
         }
 
-        logPlaylist('Syncing playlist');
+        logPlaylist('Syncing playlist (snapshot: $spSnapshotId)');
+
+        // Check if we have a cached version with matching snapshot ID
+        final List<CachedSyncTrack> trackList;
+        if (playlistFetchFutures.containsKey(spPlaylistId)) {
+          // We started fetching this playlist, await the result
+          logPlaylist('Retrieving tracks from Spotify');
+          final spPlaylistTrackList = await playlistFetchFutures[spPlaylistId]!;
+
+          logPlaylist(
+            'Retrieved ${spPlaylistTrackList.length} tracks from Spotify',
+          );
+
+          // Convert and cache tracks
+          trackList = spPlaylistTrackList.where((e) => e.track != null).map(
+            (e) {
+              final track = e.track!;
+              return CachedSyncTrack(
+                id: SpotifyTrackId(track.id!),
+                name: track.name!,
+                artistNames: track.artists!.map((Artist a) => a.name!).toList(),
+              );
+            },
+          ).toList();
+
+          // Update cache with this playlist
+          syncCache = syncCache.withPlaylist(
+            spPlaylistId,
+            CachedSyncPlaylist(
+              snapshotId: spSnapshotId,
+              name: spPlaylistName,
+              tracks: trackList,
+              cachedAt: DateTime.now(),
+            ),
+          );
+        } else {
+          // Use cached data
+          final cachedPlaylist = syncCache.playlists[spPlaylistId]!;
+          logPlaylist(
+            '💾 Using cached playlist data '
+            '(${cachedPlaylist.tracks.length} tracks)',
+          );
+          trackList = cachedPlaylist.tracks;
+        }
 
         DjmdKeyData? rbKey;
         if (syncConfig.overwriteSongKeys) {
@@ -153,14 +205,9 @@ class SyncCommand extends Command<int> {
           parentId: rbTargetFolder?.id,
         );
 
-        logPlaylist('Retrieving tracks from Spotify');
-        final spPlaylistTrackList = await spPlaylistTrackListFutures[i];
-        logPlaylist(
-          'Retrieved ${spPlaylistTrackList.length} tracks from Spotify',
-        );
+        for (final cachedTrack in trackList) {
+          final spTrackId = cachedTrack.id;
 
-        for (final spTrack in spPlaylistTrackList) {
-          final spTrackId = SpotifyTrackId(spTrack.id!);
           void logTrack(String message, {bool? first}) {
             const intermediateChar = '├';
             const finalChar = '└';
@@ -179,12 +226,14 @@ class SyncCommand extends Command<int> {
 
           logTrack(
             // ignore: lines_longer_than_80_chars
-            'Syncing track "${spTrack.artists!.map((e) => e.name).join(', ')} - ${spTrack.name}"',
+            'Syncing track "${cachedTrack.artistNames.join(', ')} - ${cachedTrack.name}"',
             first: true,
           );
 
           var rbSong = await _findTrack(
-            spTrack: spTrack,
+            spTrackId: spTrackId,
+            spTrackName: cachedTrack.name,
+            spArtistNames: cachedTrack.artistNames,
             rbSongsAndArtists: rbAllSongsAndArtists,
             mappings: syncCache.mappings,
           );
@@ -209,8 +258,8 @@ class SyncCommand extends Command<int> {
             logTrack('No match found, adding to missing tracks', first: false);
             syncCache.missingTracks[spTrackId] = MissingTrack(
               id: spTrackId,
-              artist: spTrack.artists!.map((e) => e.name).join(', '),
-              title: spTrack.name!,
+              artist: cachedTrack.artistNames.join(', '),
+              title: cachedTrack.name,
               itunesUrl: null,
               lastInsertedAt: DateTime.now(),
             );
@@ -284,12 +333,14 @@ class SyncCommand extends Command<int> {
   }
 
   static Future<DjmdContentData?> _findTrack({
-    required TrackSimple spTrack,
+    required SpotifyTrackId spTrackId,
+    required String spTrackName,
+    required List<String> spArtistNames,
     required List<_RbSongAndArtist> rbSongsAndArtists,
     required Map<SpotifyTrackId, RekordboxSongId> mappings,
     int threshold = 80,
   }) async {
-    if (mappings[spTrack.id] case final rbSongId?) {
+    if (mappings[spTrackId] case final rbSongId?) {
       if (rbSongsAndArtists.firstWhereOrNull((e) => e.song.id == rbSongId)
           case _RbSongAndArtist(song: final rbSong)) {
         return rbSong;
@@ -302,9 +353,10 @@ class SyncCommand extends Command<int> {
 
     const threads = 4;
 
-    log.info('Finding fuzzy match for ${spTrack.name} ($threads threads)');
+    log.info('Finding fuzzy match for $spTrackName ($threads threads)');
     final fuzzyMatch = await _findFuzzyMatch(
-      spTrack: spTrack,
+      spTrackName: spTrackName,
+      spArtistNames: spArtistNames,
       rbSongsAndArtists: rbSongsAndArtists,
       // ignore: avoid_redundant_argument_values
       threads: threads,
@@ -336,7 +388,8 @@ class SyncCommand extends Command<int> {
   }
 
   static Future<FuzzyFindMatch<_RbSongAndArtist>> _findFuzzyMatch({
-    required TrackSimple spTrack,
+    required String spTrackName,
+    required List<String> spArtistNames,
     required List<_RbSongAndArtist> rbSongsAndArtists,
     int threads = 4,
   }) async {
@@ -348,8 +401,8 @@ class SyncCommand extends Command<int> {
       List<_RbSongAndArtist> rbSongsAndArtists,
     ) {
       final query = _normalizeQuery(
-        spTrack.artists!.map((e) => e.name!).toList(),
-        spTrack.name!,
+        spArtistNames,
+        spTrackName,
       );
 
       var bestScore = 0;

@@ -60,7 +60,7 @@ void main() {
       test('handles special characters in key and value', () async {
         const key = 'test/key with spaces & symbols!';
         const value = 'value with\nnewlines\tand\ttabs';
-        
+
         await adapter.write(key: key, value: value);
 
         final result = await adapter.read(key: key);
@@ -111,7 +111,7 @@ void main() {
 
         final result1 = await adapter.read(key: 'key1');
         final result2 = await adapter.read(key: 'key2');
-        
+
         expect(result1, isNull);
         expect(result2, equals('value2'));
       });
@@ -128,7 +128,7 @@ void main() {
         final result1 = await adapter.read(key: 'key1');
         final result2 = await adapter.read(key: 'key2');
         final result3 = await adapter.read(key: 'key3');
-        
+
         expect(result1, isNull);
         expect(result2, isNull);
         expect(result3, isNull);

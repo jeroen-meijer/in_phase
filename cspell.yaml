@@ -4,6 +4,7 @@ words:
   - dcli
   - djmd
   - dylib
+  - fuzzywuzzy
   - itunes
   - libsqlcipher
   - meijer

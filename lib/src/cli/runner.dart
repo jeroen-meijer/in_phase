@@ -17,8 +17,9 @@ CommandRunner<int> createRkdbCommandRunner({
           'rkdb',
           'A command-line interface for Rekordbox database utilities.',
         )
-        ..addCommand(SyncCommand())
-        ..addCommand(LoginCommand());
+        ..addCommand(CrawlCommand())
+        ..addCommand(LoginCommand())
+        ..addCommand(SyncCommand());
 
   runner.argParser
     ..addFlag(

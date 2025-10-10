@@ -17,6 +17,22 @@ class Constants {
   static final syncCacheFile = File(
     path.join(appDataDir.path, 'sync_cache.yaml'),
   );
+
+  static final crawlConfigFile = File(
+    path.join(appDataDir.path, 'crawl_config.yaml'),
+  );
+
+  static final crawlCacheFile = File(
+    path.join(appDataDir.path, 'crawl_cache.yaml'),
+  );
+
+  static final buildDir = Directory(
+    path.join(appDataDir.path, 'build'),
+  );
+
+  static final generatedCoversDir = Directory(
+    path.join(buildDir.path, 'generated_covers'),
+  );
 }
 
 String _getUserDir() {
