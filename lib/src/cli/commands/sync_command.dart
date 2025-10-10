@@ -88,7 +88,7 @@ class SyncCommand extends Command<int> {
       final rbAllSongsAndArtists = await db
           .select(db.djmdContent)
           .join([
-          leftOuterJoin(
+            leftOuterJoin(
               db.djmdArtist,
               db.djmdContent.artistID.equalsExp(db.djmdArtist.id),
             ),
@@ -205,7 +205,11 @@ class SyncCommand extends Command<int> {
           parentId: rbTargetFolder?.id,
         );
 
-        for (final cachedTrack in trackList) {
+        // Build initial tracklist from Spotify
+        final rbPlaylistSongQueue = <_TracklistEntry>[];
+
+        for (var i = 0; i < trackList.length; i++) {
+          final cachedTrack = trackList[i];
           final spTrackId = cachedTrack.id;
 
           void logTrack(String message, {bool? first}) {
@@ -249,10 +253,13 @@ class SyncCommand extends Command<int> {
               rbSong = await db.updateSong(rbSongId, keyId: rbKey.id);
             }
 
-            logTrack('Adding song to playlist', first: false);
-            await db.addSongToPlaylist(
-              playlistId: rbPlaylist.id!,
-              contentId: rbSongId,
+            logTrack('Added to playlist queue', first: false);
+            rbPlaylistSongQueue.add(
+              _TracklistEntry(
+                originalIndex: i + 1,
+                trackId: rbSongId,
+                isCustom: false,
+              ),
             );
           } else {
             logTrack('No match found, adding to missing tracks', first: false);
@@ -264,6 +271,38 @@ class SyncCommand extends Command<int> {
               lastInsertedAt: DateTime.now(),
             );
           }
+        }
+
+        // Apply custom tracks if configured
+        final customTracks = syncConfig.customTracks[spPlaylistId] ?? [];
+        if (customTracks.isNotEmpty) {
+          logPlaylist('Applying ${customTracks.length} custom track(s)...');
+
+          final rbPlaylistTracksById = <String, _TracklistEntry>{
+            for (final entry in rbPlaylistSongQueue) entry.trackId.value: entry,
+          };
+
+          final updatedTracklist = await _applyCustomTracks(
+            customTracks: customTracks,
+            initialTracklist: rbPlaylistTracksById.values.toList(),
+            rbAllSongsAndArtists: rbAllSongsAndArtists,
+            logPlaylist: logPlaylist,
+          );
+
+          rbPlaylistSongQueue
+            ..clear()
+            ..addAll(updatedTracklist);
+        }
+
+        // Add all tracks to playlist
+        logPlaylist(
+          'Adding ${rbPlaylistSongQueue.length} track(s) to playlist...',
+        );
+        for (final entry in rbPlaylistSongQueue) {
+          await db.addSongToPlaylist(
+            playlistId: rbPlaylist.id!,
+            contentId: entry.trackId,
+          );
         }
       }
 
@@ -469,4 +508,255 @@ class FuzzyFindMatch<T> {
 
   final T value;
   final int score;
+}
+
+class _TracklistEntry {
+  const _TracklistEntry({
+    required this.originalIndex,
+    required this.trackId,
+    required this.isCustom,
+  });
+
+  final int? originalIndex;
+  final RekordboxSongId trackId;
+  final bool isCustom;
+}
+
+/// Applies custom tracks (insert and replace operations) to the initial
+/// tracklist.
+Future<List<_TracklistEntry>> _applyCustomTracks({
+  required List<CustomTrack> customTracks,
+  required List<_TracklistEntry> initialTracklist,
+  required List<_RbSongAndArtist> rbAllSongsAndArtists,
+  required void Function(String) logPlaylist,
+}) async {
+  // Separate inserts and replaces
+  final insertsToProcess = <CustomTrack>[];
+  final replacesToProcess = <CustomTrack>[];
+
+  for (final customTrack in customTracks) {
+    // Validate that the rekordbox track exists
+    final rbSong = rbAllSongsAndArtists.firstWhereOrNull(
+      (e) => e.song.id == customTrack.rekordboxId,
+    );
+
+    if (rbSong == null) {
+      logPlaylist(
+        '  ⚠️  WARNING: Custom track with Rekordbox ID '
+        '${customTrack.rekordboxId} not found. Skipping.',
+      );
+      continue;
+    }
+
+    switch (customTrack.type) {
+      case CustomTrackType.insert:
+        insertsToProcess.add(customTrack);
+      case CustomTrackType.replace:
+        replacesToProcess.add(customTrack);
+    }
+  }
+
+  var workingTracklist = List<_TracklistEntry>.from(initialTracklist);
+
+  // Process inserts first
+  if (insertsToProcess.isNotEmpty) {
+    workingTracklist = _processInserts(
+      inserts: insertsToProcess,
+      tracklist: workingTracklist,
+      logPlaylist: logPlaylist,
+    );
+  }
+
+  // Process replacements
+  if (replacesToProcess.isNotEmpty) {
+    workingTracklist = _processReplacements(
+      replacements: replacesToProcess,
+      tracklist: workingTracklist,
+      logPlaylist: logPlaylist,
+    );
+  }
+
+  return workingTracklist;
+}
+
+/// Processes insert-type custom tracks.
+List<_TracklistEntry> _processInserts({
+  required List<CustomTrack> inserts,
+  required List<_TracklistEntry> tracklist,
+  required void Function(String) logPlaylist,
+}) {
+  final result = List<_TracklistEntry>.from(tracklist);
+
+  // Group inserts by their target index
+  final insertsByIndex = <int?, List<String>>{};
+
+  for (final insert in inserts) {
+    int? targetIndex;
+
+    if (insert.target != null) {
+      // Find the target track and calculate index
+      final offset =
+          insert.index ?? (insert.position != null ? insert.position! - 1 : 0);
+
+      for (var i = 0; i < result.length; i++) {
+        if (result[i].trackId.value == insert.target) {
+          targetIndex = (result[i].originalIndex ?? 0) + offset;
+          break;
+        }
+      }
+
+      if (targetIndex == null) {
+        logPlaylist(
+          '  ⚠️  WARNING: Custom track ${insert.rekordboxId} references '
+          'missing target track ID ${insert.target}. Skipping.',
+        );
+        continue;
+      }
+    } else if (insert.position != null) {
+      targetIndex = insert.position! - 1; // Convert 1-based to 0-based
+    } else {
+      targetIndex = insert.index; // Already 0-based or null
+    }
+
+    // Validate index bounds
+    if (targetIndex != null &&
+        (targetIndex < 0 || targetIndex > result.length)) {
+      logPlaylist(
+        '  ⚠️  WARNING: Custom track ${insert.rekordboxId} specifies '
+        'out-of-bounds index $targetIndex. Appending to end.',
+      );
+      targetIndex = null;
+    }
+
+    insertsByIndex.putIfAbsent(targetIndex, () => []).add(insert.rekordboxId);
+  }
+
+  // Insert tracks at the end (null index) first
+  final tracksToAppend = insertsByIndex.remove(null) ?? [];
+  for (final trackId in tracksToAppend) {
+    logPlaylist('  ├ Appending custom track [$trackId] to end of playlist');
+    result.add(
+      _TracklistEntry(
+        originalIndex: null,
+        trackId: RekordboxSongId(trackId),
+        isCustom: true,
+      ),
+    );
+  }
+
+  // Sort indices in descending order to insert from end to start
+  final sortedIndices = insertsByIndex.keys.toList()
+    ..sort((a, b) => b!.compareTo(a!));
+
+  for (final targetIndex in sortedIndices) {
+    final tracksToInsert = insertsByIndex[targetIndex]!;
+
+    // Find insertion position in the working list
+    var insertionPos = 0;
+    for (var i = 0; i < result.length; i++) {
+      if (result[i].originalIndex != null &&
+          result[i].originalIndex! > targetIndex!) {
+        insertionPos = i;
+        break;
+      }
+      insertionPos = i + 1;
+    }
+
+    logPlaylist(
+      '  ├ Inserting ${tracksToInsert.length} custom track(s) at '
+      'index $targetIndex: $tracksToInsert',
+    );
+
+    // Insert tracks in order, incrementing position to maintain sequence
+    for (final trackId in tracksToInsert) {
+      result.insert(
+        insertionPos,
+        _TracklistEntry(
+          originalIndex: targetIndex,
+          trackId: RekordboxSongId(trackId),
+          isCustom: true,
+        ),
+      );
+      insertionPos++; // Next track goes after this one
+    }
+  }
+
+  return result;
+}
+
+/// Processes replace-type custom tracks.
+List<_TracklistEntry> _processReplacements({
+  required List<CustomTrack> replacements,
+  required List<_TracklistEntry> tracklist,
+  required void Function(String) logPlaylist,
+}) {
+  final result = List<_TracklistEntry>.from(tracklist);
+
+  for (final replacement in replacements) {
+    var replaced = false;
+
+    if (replacement.target != null) {
+      // Replace by target track ID
+      for (var i = 0; i < result.length; i++) {
+        if (result[i].trackId.value == replacement.target &&
+            !result[i].isCustom) {
+          logPlaylist(
+            '  ├ Replacing track with ID ${result[i].trackId.value} '
+            'with custom track ${replacement.rekordboxId}',
+          );
+          result[i] = _TracklistEntry(
+            originalIndex: result[i].originalIndex,
+            trackId: RekordboxSongId(replacement.rekordboxId),
+            isCustom: true,
+          );
+          replaced = true;
+          break;
+        }
+      }
+    } else {
+      // Replace by index or position
+      final targetIndex = replacement.position != null
+          ? replacement.position! - 1
+          : replacement.index;
+
+      if (targetIndex != null) {
+        for (var i = 0; i < result.length; i++) {
+          if (result[i].originalIndex == targetIndex + 1 &&
+              !result[i].isCustom) {
+            logPlaylist(
+              '  ├ Replacing track with ID ${result[i].trackId.value} at '
+              'index $targetIndex with custom track ${replacement.rekordboxId}',
+            );
+            result[i] = _TracklistEntry(
+              originalIndex: targetIndex,
+              trackId: RekordboxSongId(replacement.rekordboxId),
+              isCustom: true,
+            );
+            replaced = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!replaced) {
+      if (replacement.target != null) {
+        logPlaylist(
+          '  ⚠️  WARNING: Could not replace track with target ID '
+          '${replacement.target} (not found). Custom track '
+          '${replacement.rekordboxId} not inserted.',
+        );
+      } else {
+        final targetIndex = replacement.position != null
+            ? replacement.position! - 1
+            : replacement.index;
+        logPlaylist(
+          '  ⚠️  WARNING: Could not replace track at index $targetIndex '
+          '(not found). Custom track ${replacement.rekordboxId} not inserted.',
+        );
+      }
+    }
+  }
+
+  return result;
 }

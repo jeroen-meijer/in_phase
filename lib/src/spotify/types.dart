@@ -1,4 +1,4 @@
-extension type SpotifyPlaylistId(String value) implements String {
+extension type SpotifyPlaylistId(String _value) implements String {
   static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
 
   static SpotifyPlaylistId? tryParse(String value) {
@@ -8,10 +8,10 @@ extension type SpotifyPlaylistId(String value) implements String {
     return null;
   }
 
-  String get uri => 'spotify:playlist:$value';
+  String get uri => 'spotify:playlist:$_value';
 }
 
-extension type const SpotifyArtistId(String value) implements String {
+extension type const SpotifyArtistId(String _value) implements String {
   static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
 
   static SpotifyPlaylistId? tryParse(String value) {
@@ -21,10 +21,10 @@ extension type const SpotifyArtistId(String value) implements String {
     return null;
   }
 
-  String get uri => 'spotify:artist:$value';
+  String get uri => 'spotify:artist:$_value';
 }
 
-extension type const SpotifyAlbumId(String value) implements String {
+extension type const SpotifyAlbumId(String _value) implements String {
   static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
 
   static SpotifyPlaylistId? tryParse(String value) {
@@ -34,10 +34,10 @@ extension type const SpotifyAlbumId(String value) implements String {
     return null;
   }
 
-  String get uri => 'spotify:album:$value';
+  String get uri => 'spotify:album:$_value';
 }
 
-extension type const SpotifyTrackId(String value) implements String {
+extension type const SpotifyTrackId(String _value) implements String {
   static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
 
   static SpotifyPlaylistId? tryParse(String value) {
@@ -47,34 +47,32 @@ extension type const SpotifyTrackId(String value) implements String {
     return null;
   }
 
-  String get uri => 'spotify:track:$value';
+  String get uri => 'spotify:track:$_value';
 }
 
 /// Type-safe cache identifier for Spotify API requests.
-extension type const SpotifyCacheIdentifier(String value) implements String {
-  const SpotifyCacheIdentifier._(this.value);
-
+extension type const SpotifyCacheIdentifier._(String _value) implements String {
   /// Creates a cache identifier for album requests.
-  static SpotifyCacheIdentifier album(SpotifyAlbumId albumId) =>
-      SpotifyCacheIdentifier._('album:${albumId.value}');
+  const SpotifyCacheIdentifier.album(SpotifyAlbumId albumId)
+    : _value = 'album:$albumId';
 
   /// Creates a cache identifier for artist requests.
-  static SpotifyCacheIdentifier artist(SpotifyArtistId artistId) =>
-      SpotifyCacheIdentifier._('artist:${artistId.value}');
+  const SpotifyCacheIdentifier.artist(SpotifyArtistId artistId)
+    : _value = 'artist:$artistId';
 
   /// Creates a cache identifier for playlist requests.
-  static SpotifyCacheIdentifier playlist(SpotifyPlaylistId playlistId) =>
-      SpotifyCacheIdentifier._('playlist:${playlistId.value}');
+  const SpotifyCacheIdentifier.playlist(SpotifyPlaylistId playlistId)
+    : _value = 'playlist:$playlistId';
 
   /// Creates a cache identifier for playlist track requests.
-  static SpotifyCacheIdentifier playlistTracks(SpotifyPlaylistId playlistId) =>
-      SpotifyCacheIdentifier._('playlist-tracks:${playlistId.value}');
+  const SpotifyCacheIdentifier.playlistTracks(SpotifyPlaylistId playlistId)
+    : _value = 'playlist-tracks:$playlistId';
 
   /// Creates a cache identifier for artist albums requests.
-  static SpotifyCacheIdentifier artistAlbums(SpotifyArtistId artistId) =>
-      SpotifyCacheIdentifier._('artist-albums:${artistId.value}');
+  const SpotifyCacheIdentifier.artistAlbums(SpotifyArtistId artistId)
+    : _value = 'artist-albums:$artistId';
 
   /// Creates a cache identifier for label search requests.
-  static SpotifyCacheIdentifier labelSearch(String labelName) =>
-      SpotifyCacheIdentifier._('label-search:$labelName');
+  const SpotifyCacheIdentifier.labelSearch(String labelName)
+    : _value = 'label-search:$labelName';
 }

@@ -244,6 +244,7 @@ class TrackCollector {
     log.info(
       '    📅 ${collectedTracks.length} tracks in date range '
       '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
+      // ignore: lines_longer_than_80_chars
       '(using ${dateMode == PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
     );
 
@@ -597,6 +598,7 @@ class TrackCollector {
     log.info(
       '    📅 ${filtered.length} cached tracks in date range '
       '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
+      // ignore: lines_longer_than_80_chars
       '(using ${dateMode == PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
     );
 

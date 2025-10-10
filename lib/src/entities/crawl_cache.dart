@@ -254,7 +254,7 @@ Map<SpotifyPlaylistId, CachedPlaylist> _playlistMapFromJson(
 
 Map<String, dynamic> _playlistMapToJson(
   Map<SpotifyPlaylistId, CachedPlaylist> data,
-) => data.map((key, value) => MapEntry(key.value, value.toJson()));
+) => data.map((key, value) => MapEntry(key, value.toJson()));
 
 Map<SpotifyAlbumId, CachedAlbum> _albumMapFromJson(
   Map<dynamic, dynamic> json,
@@ -267,7 +267,7 @@ Map<SpotifyAlbumId, CachedAlbum> _albumMapFromJson(
 
 Map<String, dynamic> _albumMapToJson(
   Map<SpotifyAlbumId, CachedAlbum> data,
-) => data.map((key, value) => MapEntry(key.value, value.toJson()));
+) => data.map((key, value) => MapEntry(key, value.toJson()));
 
 Map<SpotifyTrackId, SpotifyAlbumId> _trackAlbumMapFromJson(
   Map<dynamic, dynamic> json,
@@ -280,12 +280,12 @@ Map<SpotifyTrackId, SpotifyAlbumId> _trackAlbumMapFromJson(
 
 Map<String, dynamic> _trackAlbumMapToJson(
   Map<SpotifyTrackId, SpotifyAlbumId> data,
-) => data.map((key, value) => MapEntry(key.value, value.value));
+) => data.map((key, value) => MapEntry(key.toString(), value.toString()));
 
 SpotifyTrackId _spotifyTrackIdFromJson(Object json) =>
     SpotifyTrackId(json as String);
 
-String _spotifyTrackIdToJson(SpotifyTrackId id) => id.value;
+String _spotifyTrackIdToJson(SpotifyTrackId id) => id.toString();
 
 SpotifyAlbumId? _spotifyAlbumIdFromJson(Object? json) =>
     json == null ? null : SpotifyAlbumId(json as String);
@@ -293,6 +293,6 @@ SpotifyAlbumId? _spotifyAlbumIdFromJson(Object? json) =>
 SpotifyAlbumId _spotifyAlbumIdFromJsonRequired(Object json) =>
     SpotifyAlbumId(json as String);
 
-String _spotifyAlbumIdToJsonRequired(SpotifyAlbumId id) => id.value;
+String _spotifyAlbumIdToJsonRequired(SpotifyAlbumId id) => id.toString();
 
-String? _spotifyAlbumIdToJson(SpotifyAlbumId? id) => id?.value;
+String? _spotifyAlbumIdToJson(SpotifyAlbumId? id) => id?.toString();

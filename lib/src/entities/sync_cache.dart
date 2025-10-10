@@ -165,7 +165,7 @@ List<Map<String, dynamic>> _cachedTracksToJson(List<CachedSyncTrack> tracks) =>
 SpotifyTrackId _spotifyTrackIdFromJson(Object json) =>
     SpotifyTrackId(json as String);
 
-String _spotifyTrackIdToJson(SpotifyTrackId id) => id.value;
+String _spotifyTrackIdToJson(SpotifyTrackId id) => id.toString();
 
 Map<SpotifyTrackId, RekordboxSongId> _trackMappingFromJson(
   Map<dynamic, dynamic> json,
@@ -176,7 +176,7 @@ Map<SpotifyTrackId, RekordboxSongId> _trackMappingFromJson(
 
 Map<String, dynamic> _trackMappingToJson(
   Map<SpotifyTrackId, RekordboxSongId> data,
-) => data.map((key, value) => MapEntry(key.value, value.value));
+) => data.map((key, value) => MapEntry(key.toString(), value.toString()));
 
 Map<SpotifyTrackId, MissingTrack> _missingTracksFromJson(
   Map<dynamic, dynamic> json,
@@ -189,7 +189,7 @@ Map<SpotifyTrackId, MissingTrack> _missingTracksFromJson(
 
 Map<String, dynamic> _missingTracksToJson(
   Map<SpotifyTrackId, MissingTrack> data,
-) => data.map((key, value) => MapEntry(key.value, value.toJson()));
+) => data.map((key, value) => MapEntry(key.toString(), value.toJson()));
 
 Map<SpotifyPlaylistId, CachedSyncPlaylist> _cachedPlaylistsFromJson(
   Map<dynamic, dynamic> json,
@@ -202,4 +202,4 @@ Map<SpotifyPlaylistId, CachedSyncPlaylist> _cachedPlaylistsFromJson(
 
 Map<String, dynamic> _cachedPlaylistsToJson(
   Map<SpotifyPlaylistId, CachedSyncPlaylist> data,
-) => data.map((key, value) => MapEntry(key.value, value.toJson()));
+) => data.map((key, value) => MapEntry(key.toString(), value.toJson()));

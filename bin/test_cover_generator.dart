@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
@@ -72,4 +74,3 @@ Future<void> main() async {
 
   print('✨ Done! Generated $generated cover(s)');
 }
-

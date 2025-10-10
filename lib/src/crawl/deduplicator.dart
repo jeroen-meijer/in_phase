@@ -22,7 +22,7 @@ List<CollectedTrack> _deduplicateById(List<CollectedTrack> tracks) {
   final result = <CollectedTrack>[];
 
   for (final track in tracks) {
-    if (seenIds.add(track.id.value)) {
+    if (seenIds.add(track.id)) {
       result.add(track);
     }
   }
