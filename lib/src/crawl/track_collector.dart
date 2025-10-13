@@ -1,7 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:rkdb_dart/src/crawl/date_utils.dart';
-import 'package:rkdb_dart/src/entities/entities.dart';
+import 'package:rkdb_dart/src/database/database.exports.dart';
+import 'package:rkdb_dart/src/entities/entities.dart' as entities;
 import 'package:rkdb_dart/src/logger/logger.dart';
 import 'package:rkdb_dart/src/misc/misc.dart';
 import 'package:rkdb_dart/src/spotify/spotify.dart';
@@ -106,19 +107,19 @@ class TrackCollector {
   TrackCollector({
     required this.api,
     required this.requestPool,
-    required this.cache,
+    required this.cacheAdapter,
   });
 
   final SpotifyApi api;
   final RequestPool requestPool;
-  CrawlCache cache;
+  final CacheAdapter cacheAdapter;
 
   /// Collects tracks from a playlist within the specified date range.
   Future<List<CollectedTrack>> collectFromPlaylist(
     String playlistId,
     DateTime cutoffDate,
     DateTime endDate,
-    PlaylistTrackDateMode dateMode,
+    entities.PlaylistTrackDateMode dateMode,
   ) async {
     log.info('  📜 Collecting from playlist: $playlistId');
 
@@ -136,9 +137,12 @@ class TrackCollector {
     log.info('    Playlist: $playlistName (snapshot: $snapshotId)');
 
     // Check if cached and unchanged
-    final cachedPlaylist = cache.playlists[spotifyPlaylistId];
-    if (cachedPlaylist != null &&
-        !cache.isPlaylistChanged(spotifyPlaylistId, snapshotId)) {
+    final cachedPlaylist = await cacheAdapter.getPlaylist(spotifyPlaylistId);
+    final isChanged = await cacheAdapter.isPlaylistChanged(
+      spotifyPlaylistId,
+      snapshotId,
+    );
+    if (cachedPlaylist != null && !isChanged) {
       log.info('    💾 Using cached playlist data');
       return _filterPlaylistTracksByDate(
         cachedPlaylist.tracks,
@@ -161,7 +165,7 @@ class TrackCollector {
     final cachedTracks = playlistTracks.where((pt) => pt.track?.id != null).map(
       (playlistTrack) {
         final track = playlistTrack.track!;
-        return CachedPlaylistTrack(
+        return entities.CachedPlaylistTrack(
           trackId: SpotifyTrackId(track.id!),
           uri: track.uri!,
           name: track.name!,
@@ -172,9 +176,9 @@ class TrackCollector {
       },
     ).toList();
 
-    cache = cache.withPlaylist(
+    await cacheAdapter.cachePlaylist(
       spotifyPlaylistId,
-      CachedPlaylist(
+      entities.CachedPlaylist(
         snapshotId: snapshotId,
         name: playlistName,
         tracks: cachedTracks,
@@ -194,7 +198,7 @@ class TrackCollector {
       DateTime trackDate;
 
       // Determine which date to use based on the mode
-      if (dateMode == PlaylistTrackDateMode.addedDate) {
+      if (dateMode == entities.PlaylistTrackDateMode.addedDate) {
         trackDate = playlistTrack.addedAt!;
       } else {
         // Use release date - need to get it from the album
@@ -227,9 +231,10 @@ class TrackCollector {
         // Cache the album info if we have it and it's not already cached
         if (albumToCache?.id != null) {
           final albumId = SpotifyAlbumId(albumToCache!.id!);
-          if (!cache.albums.containsKey(albumId)) {
-            cache = cache.withAlbums({
-              albumId: CachedAlbum(
+          final hasAlbum = await cacheAdapter.hasAlbum(albumId);
+          if (!hasAlbum) {
+            await cacheAdapter.cacheAlbums({
+              albumId: entities.CachedAlbum(
                 id: albumId,
                 name: albumToCache.name ?? '',
                 releaseDate: releaseDate,
@@ -276,7 +281,7 @@ class TrackCollector {
       collectedTracks.add(collectedTrack);
 
       // Log individual track collection
-      final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+      final dateModeText = dateMode == entities.PlaylistTrackDateMode.addedDate
           ? 'added to playlist'
           : 'released';
       final artistNames =
@@ -292,7 +297,7 @@ class TrackCollector {
       '    📅 ${collectedTracks.length} tracks in date range '
       '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
       // ignore: lines_longer_than_80_chars
-      '(using ${dateMode == PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
+      '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
     );
 
     return collectedTracks;
@@ -309,7 +314,7 @@ class TrackCollector {
     final spotifyArtistId = SpotifyArtistId(artistId);
 
     // Check if artist metadata is cached and fresh (< 1 month old)
-    final cachedArtist = cache.artists[spotifyArtistId];
+    final cachedArtist = await cacheAdapter.getArtist(spotifyArtistId);
     final String artistName;
 
     if (cachedArtist != null && !cachedArtist.isStale) {
@@ -325,9 +330,9 @@ class TrackCollector {
       artistName = artist.name ?? 'Unknown Artist';
 
       // Cache artist metadata
-      cache = cache.withArtist(
+      await cacheAdapter.cacheArtist(
         spotifyArtistId,
-        CachedArtist(
+        entities.CachedArtist(
           id: spotifyArtistId,
           name: artistName,
           cachedAt: DateTime.now(),
@@ -338,7 +343,9 @@ class TrackCollector {
     log.info('    Artist: $artistName');
 
     // Check if artist albums are cached and fresh (from today)
-    final cachedArtistAlbums = cache.artistAlbums[spotifyArtistId];
+    final cachedArtistAlbums = await cacheAdapter.getArtistAlbums(
+      spotifyArtistId,
+    );
     final List<Album> albums;
 
     if (cachedArtistAlbums != null && cachedArtistAlbums.isFreshToday) {
@@ -347,7 +354,7 @@ class TrackCollector {
       // We still need minimal album info, but we can use our album cache
       albums = [];
       for (final albumId in cachedArtistAlbums.albumIds) {
-        final cachedAlbum = cache.albums[albumId];
+        final cachedAlbum = await cacheAdapter.getAlbum(albumId);
         if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
           // Create minimal Album object from cache
           albums.add(
@@ -451,7 +458,7 @@ class TrackCollector {
           }
 
           // Add remaining cached albums
-          final cachedAlbum = cache.albums[cachedAlbumId];
+          final cachedAlbum = await cacheAdapter.getAlbum(cachedAlbumId);
           if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
             albums.add(
               Album()
@@ -465,9 +472,9 @@ class TrackCollector {
       }
 
       // Cache the album IDs list
-      cache = cache.withArtistAlbums(
+      await cacheAdapter.cacheArtistAlbums(
         spotifyArtistId,
-        CachedArtistAlbums(
+        entities.CachedArtistAlbums(
           artistId: spotifyArtistId,
           albumIds: allAlbumIds,
           cachedAt: DateTime.now(),
@@ -514,9 +521,10 @@ class TrackCollector {
       // Cache the album info if we have it and it's not already cached
       if (albumToCache.id != null) {
         final albumId = SpotifyAlbumId(albumToCache.id!);
-        if (!cache.albums.containsKey(albumId)) {
-          cache = cache.withAlbums({
-            albumId: CachedAlbum(
+        final hasAlbum = await cacheAdapter.hasAlbum(albumId);
+        if (!hasAlbum) {
+          await cacheAdapter.cacheAlbums({
+            albumId: entities.CachedAlbum(
               id: albumId,
               name: albumToCache.name ?? '',
               releaseDate: releaseDate,
@@ -586,8 +594,8 @@ class TrackCollector {
 
         // Cache the album
         final albumId = SpotifyAlbumId(album.id!);
-        cache = cache.withAlbums({
-          albumId: CachedAlbum(
+        await cacheAdapter.cacheAlbums({
+          albumId: entities.CachedAlbum(
             id: albumId,
             name: albumFull.name ?? '',
             releaseDate: album.releaseDate,
@@ -615,7 +623,7 @@ class TrackCollector {
     log.info('  🏷️  Collecting from label: $labelName');
 
     // Check if label search is cached and fresh (from today)
-    final cachedLabelSearch = cache.labelSearches[labelName];
+    final cachedLabelSearch = await cacheAdapter.getLabelSearch(labelName);
     final List<Track> tracks;
 
     if (cachedLabelSearch != null && cachedLabelSearch.isFreshToday) {
@@ -664,7 +672,7 @@ class TrackCollector {
       final cachedTracks = tracks
           .where((t) => t.id != null && t.uri != null && t.name != null)
           .map((t) {
-            return CachedLabelTrack(
+            return entities.CachedLabelTrack(
               trackId: SpotifyTrackId(t.id!),
               uri: t.uri!,
               name: t.name!,
@@ -678,9 +686,9 @@ class TrackCollector {
           })
           .toList();
 
-      cache = cache.withLabelSearch(
+      await cacheAdapter.cacheLabelSearch(
         labelName,
-        CachedLabelSearch(
+        entities.CachedLabelSearch(
           labelName: labelName,
           tracks: cachedTracks,
           cachedAt: DateTime.now(),
@@ -721,9 +729,10 @@ class TrackCollector {
       // Cache the album info early if we have it and it's not already cached
       if (albumToCache?.id != null) {
         final albumId = SpotifyAlbumId(albumToCache!.id!);
-        if (!cache.albums.containsKey(albumId)) {
-          cache = cache.withAlbums({
-            albumId: CachedAlbum(
+        final hasAlbum = await cacheAdapter.hasAlbum(albumId);
+        if (!hasAlbum) {
+          await cacheAdapter.cacheAlbums({
+            albumId: entities.CachedAlbum(
               id: albumId,
               name: albumToCache.name ?? '',
               releaseDate: releaseDate,
@@ -743,11 +752,11 @@ class TrackCollector {
         if (!parsedReleaseDate.isInRange(cutoffDate, endDate)) continue;
 
         final trackAlbumId = SpotifyAlbumId(track.album!.id!);
-        final cachedAlbum = cache.albums[trackAlbumId];
+        final cachedAlbum = await cacheAdapter.getAlbum(trackAlbumId);
         Album? fullAlbum;
 
         final String trackLabel;
-        if (cachedAlbum case CachedAlbum(:final label?)) {
+        if (cachedAlbum case entities.CachedAlbum(:final label?)) {
           trackLabel = label;
         } else {
           final album = await requestPool.request(
@@ -797,8 +806,8 @@ class TrackCollector {
             final albumIdString = fullAlbum?.id ?? track.album!.id!;
             final albumId = SpotifyAlbumId(albumIdString);
 
-            cache = cache.withAlbums({
-              albumId: CachedAlbum(
+            await cacheAdapter.cacheAlbums({
+              albumId: entities.CachedAlbum(
                 id: albumId,
                 name: fullAlbum?.name ?? track.album!.name!,
                 releaseDate: fullAlbum?.releaseDate ?? track.album!.releaseDate,
@@ -831,12 +840,12 @@ class TrackCollector {
   }
 
   Future<List<CollectedTrack>> _filterPlaylistTracksByDate(
-    List<CachedPlaylistTrack> cachedTracks,
+    List<entities.CachedPlaylistTrack> cachedTracks,
     DateTime cutoffDate,
     DateTime endDate,
     String playlistId,
     String playlistName,
-    PlaylistTrackDateMode dateMode,
+    entities.PlaylistTrackDateMode dateMode,
   ) async {
     final filtered = <CollectedTrack>[];
 
@@ -844,23 +853,26 @@ class TrackCollector {
       DateTime trackDate;
 
       // Determine which date to use based on the mode
-      if (dateMode == PlaylistTrackDateMode.addedDate) {
+      if (dateMode == entities.PlaylistTrackDateMode.addedDate) {
         trackDate = track.addedAt;
       } else {
         // Use release date - need to look it up from cache or fetch from API
-        var cachedAlbum = cache.albums[track.albumId];
+        final albumId = track.albumId;
+        if (albumId == null) continue;
+
+        var cachedAlbum = await cacheAdapter.getAlbum(albumId);
 
         if (cachedAlbum == null || cachedAlbum.releaseDate == null) {
           // Fetch album info from API
           try {
             final album = await requestPool.request(
-              () => api.albums.get(track.albumId!),
-              identifier: SpotifyCacheIdentifier.album(track.albumId!),
+              () => api.albums.get(albumId.toString()),
+              identifier: SpotifyCacheIdentifier.album(albumId),
             );
 
             // Cache the album
-            cachedAlbum = CachedAlbum(
-              id: track.albumId!,
+            cachedAlbum = entities.CachedAlbum(
+              id: albumId,
               name: album.name ?? '',
               releaseDate: album.releaseDate,
               label: album.label,
@@ -868,10 +880,10 @@ class TrackCollector {
               cachedAt: DateTime.now(),
             );
 
-            cache = cache.withAlbums({track.albumId!: cachedAlbum});
+            await cacheAdapter.cacheAlbums({albumId: cachedAlbum});
           } catch (e) {
             log.warning(
-              '    ⚠️  Error fetching album ${track.albumId!}: $e',
+              '    ⚠️  Error fetching album $albumId: $e',
             );
             continue;
           }
@@ -894,7 +906,7 @@ class TrackCollector {
       if (!trackDate.isInRange(cutoffDate, endDate)) continue;
 
       final collectedTrack = CollectedTrack(
-        id: track.trackId,
+        id: SpotifyTrackId(track.trackId.toString()),
         uri: track.uri,
         name: track.name,
         artistNames: track.artistNames,
@@ -903,13 +915,15 @@ class TrackCollector {
           id: playlistId,
           name: playlistName,
         ),
-        albumId: track.albumId,
+        albumId: track.albumId != null
+            ? SpotifyAlbumId(track.albumId.toString())
+            : null,
       );
 
       filtered.add(collectedTrack);
 
       // Log individual track collection
-      final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+      final dateModeText = dateMode == entities.PlaylistTrackDateMode.addedDate
           ? 'added to playlist'
           : 'released';
       log.debug(
@@ -922,7 +936,7 @@ class TrackCollector {
       '    📅 ${filtered.length} cached tracks in date range '
       '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
       // ignore: lines_longer_than_80_chars
-      '(using ${dateMode == PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
+      '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
     );
 
     return filtered;

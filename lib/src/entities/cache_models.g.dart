@@ -1,45 +1,10 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'crawl_cache.dart';
+part of 'cache_models.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator
 // **************************************************************************
-
-CrawlCache _$CrawlCacheFromJson(Map<String, dynamic> json) => CrawlCache(
-  playlists: json['playlists'] == null
-      ? {}
-      : _playlistMapFromJson(json['playlists'] as Map),
-  albums: json['albums'] == null
-      ? {}
-      : _albumMapFromJson(json['albums'] as Map),
-  trackAlbumMappings: json['track_album_mappings'] == null
-      ? {}
-      : _trackAlbumMapFromJson(json['track_album_mappings'] as Map),
-  artists: json['artists'] == null
-      ? {}
-      : _artistMapFromJson(json['artists'] as Map),
-  artistAlbums: json['artist_albums'] == null
-      ? {}
-      : _artistAlbumsMapFromJson(json['artist_albums'] as Map),
-  labelSearches: json['label_searches'] == null
-      ? {}
-      : _labelSearchMapFromJson(json['label_searches'] as Map),
-  metadata: CrawlCacheMetadata.fromJson(
-    json['metadata'] as Map<String, dynamic>,
-  ),
-);
-
-Map<String, dynamic> _$CrawlCacheToJson(CrawlCache instance) =>
-    <String, dynamic>{
-      'playlists': _playlistMapToJson(instance.playlists),
-      'albums': _albumMapToJson(instance.albums),
-      'track_album_mappings': _trackAlbumMapToJson(instance.trackAlbumMappings),
-      'artists': _artistMapToJson(instance.artists),
-      'artist_albums': _artistAlbumsMapToJson(instance.artistAlbums),
-      'label_searches': _labelSearchMapToJson(instance.labelSearches),
-      'metadata': instance.metadata,
-    };
 
 CachedPlaylist _$CachedPlaylistFromJson(Map<String, dynamic> json) =>
     CachedPlaylist(
@@ -168,20 +133,4 @@ Map<String, dynamic> _$CachedLabelSearchToJson(CachedLabelSearch instance) =>
       'label_name': instance.labelName,
       'tracks': instance.tracks,
       'cached_at': instance.cachedAt.toIso8601String(),
-    };
-
-CrawlCacheMetadata _$CrawlCacheMetadataFromJson(Map<String, dynamic> json) =>
-    CrawlCacheMetadata(
-      created: json['created'] == null
-          ? null
-          : DateTime.parse(json['created'] as String),
-      lastUpdated: json['last_updated'] == null
-          ? null
-          : DateTime.parse(json['last_updated'] as String),
-    );
-
-Map<String, dynamic> _$CrawlCacheMetadataToJson(CrawlCacheMetadata instance) =>
-    <String, dynamic>{
-      'created': ?instance.created?.toIso8601String(),
-      'last_updated': ?instance.lastUpdated?.toIso8601String(),
     };

@@ -8,6 +8,7 @@ import 'package:rkdb_dart/src/crawl/date_utils.dart';
 import 'package:rkdb_dart/src/crawl/deduplicator.dart';
 import 'package:rkdb_dart/src/crawl/template_engine.dart';
 import 'package:rkdb_dart/src/crawl/track_collector.dart';
+import 'package:rkdb_dart/src/database/database.exports.dart';
 import 'package:rkdb_dart/src/entities/entities.dart';
 import 'package:rkdb_dart/src/logger/logger.dart';
 import 'package:rkdb_dart/src/misc/misc.dart';
@@ -34,11 +35,6 @@ class CrawlCommand extends Command<int> {
         abbr: 'j',
         help: 'Run specific job(s) by name. If not specified, runs all jobs.',
         valueHelp: 'name',
-      )
-      ..addFlag(
-        'clear-cache',
-        help: 'Clear cache before running.',
-        negatable: false,
       )
       ..addOption(
         'start-date',
@@ -82,17 +78,6 @@ class CrawlCommand extends Command<int> {
         log.warning('No jobs found in configuration');
         return ExitCode.config.code;
       }
-
-      // Load or clear cache
-      var cache = await CrawlCache.fromFile(Constants.crawlCacheFile);
-      final shouldClearCache = argResults!['clear-cache'] as bool;
-      if (shouldClearCache) {
-        log.info('Clearing cache...');
-        cache = const CrawlCache.empty();
-      }
-      teardown.add(
-        () => cache.withUpdatedMetadata().write(Constants.crawlCacheFile),
-      );
 
       // Login to Spotify
       final api = await spotifyLogin();
@@ -177,11 +162,10 @@ class CrawlCommand extends Command<int> {
           '🔄 Processing job ${index + 1}/${jobsToRun.length}: ${job.name}',
         );
 
-        final jobResult = await _processJob(
+        final jobReport = await _processJob(
           api: api,
           user: user,
           job: job,
-          cache: cache,
           requestPool: requestPool,
           isDryRun: isDryRun,
           configFile: configFile,
@@ -189,11 +173,8 @@ class CrawlCommand extends Command<int> {
           customEndDate: customEndDate,
         );
 
-        // Always update cache, even if job failed
-        cache = jobResult.cache;
-
-        if (jobResult.jobReport != null) {
-          jobReports.add(jobResult.jobReport!);
+        if (jobReport != null) {
+          jobReports.add(jobReport);
         }
 
         log.info('');
@@ -242,11 +223,10 @@ class CrawlCommand extends Command<int> {
     }
   }
 
-  Future<_JobResult> _processJob({
+  Future<CrawlJobReport?> _processJob({
     required SpotifyApi api,
     required User user,
     required CrawlJob job,
-    required CrawlCache cache,
     required RequestPool requestPool,
     required bool isDryRun,
     required File configFile,
@@ -254,176 +234,204 @@ class CrawlCommand extends Command<int> {
     DateTime? customEndDate,
   }) async {
     final jobStartTime = DateTime.now();
-    var updatedCache = cache;
 
-    try {
-      // All the job processing code goes here, wrapped in try-catch
-      // so we can return the cache even if it fails
+    // Calculate date range
+    final daysBack = job.filters.addedBetweenDays;
 
-      // Calculate date range
-      final daysBack = job.filters.addedBetweenDays;
+    // Use custom end date if provided, otherwise use current time
+    final endDate = customEndDate ?? DateTime.now();
 
-      // Use custom end date if provided, otherwise use current time
-      final endDate = customEndDate ?? DateTime.now();
+    // Use custom start date if provided, otherwise calculate from days_back
+    // Note: cutoffDate is exclusive in the filter (added_at > cutoffDate)
+    final DateTime cutoffDate;
+    if (customStartDate != null) {
+      // Subtract 1 day since we use > comparison (exclusive lower bound)
+      cutoffDate = customStartDate.subtract(const Duration(days: 1));
+    } else {
+      cutoffDate = endDate.subtract(Duration(days: daysBack));
+    }
 
-      // Use custom start date if provided, otherwise calculate from days_back
-      // Note: cutoffDate is exclusive in the filter (added_at > cutoffDate)
-      final DateTime cutoffDate;
-      if (customStartDate != null) {
-        // Subtract 1 day since we use > comparison (exclusive lower bound)
-        cutoffDate = customStartDate.subtract(const Duration(days: 1));
-      } else {
-        cutoffDate = endDate.subtract(Duration(days: daysBack));
-      }
-
-      if (customStartDate != null || customEndDate != null) {
-        log.info(
-          '  📅 Using custom date range: '
-          '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
-          'to ${formatDate(endDate)}',
-        );
-      } else {
-        log.info(
-          '  📅 Date range: '
-          '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
-          'to ${formatDate(endDate)}',
-        );
-      }
-
-      log
-        ..info('  📅 Looking back: $daysBack days')
-        ..info('');
-
-      // Initialize track collector
-      final collector = TrackCollector(
-        api: api,
-        requestPool: requestPool,
-        cache: updatedCache,
+    if (customStartDate != null || customEndDate != null) {
+      log.info(
+        '  📅 Using custom date range: '
+        '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
+        'to ${formatDate(endDate)}',
       );
+    } else {
+      log.info(
+        '  📅 Date range: '
+        '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
+        'to ${formatDate(endDate)}',
+      );
+    }
 
-      // Collect tracks from all sources
-      final allTracks = <CollectedTrack>[];
+    log
+      ..info('  📅 Looking back: $daysBack days')
+      ..info('');
 
-      // Collect from playlists
-      final playlistIds = job.inputs.playlists ?? [];
-      if (playlistIds.isNotEmpty) {
-        final dateMode =
-            job.options?.addPlaylistTracksBasedOn ??
-            PlaylistTrackDateMode.releaseDate;
-        log.info('  📜 Collecting from ${playlistIds.length} playlist(s)...');
-        for (final playlistId in playlistIds) {
-          try {
-            final tracks = await collector.collectFromPlaylist(
-              playlistId,
-              cutoffDate,
-              endDate,
-              dateMode,
-            );
-            allTracks.addAll(tracks);
-            updatedCache =
-                collector.cache; // Update cache after each collection
-          } catch (e) {
-            log.error('    ❌ Error collecting from playlist $playlistId: $e');
-          }
-        }
-        log.info('');
-      }
+    // Initialize track collector
+    final collector = TrackCollector(
+      api: api,
+      requestPool: requestPool,
+      cacheAdapter: getCacheAdapter(),
+    );
 
-      // Collect from artists
-      final artistIds = job.inputs.artists ?? [];
-      if (artistIds.isNotEmpty) {
-        log.info('  🎤 Collecting from ${artistIds.length} artist(s)...');
-        for (final artistId in artistIds) {
-          try {
-            final tracks = await collector.collectFromArtist(
-              artistId,
-              cutoffDate,
-              endDate,
-            );
-            allTracks.addAll(tracks);
-            updatedCache = collector.cache;
-          } catch (e) {
-            log.error('    ❌ Error collecting from artist $artistId: $e');
-          }
-        }
-        log.info('');
-      }
+    // Collect tracks from all sources
+    final allTracks = <CollectedTrack>[];
 
-      // Collect from labels
-      final labelNames = job.inputs.labels ?? [];
-      if (labelNames.isNotEmpty) {
-        log.info('  🏷️  Collecting from ${labelNames.length} label(s)...');
-        for (final labelName in labelNames) {
-          try {
-            final tracks = await collector.collectFromLabel(
-              labelName,
-              cutoffDate,
-              endDate,
-            );
-            allTracks.addAll(tracks);
-            updatedCache = collector.cache;
-          } catch (e) {
-            log.error('    ❌ Error collecting from label $labelName: $e');
-          }
-        }
-        log.info('');
-      }
-
-      log.info('  📊 Collected ${allTracks.length} total tracks');
-
-      if (allTracks.isEmpty) {
-        log.warning('  ⚠️  No tracks found for this job');
-        final jobEndTime = DateTime.now();
-        return _JobResult(
-          cache: updatedCache,
-          jobReport: CrawlJobReport(
-            jobName: job.name,
-            startTime: jobStartTime,
-            endTime: jobEndTime,
-            trackEntries: [],
-          ),
-        );
-      }
-
-      // Show date range info for debugging
-      if (allTracks.isNotEmpty) {
-        final oldestTrack = allTracks.reduce(
-          (a, b) => a.addedAt.isBefore(b.addedAt) ? a : b,
-        );
-        final newestTrack = allTracks.reduce(
-          (a, b) => a.addedAt.isAfter(b.addedAt) ? a : b,
-        );
-        log
-          ..debug(
-            '  🕒 Track date range: '
-            '${formatDate(oldestTrack.addedAt)} to '
-            '${formatDate(newestTrack.addedAt)}',
-          )
-          ..debug(
-            '  🎯 Filter range: '
-            '${formatDate(cutoffDate.add(const Duration(days: 1)))} to '
-            '${formatDate(endDate)}',
+    // Collect from playlists
+    final playlistIds = job.inputs.playlists ?? [];
+    if (playlistIds.isNotEmpty) {
+      final dateMode =
+          job.options?.addPlaylistTracksBasedOn ??
+          PlaylistTrackDateMode.releaseDate;
+      log.info('  📜 Collecting from ${playlistIds.length} playlist(s)...');
+      for (final playlistId in playlistIds) {
+        try {
+          final tracks = await collector.collectFromPlaylist(
+            playlistId,
+            cutoffDate,
+            endDate,
+            dateMode,
           );
+          allTracks.addAll(tracks);
+        } catch (e) {
+          log.error('    ❌ Error collecting from playlist $playlistId: $e');
+        }
       }
+      log.info('');
+    }
 
-      // Deduplicate tracks
-      final deduplicateMode = job.options?.deduplicate;
-      final dedupedTracks = deduplicate(allTracks, deduplicateMode);
+    // Collect from artists
+    final artistIds = job.inputs.artists ?? [];
+    if (artistIds.isNotEmpty) {
+      log.info('  🎤 Collecting from ${artistIds.length} artist(s)...');
+      for (final artistId in artistIds) {
+        try {
+          final tracks = await collector.collectFromArtist(
+            artistId,
+            cutoffDate,
+            endDate,
+          );
+          allTracks.addAll(tracks);
+        } catch (e) {
+          log.error('    ❌ Error collecting from artist $artistId: $e');
+        }
+      }
+      log.info('');
+    }
 
-      if (deduplicateMode != null && dedupedTracks.length < allTracks.length) {
-        log.info(
-          '  🔄 Deduplicated: ${allTracks.length} → '
-          '${dedupedTracks.length} tracks',
+    // Collect from labels
+    final labelNames = job.inputs.labels ?? [];
+    if (labelNames.isNotEmpty) {
+      log.info('  🏷️  Collecting from ${labelNames.length} label(s)...');
+      for (final labelName in labelNames) {
+        try {
+          final tracks = await collector.collectFromLabel(
+            labelName,
+            cutoffDate,
+            endDate,
+          );
+          allTracks.addAll(tracks);
+        } catch (e) {
+          log.error('    ❌ Error collecting from label $labelName: $e');
+        }
+      }
+      log.info('');
+    }
+
+    log.info('  📊 Collected ${allTracks.length} total tracks');
+
+    if (allTracks.isEmpty) {
+      log.warning('  ⚠️  No tracks found for this job');
+      final jobEndTime = DateTime.now();
+      return CrawlJobReport(
+        jobName: job.name,
+        startTime: jobStartTime,
+        endTime: jobEndTime,
+        trackEntries: [],
+      );
+    }
+
+    // Show date range info for debugging
+    if (allTracks.isNotEmpty) {
+      final oldestTrack = allTracks.reduce(
+        (a, b) => a.addedAt.isBefore(b.addedAt) ? a : b,
+      );
+      final newestTrack = allTracks.reduce(
+        (a, b) => a.addedAt.isAfter(b.addedAt) ? a : b,
+      );
+      log
+        ..debug(
+          '  🕒 Track date range: '
+          '${formatDate(oldestTrack.addedAt)} to '
+          '${formatDate(newestTrack.addedAt)}',
+        )
+        ..debug(
+          '  🎯 Filter range: '
+          '${formatDate(cutoffDate.add(const Duration(days: 1)))} to '
+          '${formatDate(endDate)}',
         );
-      }
+    }
 
-      // Calculate real stats from collected tracks
-      final realStats = _calculateRealStats(dedupedTracks);
+    // Deduplicate tracks
+    final deduplicateMode = job.options?.deduplicate;
+    final dedupedTracks = deduplicate(allTracks, deduplicateMode);
 
-      // Generate playlist name and description
-      const templateEngine = TemplateEngine();
-      final playlistName = templateEngine.render(
-        job.outputPlaylist.name,
+    if (deduplicateMode != null && dedupedTracks.length < allTracks.length) {
+      log.info(
+        '  🔄 Deduplicated: ${allTracks.length} → '
+        '${dedupedTracks.length} tracks',
+      );
+    }
+
+    // Calculate real stats from collected tracks
+    final realStats = _calculateRealStats(dedupedTracks);
+
+    // Generate playlist name and description
+    const templateEngine = TemplateEngine();
+    final playlistName = templateEngine.render(
+      job.outputPlaylist.name,
+      job: job,
+      cutoffDate: cutoffDate,
+      endDate: endDate,
+      trackCount: dedupedTracks.length,
+      realArtistCount: realStats.artistCount,
+      realAlbumCount: realStats.albumCount,
+      realPlaylistCount: realStats.playlistCount,
+      realArtistSourceCount: realStats.artistSourceCount,
+      realLabelCount: realStats.labelCount,
+    );
+
+    final playlistDescription = job.outputPlaylist.description != null
+        ? templateEngine.render(
+            job.outputPlaylist.description!,
+            job: job,
+            cutoffDate: cutoffDate,
+            endDate: endDate,
+            trackCount: dedupedTracks.length,
+            realArtistCount: realStats.artistCount,
+            realAlbumCount: realStats.albumCount,
+            realPlaylistCount: realStats.playlistCount,
+            realArtistSourceCount: realStats.artistSourceCount,
+            realLabelCount: realStats.labelCount,
+          )
+        : null;
+
+    log.info('  📝 Playlist name: $playlistName');
+    if (playlistDescription != null) {
+      log.info('  📝 Description: $playlistDescription');
+    }
+
+    // Generate cover image if configured (even in dry-run mode)
+    String? generatedCoverPath;
+    if (job.cover != null) {
+      log.info('  🎨 Generating cover image...');
+
+      // Render caption using template engine
+      final caption = job.cover!.caption ?? playlistName;
+      final renderedCaption = templateEngine.render(
+        caption,
         job: job,
         cutoffDate: cutoffDate,
         endDate: endDate,
@@ -435,171 +443,115 @@ class CrawlCommand extends Command<int> {
         realLabelCount: realStats.labelCount,
       );
 
-      final playlistDescription = job.outputPlaylist.description != null
-          ? templateEngine.render(
-              job.outputPlaylist.description!,
-              job: job,
-              cutoffDate: cutoffDate,
-              endDate: endDate,
-              trackCount: dedupedTracks.length,
-              realArtistCount: realStats.artistCount,
-              realAlbumCount: realStats.albumCount,
-              realPlaylistCount: realStats.playlistCount,
-              realArtistSourceCount: realStats.artistSourceCount,
-              realLabelCount: realStats.labelCount,
-            )
-          : null;
-
-      log.info('  📝 Playlist name: $playlistName');
-      if (playlistDescription != null) {
-        log.info('  📝 Description: $playlistDescription');
-      }
-
-      // Generate cover image if configured (even in dry-run mode)
-      String? generatedCoverPath;
-      if (job.cover != null) {
-        log.info('  🎨 Generating cover image...');
-
-        // Render caption using template engine
-        final caption = job.cover!.caption ?? playlistName;
-        final renderedCaption = templateEngine.render(
-          caption,
-          job: job,
-          cutoffDate: cutoffDate,
-          endDate: endDate,
-          trackCount: dedupedTracks.length,
-          realArtistCount: realStats.artistCount,
-          realAlbumCount: realStats.albumCount,
-          realPlaylistCount: realStats.playlistCount,
-          realArtistSourceCount: realStats.artistSourceCount,
-          realLabelCount: realStats.labelCount,
-        );
-
-        // Generate cover (but don't upload yet)
-        final configDir = configFile.parent.path;
-        final imagePath = job.cover!.image;
-        final outputFilename = '${job.name}_cover.jpg';
-        final outputPath = path.join(
-          Constants.generatedCoversDir.path,
-          outputFilename,
-        );
-
-        await Directory(
-          Constants.generatedCoversDir.path,
-        ).create(recursive: true);
-
-        final generatedImage = await generatePlaylistCover(
-          imagePath: imagePath,
-          caption: renderedCaption,
-          outputPath: outputPath,
-          assetsDir: configDir,
-          size: 512,
-        );
-
-        if (generatedImage != null) {
-          generatedCoverPath = outputPath;
-          log.info('  ✅ Generated cover: $outputPath');
-        } else {
-          log.warning('  ⚠️  Failed to generate cover image');
-        }
-      }
-
-      if (isDryRun) {
-        log.info(
-          '  🔍 DRY RUN: Would create playlist with '
-          '${dedupedTracks.length} tracks',
-        );
-        if (generatedCoverPath != null) {
-          log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
-        }
-        final jobEndTime = DateTime.now();
-        final trackEntries = _buildTrackEntries(dedupedTracks, job);
-        return _JobResult(
-          cache: updatedCache,
-          jobReport: CrawlJobReport(
-            jobName: job.name,
-            startTime: jobStartTime,
-            endTime: jobEndTime,
-            trackEntries: trackEntries,
-          ),
-        );
-      }
-
-      // Create the playlist
-      log.info('  📝 Creating playlist on Spotify...');
-      final playlist = await api.playlists.createPlaylist(
-        user.id!,
-        playlistName,
-        public: job.outputPlaylist.public,
-        description: playlistDescription,
+      // Generate cover (but don't upload yet)
+      final configDir = configFile.parent.path;
+      final imagePath = job.cover!.image;
+      final outputFilename = '${job.name}_cover.jpg';
+      final outputPath = path.join(
+        Constants.generatedCoversDir.path,
+        outputFilename,
       );
 
-      log.info('  ✅ Created playlist: ${playlist.id}');
+      await Directory(
+        Constants.generatedCoversDir.path,
+      ).create(recursive: true);
 
-      // Add tracks in batches of 100
-      if (dedupedTracks.isNotEmpty) {
-        log.info('  📤 Adding ${dedupedTracks.length} tracks to playlist...');
+      final generatedImage = await generatePlaylistCover(
+        imagePath: imagePath,
+        caption: renderedCaption,
+        outputPath: outputPath,
+        assetsDir: configDir,
+        size: 512,
+      );
 
-        // Log each track with its source and inclusion reason
-        for (final track in dedupedTracks) {
-          final sourceInfo = _getTrackSourceInfo(track, job);
-          log
-            ..info('    🎵 ${track.artistNames.join(', ')} - ${track.name}')
-            ..info('      📍 Source: $sourceInfo')
-            ..info('      📅 Date: ${formatDate(track.addedAt)}');
-        }
-
-        final trackUris = dedupedTracks.map((t) => t.uri).toList();
-        for (var i = 0; i < trackUris.length; i += 100) {
-          final batch = trackUris.skip(i).take(100).toList();
-          await api.playlists.addTracks(batch, playlist.id!);
-        }
-
-        log.info('  ✅ Added all tracks to playlist');
+      if (generatedImage != null) {
+        generatedCoverPath = outputPath;
+        log.info('  ✅ Generated cover: $outputPath');
+      } else {
+        log.warning('  ⚠️  Failed to generate cover image');
       }
+    }
 
-      // Upload cover image if it was generated
+    if (isDryRun) {
+      log.info(
+        '  🔍 DRY RUN: Would create playlist with '
+        '${dedupedTracks.length} tracks',
+      );
       if (generatedCoverPath != null) {
-        log.info('  📤 Uploading cover image...');
-        final client = await api.client;
-        final uploadSuccess = await uploadPlaylistImage(
-          spotifyClient: client,
-          playlistId: playlist.id!,
-          imagePath: generatedCoverPath,
-        );
-
-        if (!uploadSuccess) {
-          log.warning('  ⚠️  Failed to upload cover image');
-        }
+        log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
       }
-
-      // Show playlist URL
-      if (playlist.externalUrls?.spotify != null) {
-        log.info('  🔗 Playlist URL: ${playlist.externalUrls!.spotify}');
-      }
-
       final jobEndTime = DateTime.now();
       final trackEntries = _buildTrackEntries(dedupedTracks, job);
-
-      return _JobResult(
-        cache: updatedCache,
-        jobReport: CrawlJobReport(
-          jobName: job.name,
-          startTime: jobStartTime,
-          endTime: jobEndTime,
-          trackEntries: trackEntries,
-        ),
+      return CrawlJobReport(
+        jobName: job.name,
+        startTime: jobStartTime,
+        endTime: jobEndTime,
+        trackEntries: trackEntries,
       );
-    } catch (e, stackTrace) {
-      // Job failed, but return the cache we've built up so far
-      log
-        ..error('  ❌ Job failed with error: $e')
-        ..debug('  Stack trace: $stackTrace')
-        ..warning('  💾 Returning partial cache progress...');
-
-      // Return a JobResult with the cache but no report
-      return _JobResult(cache: updatedCache);
     }
+
+    // Create the playlist
+    log.info('  📝 Creating playlist on Spotify...');
+    final playlist = await api.playlists.createPlaylist(
+      user.id!,
+      playlistName,
+      public: job.outputPlaylist.public,
+      description: playlistDescription,
+    );
+
+    log.info('  ✅ Created playlist: ${playlist.id}');
+
+    // Add tracks in batches of 100
+    if (dedupedTracks.isNotEmpty) {
+      log.info('  📤 Adding ${dedupedTracks.length} tracks to playlist...');
+
+      // Log each track with its source and inclusion reason
+      for (final track in dedupedTracks) {
+        final sourceInfo = _getTrackSourceInfo(track, job);
+        log
+          ..info('    🎵 ${track.artistNames.join(', ')} - ${track.name}')
+          ..info('      📍 Source: $sourceInfo')
+          ..info('      📅 Date: ${formatDate(track.addedAt)}');
+      }
+
+      final trackUris = dedupedTracks.map((t) => t.uri).toList();
+      for (var i = 0; i < trackUris.length; i += 100) {
+        final batch = trackUris.skip(i).take(100).toList();
+        await api.playlists.addTracks(batch, playlist.id!);
+      }
+
+      log.info('  ✅ Added all tracks to playlist');
+    }
+
+    // Upload cover image if it was generated
+    if (generatedCoverPath != null) {
+      log.info('  📤 Uploading cover image...');
+      final client = await api.client;
+      final uploadSuccess = await uploadPlaylistImage(
+        spotifyClient: client,
+        playlistId: playlist.id!,
+        imagePath: generatedCoverPath,
+      );
+
+      if (!uploadSuccess) {
+        log.warning('  ⚠️  Failed to upload cover image');
+      }
+    }
+
+    // Show playlist URL
+    if (playlist.externalUrls?.spotify != null) {
+      log.info('  🔗 Playlist URL: ${playlist.externalUrls!.spotify}');
+    }
+
+    final jobEndTime = DateTime.now();
+    final trackEntries = _buildTrackEntries(dedupedTracks, job);
+
+    return CrawlJobReport(
+      jobName: job.name,
+      startTime: jobStartTime,
+      endTime: jobEndTime,
+      trackEntries: trackEntries,
+    );
   }
 
   /// Builds track entries for the report from collected tracks.
@@ -727,15 +679,4 @@ class _RealStats {
   final int playlistCount;
   final int artistSourceCount;
   final int labelCount;
-}
-
-/// Result of processing a single job.
-class _JobResult {
-  const _JobResult({
-    required this.cache,
-    this.jobReport,
-  });
-
-  final CrawlCache cache;
-  final CrawlJobReport? jobReport;
 }
