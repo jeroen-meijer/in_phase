@@ -11,6 +11,7 @@ import 'package:rkdb_dart/src/crawl/track_collector.dart';
 import 'package:rkdb_dart/src/entities/entities.dart';
 import 'package:rkdb_dart/src/logger/logger.dart';
 import 'package:rkdb_dart/src/misc/misc.dart';
+import 'package:rkdb_dart/src/reports/reports.dart';
 import 'package:rkdb_dart/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
 
@@ -64,6 +65,8 @@ class CrawlCommand extends Command<int> {
   @override
   Future<int> run() async {
     final teardown = <Future<void> Function()>[];
+    final commandStartTime = DateTime.now();
+    final jobReports = <CrawlJobReport>[];
 
     try {
       // Load configuration
@@ -175,7 +178,7 @@ class CrawlCommand extends Command<int> {
             '🔄 Processing job ${index + 1}/${jobsToRun.length}: ${job.name}',
           );
 
-          cache = await _processJob(
+          final jobResult = await _processJob(
             api: api,
             user: user,
             job: job,
@@ -186,6 +189,11 @@ class CrawlCommand extends Command<int> {
             customStartDate: customStartDate,
             customEndDate: customEndDate,
           );
+
+          cache = jobResult.cache;
+          if (jobResult.jobReport != null) {
+            jobReports.add(jobResult.jobReport!);
+          }
 
           log.info('');
         } catch (e, stackTrace) {
@@ -198,6 +206,32 @@ class CrawlCommand extends Command<int> {
       }
 
       log.info('✅ Crawl complete!');
+
+      // Generate report
+      if (jobReports.isNotEmpty) {
+        try {
+          log.info('📊 Generating crawl report...');
+          final commandEndTime = DateTime.now();
+          final report = CrawlReport(
+            startTime: commandStartTime,
+            endTime: commandEndTime,
+            jobReports: jobReports,
+          );
+
+          final reportPath = await CrawlReportGenerator.generateReport(
+            report,
+            Constants.buildDir,
+          );
+
+          log.info('✅ Report generated: $reportPath');
+        } catch (e, stackTrace) {
+          log
+            ..error('❌ Error generating report: $e')
+            ..debug('Stack trace: $stackTrace');
+          // Don't fail the command if report generation fails
+        }
+      }
+
       return ExitCode.success.code;
     } catch (e, stackTrace) {
       log
@@ -214,7 +248,7 @@ class CrawlCommand extends Command<int> {
     }
   }
 
-  Future<CrawlCache> _processJob({
+  Future<_JobResult> _processJob({
     required SpotifyApi api,
     required User user,
     required CrawlJob job,
@@ -225,6 +259,7 @@ class CrawlCommand extends Command<int> {
     DateTime? customStartDate,
     DateTime? customEndDate,
   }) async {
+    final jobStartTime = DateTime.now();
     var updatedCache = cache;
 
     // Calculate date range
@@ -339,7 +374,16 @@ class CrawlCommand extends Command<int> {
 
     if (allTracks.isEmpty) {
       log.warning('  ⚠️  No tracks found for this job');
-      return updatedCache;
+      final jobEndTime = DateTime.now();
+      return _JobResult(
+        cache: updatedCache,
+        jobReport: CrawlJobReport(
+          jobName: job.name,
+          startTime: jobStartTime,
+          endTime: jobEndTime,
+          trackEntries: [],
+        ),
+      );
     }
 
     // Show date range info for debugging
@@ -469,7 +513,17 @@ class CrawlCommand extends Command<int> {
       if (generatedCoverPath != null) {
         log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
       }
-      return updatedCache;
+      final jobEndTime = DateTime.now();
+      final trackEntries = _buildTrackEntries(dedupedTracks, job);
+      return _JobResult(
+        cache: updatedCache,
+        jobReport: CrawlJobReport(
+          jobName: job.name,
+          startTime: jobStartTime,
+          endTime: jobEndTime,
+          trackEntries: trackEntries,
+        ),
+      );
     }
 
     // Create the playlist
@@ -525,26 +579,89 @@ class CrawlCommand extends Command<int> {
       log.info('  🔗 Playlist URL: ${playlist.externalUrls!.spotify}');
     }
 
-    return updatedCache;
+    final jobEndTime = DateTime.now();
+    final trackEntries = _buildTrackEntries(dedupedTracks, job);
+
+    return _JobResult(
+      cache: updatedCache,
+      jobReport: CrawlJobReport(
+        jobName: job.name,
+        startTime: jobStartTime,
+        endTime: jobEndTime,
+        trackEntries: trackEntries,
+      ),
+    );
   }
 
-  /// Gets detailed source information for a track.
-  String _getTrackSourceInfo(CollectedTrack track, CrawlJob job) {
+  /// Builds track entries for the report from collected tracks.
+  List<CrawlTrackEntry> _buildTrackEntries(
+    List<CollectedTrack> tracks,
+    CrawlJob job,
+  ) {
+    return tracks.map((track) {
+      final sourceInfo = _convertToSourceInfo(track.source);
+      final reason = _getInclusionReason(track, job);
+
+      return CrawlTrackEntry(
+        trackName: track.name,
+        artistNames: track.artistNames,
+        sourceInfo: sourceInfo,
+        reason: reason,
+      );
+    }).toList();
+  }
+
+  /// Converts a CollectedTrackSource to CrawlSourceInfo.
+  CrawlSourceInfo _convertToSourceInfo(CollectedTrackSource source) {
+    return switch (source) {
+      CollectedTrackSourcePlaylist(:final id, :final name) =>
+        CrawlSourceInfoPlaylist(id: id, name: name),
+      CollectedTrackSourceArtist(:final id, :final name) =>
+        CrawlSourceInfoArtist(id: id, name: name),
+      CollectedTrackSourceLabel(:final name) => CrawlSourceInfoLabel(
+        name: name,
+      ),
+    };
+  }
+
+  /// Gets the human-readable reason why a track was included.
+  String _getInclusionReason(CollectedTrack track, CrawlJob job) {
     switch (track.source) {
-      case CollectedTrackSourcePlaylist(:final id):
+      case CollectedTrackSourcePlaylist():
         final dateMode =
             job.options?.addPlaylistTracksBasedOn ??
             PlaylistTrackDateMode.releaseDate;
         final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
             ? 'added to playlist'
             : 'released';
-        return 'Playlist $id (included because $dateModeText within timeframe)';
+        return 'Track $dateModeText within date range';
 
-      case CollectedTrackSourceArtist(:final id):
-        return 'Artist $id (released within timeframe)';
+      case CollectedTrackSourceArtist():
+        return 'Released within date range';
 
-      case CollectedTrackSourceLabel(:final id):
-        return 'Label "$id" (released within timeframe)';
+      case CollectedTrackSourceLabel():
+        return 'Released within date range';
+    }
+  }
+
+  /// Gets detailed source information for a track.
+  String _getTrackSourceInfo(CollectedTrack track, CrawlJob job) {
+    switch (track.source) {
+      case CollectedTrackSourcePlaylist(:final name):
+        final dateMode =
+            job.options?.addPlaylistTracksBasedOn ??
+            PlaylistTrackDateMode.releaseDate;
+        final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+            ? 'added to playlist'
+            : 'released';
+        return 'Playlist "$name" '
+            '(included because $dateModeText within timeframe)';
+
+      case CollectedTrackSourceArtist(:final name):
+        return 'Artist "$name" (released within timeframe)';
+
+      case CollectedTrackSourceLabel(:final name):
+        return 'Label "$name" (released within timeframe)';
     }
   }
 
@@ -571,8 +688,8 @@ class CrawlCommand extends Command<int> {
           uniquePlaylists.add(id);
         case CollectedTrackSourceArtist(:final id):
           uniqueArtistSources.add(id);
-        case CollectedTrackSourceLabel(:final id):
-          uniqueLabels.add(id);
+        case CollectedTrackSourceLabel(:final name):
+          uniqueLabels.add(name);
       }
     }
 
@@ -601,4 +718,15 @@ class _RealStats {
   final int playlistCount;
   final int artistSourceCount;
   final int labelCount;
+}
+
+/// Result of processing a single job.
+class _JobResult {
+  const _JobResult({
+    required this.cache,
+    this.jobReport,
+  });
+
+  final CrawlCache cache;
+  final CrawlJobReport? jobReport;
 }

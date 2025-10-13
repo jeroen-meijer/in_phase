@@ -47,10 +47,19 @@ sealed class CollectedTrackSource with EquatableMixin {
 /// {@endtemplate}
 class CollectedTrackSourcePlaylist extends CollectedTrackSource {
   /// {@macro collected_track_source_playlist}
-  const CollectedTrackSourcePlaylist(this.id);
+  const CollectedTrackSourcePlaylist({
+    required this.id,
+    required this.name,
+  });
 
   /// The ID of the playlist.
   final String id;
+
+  /// The name of the playlist.
+  final String name;
+
+  @override
+  List<Object?> get props => [id, name];
 }
 
 /// {@template collected_track_source_artist}
@@ -58,10 +67,19 @@ class CollectedTrackSourcePlaylist extends CollectedTrackSource {
 /// {@endtemplate}
 class CollectedTrackSourceArtist extends CollectedTrackSource {
   /// {@macro collected_track_source_artist}
-  const CollectedTrackSourceArtist(this.id);
+  const CollectedTrackSourceArtist({
+    required this.id,
+    required this.name,
+  });
 
   /// The ID of the artist.
   final String id;
+
+  /// The name of the artist.
+  final String name;
+
+  @override
+  List<Object?> get props => [id, name];
 }
 
 /// {@template collected_track_source_label}
@@ -69,10 +87,15 @@ class CollectedTrackSourceArtist extends CollectedTrackSource {
 /// {@endtemplate}
 class CollectedTrackSourceLabel extends CollectedTrackSource {
   /// {@macro collected_track_source_label}
-  const CollectedTrackSourceLabel(this.id);
+  const CollectedTrackSourceLabel({
+    required this.name,
+  });
 
-  /// The ID of the label.
-  final String id;
+  /// The name of the label.
+  final String name;
+
+  @override
+  List<Object?> get props => [name];
 }
 
 /// {@template track_collector}
@@ -122,6 +145,7 @@ class TrackCollector {
         cutoffDate,
         endDate,
         playlistId,
+        playlistName,
         dateMode,
       );
     }
@@ -177,6 +201,7 @@ class TrackCollector {
       } else {
         // Use release date - need to get it from the album
         var releaseDate = track.album?.releaseDate;
+        var albumToCache = track.album;
 
         // If release date is missing, try to fetch the full album
         if (releaseDate == null && track.album?.id != null) {
@@ -188,18 +213,7 @@ class TrackCollector {
               ),
             );
             releaseDate = album.releaseDate;
-
-            // Cache the album
-            cache = cache.withAlbums({
-              SpotifyAlbumId(track.album!.id!): CachedAlbum(
-                id: SpotifyAlbumId(track.album!.id!),
-                name: album.name ?? '',
-                releaseDate: album.releaseDate,
-                label: album.label,
-                artistNames: album.artists?.map((a) => a.name ?? '').toList(),
-                cachedAt: DateTime.now(),
-              ),
-            });
+            albumToCache = album;
           } catch (e) {
             log.warning(
               '    ⚠️  Error fetching album ${track.album!.id!}: $e',
@@ -210,6 +224,24 @@ class TrackCollector {
         if (releaseDate == null) {
           // Skip tracks without release date
           continue;
+        }
+
+        // Cache the album info if we have it and it's not already cached
+        if (albumToCache?.id != null &&
+            !cache.albums.containsKey(SpotifyAlbumId(albumToCache!.id!))) {
+          cache = cache.withAlbums({
+            SpotifyAlbumId(albumToCache.id!): CachedAlbum(
+              id: SpotifyAlbumId(albumToCache.id!),
+              name: albumToCache.name ?? '',
+              releaseDate: releaseDate,
+              // AlbumSimple doesn't have label, only full Album does
+              label: albumToCache is Album ? albumToCache.label : null,
+              artistNames: albumToCache.artists
+                  ?.map((a) => a.name ?? '')
+                  .toList(),
+              cachedAt: DateTime.now(),
+            ),
+          });
         }
 
         try {
@@ -232,7 +264,10 @@ class TrackCollector {
         name: track.name!,
         artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
         addedAt: trackDate,
-        source: CollectedTrackSourcePlaylist(playlistId),
+        source: CollectedTrackSourcePlaylist(
+          id: playlistId,
+          name: playlistName,
+        ),
         albumId: track.album?.id != null
             ? SpotifyAlbumId(track.album!.id!)
             : null,
@@ -279,7 +314,8 @@ class TrackCollector {
       ),
     );
 
-    log.info('    Artist: ${artist.name}');
+    final artistName = artist.name ?? 'Unknown Artist';
+    log.info('    Artist: $artistName');
 
     // Fetch artist's albums and singles
     final albums = await requestPool.request(
@@ -295,6 +331,7 @@ class TrackCollector {
     final recentAlbums = <Album>[];
     for (final album in albums) {
       var releaseDate = album.releaseDate;
+      var albumToCache = album;
 
       // If release date is missing, try to fetch the full album
       if (releaseDate == null && album.id != null) {
@@ -306,18 +343,7 @@ class TrackCollector {
             ),
           );
           releaseDate = fullAlbum.releaseDate;
-
-          // Cache the album
-          cache = cache.withAlbums({
-            SpotifyAlbumId(album.id!): CachedAlbum(
-              id: SpotifyAlbumId(album.id!),
-              name: fullAlbum.name ?? '',
-              releaseDate: fullAlbum.releaseDate,
-              label: fullAlbum.label,
-              artistNames: fullAlbum.artists?.map((a) => a.name ?? '').toList(),
-              cachedAt: DateTime.now(),
-            ),
-          });
+          albumToCache = fullAlbum;
         } catch (e) {
           log.warning(
             '    ⚠️  Error fetching album ${album.id!}: $e',
@@ -326,6 +352,23 @@ class TrackCollector {
       }
 
       if (releaseDate == null) continue;
+
+      // Cache the album info if we have it and it's not already cached
+      if (albumToCache.id != null &&
+          !cache.albums.containsKey(SpotifyAlbumId(albumToCache.id!))) {
+        cache = cache.withAlbums({
+          SpotifyAlbumId(albumToCache.id!): CachedAlbum(
+            id: SpotifyAlbumId(albumToCache.id!),
+            name: albumToCache.name ?? '',
+            releaseDate: releaseDate,
+            label: albumToCache.label,
+            artistNames: albumToCache.artists
+                ?.map((a) => a.name ?? '')
+                .toList(),
+            cachedAt: DateTime.now(),
+          ),
+        });
+      }
 
       try {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
@@ -361,7 +404,10 @@ class TrackCollector {
               artistNames:
                   track.artists?.map((a) => a.name ?? '').toList() ?? [],
               addedAt: releaseDate,
-              source: CollectedTrackSourceArtist(artistId),
+              source: CollectedTrackSourceArtist(
+                id: artistId,
+                name: artistName,
+              ),
               albumId: SpotifyAlbumId(album.id!),
             );
 
@@ -426,6 +472,7 @@ class TrackCollector {
 
     for (final track in tracks) {
       var releaseDate = track.album?.releaseDate;
+      var albumToCache = track.album;
 
       // If release date is missing, try to fetch the full album
       if (releaseDate == null && track.album?.id != null) {
@@ -437,18 +484,7 @@ class TrackCollector {
             ),
           );
           releaseDate = album.releaseDate;
-
-          // Cache the album
-          cache = cache.withAlbums({
-            SpotifyAlbumId(track.album!.id!): CachedAlbum(
-              id: SpotifyAlbumId(track.album!.id!),
-              name: album.name ?? '',
-              releaseDate: album.releaseDate,
-              label: album.label,
-              artistNames: album.artists?.map((a) => a.name ?? '').toList(),
-              cachedAt: DateTime.now(),
-            ),
-          });
+          albumToCache = album;
         } catch (e) {
           log.warning(
             '    ⚠️  Error fetching album ${track.album!.id!}: $e',
@@ -457,6 +493,24 @@ class TrackCollector {
       }
 
       if (releaseDate == null) continue;
+
+      // Cache the album info early if we have it and it's not already cached
+      if (albumToCache?.id != null &&
+          !cache.albums.containsKey(SpotifyAlbumId(albumToCache!.id!))) {
+        cache = cache.withAlbums({
+          SpotifyAlbumId(albumToCache.id!): CachedAlbum(
+            id: SpotifyAlbumId(albumToCache.id!),
+            name: albumToCache.name ?? '',
+            releaseDate: releaseDate,
+            // AlbumSimple doesn't have label, only full Album does
+            label: albumToCache is Album ? albumToCache.label : null,
+            artistNames: albumToCache.artists
+                ?.map((a) => a.name ?? '')
+                .toList(),
+            cachedAt: DateTime.now(),
+          ),
+        });
+      }
 
       try {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
@@ -493,7 +547,7 @@ class TrackCollector {
             name: track.name!,
             artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
             addedAt: parsedReleaseDate,
-            source: CollectedTrackSourceLabel(labelName),
+            source: CollectedTrackSourceLabel(name: labelName),
             albumId: track.album?.id != null
                 ? SpotifyAlbumId(track.album!.id!)
                 : null,
@@ -555,6 +609,7 @@ class TrackCollector {
     DateTime cutoffDate,
     DateTime endDate,
     String playlistId,
+    String playlistName,
     PlaylistTrackDateMode dateMode,
   ) async {
     final filtered = <CollectedTrack>[];
@@ -618,7 +673,10 @@ class TrackCollector {
         name: track.name,
         artistNames: track.artistNames,
         addedAt: trackDate,
-        source: CollectedTrackSourcePlaylist(playlistId),
+        source: CollectedTrackSourcePlaylist(
+          id: playlistId,
+          name: playlistName,
+        ),
         albumId: track.albumId,
       );
 
