@@ -54,7 +54,7 @@ Future<SpotifyApi> spotifyLogin({
   final env = Zonable.fromZone<Env>();
 
   try {
-    if (await _attemptCachedCredentialsLogin() case final api?) {
+    if (await _attemptCachedCredentialsLogin() case final api? when useCache) {
       return api;
     }
   } on AuthorizationException {

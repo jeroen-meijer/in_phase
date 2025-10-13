@@ -80,7 +80,7 @@ class SyncCommand extends Command<int> {
         if (syncCache.isPlaylistChanged(spPlaylistId, spSnapshotId)) {
           playlistFetchFutures[spPlaylistId] = requestPool.request(
             () => api.playlists.getTracksByPlaylistId(spPlaylistId).all(50),
-            identifier: '${spPlaylist.uri!}-tracks',
+            identifier: SpotifyCacheIdentifier.playlistTracks(spPlaylistId),
           );
         }
       }

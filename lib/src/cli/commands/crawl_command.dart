@@ -487,6 +487,15 @@ class CrawlCommand extends Command<int> {
     if (dedupedTracks.isNotEmpty) {
       log.info('  📤 Adding ${dedupedTracks.length} tracks to playlist...');
 
+      // Log each track with its source and inclusion reason
+      for (final track in dedupedTracks) {
+        final sourceInfo = _getTrackSourceInfo(track, job);
+        log
+          ..info('    🎵 ${track.artistNames.join(', ')} - ${track.name}')
+          ..info('      📍 Source: $sourceInfo')
+          ..info('      📅 Date: ${formatDate(track.addedAt)}');
+      }
+
       final trackUris = dedupedTracks.map((t) => t.uri).toList();
       for (var i = 0; i < trackUris.length; i += 100) {
         final batch = trackUris.skip(i).take(100).toList();
@@ -517,6 +526,26 @@ class CrawlCommand extends Command<int> {
     }
 
     return updatedCache;
+  }
+
+  /// Gets detailed source information for a track.
+  String _getTrackSourceInfo(CollectedTrack track, CrawlJob job) {
+    switch (track.source) {
+      case CollectedTrackSourcePlaylist(:final id):
+        final dateMode =
+            job.options?.addPlaylistTracksBasedOn ??
+            PlaylistTrackDateMode.releaseDate;
+        final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+            ? 'added to playlist'
+            : 'released';
+        return 'Playlist $id (included because $dateModeText within timeframe)';
+
+      case CollectedTrackSourceArtist(:final id):
+        return 'Artist $id (released within timeframe)';
+
+      case CollectedTrackSourceLabel(:final id):
+        return 'Label "$id" (released within timeframe)';
+    }
   }
 
   /// Calculates real statistics from collected tracks.

@@ -226,18 +226,30 @@ class TrackCollector {
       // Filter by date range
       if (!trackDate.isInRange(cutoffDate, endDate)) continue;
 
-      collectedTracks.add(
-        CollectedTrack(
-          id: SpotifyTrackId(track.id!),
-          uri: track.uri!,
-          name: track.name!,
-          artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-          addedAt: trackDate,
-          source: CollectedTrackSourcePlaylist(playlistId),
-          albumId: track.album?.id != null
-              ? SpotifyAlbumId(track.album!.id!)
-              : null,
-        ),
+      final collectedTrack = CollectedTrack(
+        id: SpotifyTrackId(track.id!),
+        uri: track.uri!,
+        name: track.name!,
+        artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
+        addedAt: trackDate,
+        source: CollectedTrackSourcePlaylist(playlistId),
+        albumId: track.album?.id != null
+            ? SpotifyAlbumId(track.album!.id!)
+            : null,
+      );
+
+      collectedTracks.add(collectedTrack);
+
+      // Log individual track collection
+      final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+          ? 'added to playlist'
+          : 'released';
+      final artistNames =
+          track.artists?.map((a) => a.name ?? '').join(', ') ??
+          'Unknown Artist';
+      log.debug(
+        '    ✓ $artistNames - ${track.name} '
+        '(included because $dateModeText on ${formatDate(trackDate)})',
       );
     }
 
@@ -342,17 +354,26 @@ class TrackCollector {
 
         for (final track in albumFull.tracks ?? <TrackSimple>[]) {
           if (track.id != null) {
-            allTracks.add(
-              CollectedTrack(
-                id: SpotifyTrackId(track.id!),
-                uri: track.uri!,
-                name: track.name!,
-                artistNames:
-                    track.artists?.map((a) => a.name ?? '').toList() ?? [],
-                addedAt: releaseDate,
-                source: CollectedTrackSourceArtist(artistId),
-                albumId: SpotifyAlbumId(album.id!),
-              ),
+            final collectedTrack = CollectedTrack(
+              id: SpotifyTrackId(track.id!),
+              uri: track.uri!,
+              name: track.name!,
+              artistNames:
+                  track.artists?.map((a) => a.name ?? '').toList() ?? [],
+              addedAt: releaseDate,
+              source: CollectedTrackSourceArtist(artistId),
+              albumId: SpotifyAlbumId(album.id!),
+            );
+
+            allTracks.add(collectedTrack);
+
+            // Log individual track collection
+            final artistNames =
+                track.artists?.map((a) => a.name ?? '').join(', ') ??
+                'Unknown Artist';
+            log.debug(
+              '    ✓ $artistNames - ${track.name} '
+              '(included because released on ${formatDate(releaseDate)})',
             );
           }
         }
@@ -466,19 +487,28 @@ class TrackCollector {
 
         if (matchRatio >= 90) {
           // High confidence match
-          collectedTracks.add(
-            CollectedTrack(
-              id: SpotifyTrackId(track.id!),
-              uri: track.uri!,
-              name: track.name!,
-              artistNames:
-                  track.artists?.map((a) => a.name ?? '').toList() ?? [],
-              addedAt: parsedReleaseDate,
-              source: CollectedTrackSourceLabel(labelName),
-              albumId: track.album?.id != null
-                  ? SpotifyAlbumId(track.album!.id!)
-                  : null,
-            ),
+          final collectedTrack = CollectedTrack(
+            id: SpotifyTrackId(track.id!),
+            uri: track.uri!,
+            name: track.name!,
+            artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
+            addedAt: parsedReleaseDate,
+            source: CollectedTrackSourceLabel(labelName),
+            albumId: track.album?.id != null
+                ? SpotifyAlbumId(track.album!.id!)
+                : null,
+          );
+
+          collectedTracks.add(collectedTrack);
+
+          // Log individual track collection
+          final artistNames =
+              track.artists?.map((a) => a.name ?? '').join(', ') ??
+              'Unknown Artist';
+          log.debug(
+            '    ✓ $artistNames - ${track.name} '
+            '(included because released on ${formatDate(parsedReleaseDate)} '
+            'from label "$labelName")',
           );
 
           // Cache the album if we have a full 'album' or the track has a simple
@@ -582,16 +612,25 @@ class TrackCollector {
       // Filter by date range
       if (!trackDate.isInRange(cutoffDate, endDate)) continue;
 
-      filtered.add(
-        CollectedTrack(
-          id: track.trackId,
-          uri: track.uri,
-          name: track.name,
-          artistNames: track.artistNames,
-          addedAt: trackDate,
-          source: CollectedTrackSourcePlaylist(playlistId),
-          albumId: track.albumId,
-        ),
+      final collectedTrack = CollectedTrack(
+        id: track.trackId,
+        uri: track.uri,
+        name: track.name,
+        artistNames: track.artistNames,
+        addedAt: trackDate,
+        source: CollectedTrackSourcePlaylist(playlistId),
+        albumId: track.albumId,
+      );
+
+      filtered.add(collectedTrack);
+
+      // Log individual track collection
+      final dateModeText = dateMode == PlaylistTrackDateMode.addedDate
+          ? 'added to playlist'
+          : 'released';
+      log.debug(
+        '    ✓ ${track.artistNames.join(', ')} - ${track.name} '
+        '(included because $dateModeText on ${formatDate(trackDate)})',
       );
     }
 

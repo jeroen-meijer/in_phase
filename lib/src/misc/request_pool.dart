@@ -42,7 +42,7 @@ final class RequestPool {
   RequestPool({
     this.maxConcurrent = 3,
     this.maxRetries = 3,
-    this.retryDelay = const Duration(seconds: 1),
+    this.retryDelay = const Duration(seconds: 5),
     this.defaultTtl = const Duration(hours: 1),
   }) {
     final log = createLogger('constructor');
@@ -249,6 +249,7 @@ final class RequestPool {
             log(
               'request completed successfully',
               id: pendingRequest.identifier,
+              isReturning: true,
             );
             pendingRequest.completer.complete(result);
             _cacheSuccess(pendingRequest.identifier);
@@ -277,8 +278,9 @@ final class RequestPool {
 
           pendingRequest.attemptsLeft--;
           log(
-            'request failed, attemptsLeft=${pendingRequest.attemptsLeft}, '
-            'error=$error',
+            'request failed, attemptsLeft=${pendingRequest.attemptsLeft}\n'
+            'error=$error\n'
+            'stackTrace=$stackTrace',
             id: pendingRequest.identifier,
           );
 
@@ -307,7 +309,9 @@ final class RequestPool {
             });
           } else {
             log(
-              'request failed permanently, error=$error',
+              'request failed permanently\n'
+              'error=$error\n'
+              'stackTrace=$stackTrace',
               id: pendingRequest.identifier,
             );
             pendingRequest.completer.completeError(error, stackTrace);
