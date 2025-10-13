@@ -122,12 +122,12 @@ class TrackCollector {
   ) async {
     log.info('  📜 Collecting from playlist: $playlistId');
 
+    final spotifyPlaylistId = SpotifyPlaylistId(playlistId);
+
     // Fetch playlist info to get snapshot ID
     final playlist = await requestPool.request(
       () => api.playlists.get(playlistId),
-      identifier: SpotifyCacheIdentifier.playlist(
-        SpotifyPlaylistId(playlistId),
-      ),
+      identifier: SpotifyCacheIdentifier.playlist(spotifyPlaylistId),
     );
 
     final snapshotId = playlist.snapshotId ?? '';
@@ -136,9 +136,9 @@ class TrackCollector {
     log.info('    Playlist: $playlistName (snapshot: $snapshotId)');
 
     // Check if cached and unchanged
-    final cachedPlaylist = cache.playlists[SpotifyPlaylistId(playlistId)];
+    final cachedPlaylist = cache.playlists[spotifyPlaylistId];
     if (cachedPlaylist != null &&
-        !cache.isPlaylistChanged(SpotifyPlaylistId(playlistId), snapshotId)) {
+        !cache.isPlaylistChanged(spotifyPlaylistId, snapshotId)) {
       log.info('    💾 Using cached playlist data');
       return _filterPlaylistTracksByDate(
         cachedPlaylist.tracks,
@@ -154,9 +154,7 @@ class TrackCollector {
     log.info('    🔄 Fetching tracks from Spotify...');
     final playlistTracks = await requestPool.request(
       () => api.playlists.getTracksByPlaylistId(playlistId).all(50),
-      identifier: SpotifyCacheIdentifier.playlistTracks(
-        SpotifyPlaylistId(playlistId),
-      ),
+      identifier: SpotifyCacheIdentifier.playlistTracks(spotifyPlaylistId),
     );
 
     // Cache the playlist
@@ -175,7 +173,7 @@ class TrackCollector {
     ).toList();
 
     cache = cache.withPlaylist(
-      SpotifyPlaylistId(playlistId),
+      spotifyPlaylistId,
       CachedPlaylist(
         snapshotId: snapshotId,
         name: playlistName,
@@ -227,21 +225,23 @@ class TrackCollector {
         }
 
         // Cache the album info if we have it and it's not already cached
-        if (albumToCache?.id != null &&
-            !cache.albums.containsKey(SpotifyAlbumId(albumToCache!.id!))) {
-          cache = cache.withAlbums({
-            SpotifyAlbumId(albumToCache.id!): CachedAlbum(
-              id: SpotifyAlbumId(albumToCache.id!),
-              name: albumToCache.name ?? '',
-              releaseDate: releaseDate,
-              // AlbumSimple doesn't have label, only full Album does
-              label: albumToCache is Album ? albumToCache.label : null,
-              artistNames: albumToCache.artists
-                  ?.map((a) => a.name ?? '')
-                  .toList(),
-              cachedAt: DateTime.now(),
-            ),
-          });
+        if (albumToCache?.id != null) {
+          final albumId = SpotifyAlbumId(albumToCache!.id!);
+          if (!cache.albums.containsKey(albumId)) {
+            cache = cache.withAlbums({
+              albumId: CachedAlbum(
+                id: albumId,
+                name: albumToCache.name ?? '',
+                releaseDate: releaseDate,
+                // AlbumSimple doesn't have label, only full Album does
+                label: albumToCache is Album ? albumToCache.label : null,
+                artistNames: albumToCache.artists
+                    ?.map((a) => a.name ?? '')
+                    .toList(),
+                cachedAt: DateTime.now(),
+              ),
+            });
+          }
         }
 
         try {
@@ -306,26 +306,184 @@ class TrackCollector {
   ) async {
     log.info('  🎤 Collecting from artist: $artistId');
 
-    // Fetch artist info
-    final artist = await requestPool.request(
-      () => api.artists.get(artistId),
-      identifier: SpotifyCacheIdentifier.artist(
-        SpotifyArtistId(artistId),
-      ),
-    );
+    final spotifyArtistId = SpotifyArtistId(artistId);
 
-    final artistName = artist.name ?? 'Unknown Artist';
+    // Check if artist metadata is cached and fresh (< 1 month old)
+    final cachedArtist = cache.artists[spotifyArtistId];
+    final String artistName;
+
+    if (cachedArtist != null && !cachedArtist.isStale) {
+      log.info('    💾 Using cached artist metadata');
+      artistName = cachedArtist.name;
+    } else {
+      // Fetch artist info
+      final artist = await requestPool.request(
+        () => api.artists.get(artistId),
+        identifier: SpotifyCacheIdentifier.artist(spotifyArtistId),
+      );
+
+      artistName = artist.name ?? 'Unknown Artist';
+
+      // Cache artist metadata
+      cache = cache.withArtist(
+        spotifyArtistId,
+        CachedArtist(
+          id: spotifyArtistId,
+          name: artistName,
+          cachedAt: DateTime.now(),
+        ),
+      );
+    }
+
     log.info('    Artist: $artistName');
 
-    // Fetch artist's albums and singles
-    final albums = await requestPool.request(
-      () => api.artists.albums(artistId).all(),
-      identifier: SpotifyCacheIdentifier.artistAlbums(
-        SpotifyArtistId(artistId),
-      ),
-    );
+    // Check if artist albums are cached and fresh (from today)
+    final cachedArtistAlbums = cache.artistAlbums[spotifyArtistId];
+    final List<Album> albums;
 
-    log.info('    Found ${albums.length} albums/singles');
+    if (cachedArtistAlbums != null && cachedArtistAlbums.isFreshToday) {
+      log.info('    💾 Using cached artist albums list (fresh today)');
+      // Reconstruct album list from cached IDs
+      // We still need minimal album info, but we can use our album cache
+      albums = [];
+      for (final albumId in cachedArtistAlbums.albumIds) {
+        final cachedAlbum = cache.albums[albumId];
+        if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
+          // Create minimal Album object from cache
+          albums.add(
+            Album()
+              ..id = albumId.toString()
+              ..name = cachedAlbum.name
+              ..releaseDate = cachedAlbum.releaseDate,
+          );
+        }
+      }
+      log.info('    Reconstructed ${albums.length} albums from cache');
+    } else {
+      log.info(
+        '    🔄 Fetching artist albums '
+        '${cachedArtistAlbums != null ? '(cache stale)' : '(not cached)'}',
+      );
+
+      // Fetch albums with early termination (cache-based and date-based)
+      // Using getPage() instead of stream() to enable RequestPool deduplication
+      final allAlbumIds = <SpotifyAlbumId>[];
+      albums = [];
+
+      const limit = 50;
+      var offset = 0;
+      var pagesFetched = 0;
+      var hitCache = false;
+      var hitDateCutoff = false;
+
+      while (true) {
+        pagesFetched++;
+        log.debug(
+          '    Fetching page $pagesFetched of artist albums (offset: $offset)',
+        );
+
+        // Fetch page with RequestPool for deduplication and retry
+        final page = await requestPool.request(
+          () => api.artists.albums(artistId).getPage(limit, offset),
+          identifier: SpotifyCacheIdentifier.artistAlbumsPage(
+            spotifyArtistId,
+            offset,
+          ),
+        );
+
+        for (final album in page.items ?? <Album>[]) {
+          if (album.id == null) continue;
+
+          final albumId = SpotifyAlbumId(album.id!);
+          allAlbumIds.add(albumId);
+
+          // Check if we hit a cached album - if so, stop fetching
+          if (cachedArtistAlbums != null &&
+              cachedArtistAlbums.albumIds.contains(albumId)) {
+            log.info(
+              '    ✓ Found cached album "${album.name}", '
+              'stopping fetch and using cache',
+            );
+            hitCache = true;
+            break;
+          }
+
+          // Check if this album is too old (beyond our date range)
+          // Since albums come newest-first, we can stop here
+          if (album.releaseDate != null) {
+            try {
+              final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
+              if (releaseDate.isBefore(cutoffDate)) {
+                log.info(
+                  '    ✓ Found album "${album.name}" from '
+                  '${formatDate(releaseDate)}, before cutoff '
+                  '${formatDate(cutoffDate)}, stopping fetch',
+                );
+                hitDateCutoff = true;
+                break;
+              }
+            } catch (e) {
+              log.warning(
+                '    ⚠️  Could not parse release date: ${album.releaseDate}',
+              );
+            }
+          }
+
+          albums.add(album);
+        }
+
+        // Stop if we hit cache, date cutoff, or reached the last page
+        if (hitCache || hitDateCutoff || page.isLast) break;
+
+        // Move to next page
+        offset = page.nextOffset;
+      }
+
+      // If we hit cache, append the rest from cached list
+      if (hitCache && cachedArtistAlbums != null) {
+        var foundOurPosition = false;
+        for (final cachedAlbumId in cachedArtistAlbums.albumIds) {
+          if (!foundOurPosition) {
+            if (allAlbumIds.contains(cachedAlbumId)) {
+              foundOurPosition = true;
+            }
+            continue;
+          }
+
+          // Add remaining cached albums
+          final cachedAlbum = cache.albums[cachedAlbumId];
+          if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
+            albums.add(
+              Album()
+                ..id = cachedAlbumId.toString()
+                ..name = cachedAlbum.name
+                ..releaseDate = cachedAlbum.releaseDate,
+            );
+            allAlbumIds.add(cachedAlbumId);
+          }
+        }
+      }
+
+      // Cache the album IDs list
+      cache = cache.withArtistAlbums(
+        spotifyArtistId,
+        CachedArtistAlbums(
+          artistId: spotifyArtistId,
+          albumIds: allAlbumIds,
+          cachedAt: DateTime.now(),
+        ),
+      );
+
+      final terminationReason = hitCache
+          ? 'cache hit'
+          : hitDateCutoff
+          ? 'date cutoff'
+          : 'full fetch';
+      log.info(
+        '    Found ${albums.length} albums/singles '
+        '($pagesFetched pages, $terminationReason)',
+      );
+    }
 
     // Filter albums by release date
     final recentAlbums = <Album>[];
@@ -354,20 +512,22 @@ class TrackCollector {
       if (releaseDate == null) continue;
 
       // Cache the album info if we have it and it's not already cached
-      if (albumToCache.id != null &&
-          !cache.albums.containsKey(SpotifyAlbumId(albumToCache.id!))) {
-        cache = cache.withAlbums({
-          SpotifyAlbumId(albumToCache.id!): CachedAlbum(
-            id: SpotifyAlbumId(albumToCache.id!),
-            name: albumToCache.name ?? '',
-            releaseDate: releaseDate,
-            label: albumToCache.label,
-            artistNames: albumToCache.artists
-                ?.map((a) => a.name ?? '')
-                .toList(),
-            cachedAt: DateTime.now(),
-          ),
-        });
+      if (albumToCache.id != null) {
+        final albumId = SpotifyAlbumId(albumToCache.id!);
+        if (!cache.albums.containsKey(albumId)) {
+          cache = cache.withAlbums({
+            albumId: CachedAlbum(
+              id: albumId,
+              name: albumToCache.name ?? '',
+              releaseDate: releaseDate,
+              label: albumToCache.label,
+              artistNames: albumToCache.artists
+                  ?.map((a) => a.name ?? '')
+                  .toList(),
+              cachedAt: DateTime.now(),
+            ),
+          });
+        }
       }
 
       try {
@@ -425,9 +585,10 @@ class TrackCollector {
         }
 
         // Cache the album
+        final albumId = SpotifyAlbumId(album.id!);
         cache = cache.withAlbums({
-          SpotifyAlbumId(album.id!): CachedAlbum(
-            id: SpotifyAlbumId(album.id!),
+          albumId: CachedAlbum(
+            id: albumId,
             name: albumFull.name ?? '',
             releaseDate: album.releaseDate,
             label: albumFull.label,
@@ -453,16 +614,79 @@ class TrackCollector {
   ) async {
     log.info('  🏷️  Collecting from label: $labelName');
 
-    // Search for tracks by label
-    final searchQuery = 'label:"$labelName"';
-    final searchResults = await requestPool.request(
-      () => api.search.get(searchQuery, types: [SearchType.track]).first(50),
-      identifier: SpotifyCacheIdentifier.labelSearch(labelName),
-    );
+    // Check if label search is cached and fresh (from today)
+    final cachedLabelSearch = cache.labelSearches[labelName];
+    final List<Track> tracks;
 
-    final tracks = searchResults.expand((page) {
-      return page.items?.whereType<Track>() ?? <Track>[];
-    }).toList();
+    if (cachedLabelSearch != null && cachedLabelSearch.isFreshToday) {
+      log
+        ..info('    💾 Using cached label search results (fresh today)')
+        ..info('    Cached ${cachedLabelSearch.tracks.length} tracks');
+
+      // Reconstruct Track objects from cached data
+      tracks = cachedLabelSearch.tracks.map((cachedTrack) {
+        final track = Track()
+          ..id = cachedTrack.trackId.toString()
+          ..uri = cachedTrack.uri
+          ..name = cachedTrack.name
+          ..artists = cachedTrack.artistNames.map((name) {
+            return Artist()..name = name;
+          }).toList();
+
+        // Reconstruct album (simplified)
+        if (cachedTrack.albumId != null) {
+          track.album = AlbumSimple()
+            ..id = cachedTrack.albumId.toString()
+            ..name = cachedTrack.albumName
+            ..releaseDate = cachedTrack.releaseDate;
+        }
+
+        return track;
+      }).toList();
+    } else {
+      log.info(
+        '    🔄 Searching for label tracks '
+        '${cachedLabelSearch != null ? '(cache stale)' : '(not cached)'}',
+      );
+
+      // Search for tracks by label
+      final searchQuery = 'label:"$labelName"';
+      final searchResults = await requestPool.request(
+        () => api.search.get(searchQuery, types: [SearchType.track]).first(50),
+        identifier: SpotifyCacheIdentifier.labelSearch(labelName),
+      );
+
+      tracks = searchResults.expand((page) {
+        return page.items?.whereType<Track>() ?? <Track>[];
+      }).toList();
+
+      // Cache the search result tracks with full data
+      final cachedTracks = tracks
+          .where((t) => t.id != null && t.uri != null && t.name != null)
+          .map((t) {
+            return CachedLabelTrack(
+              trackId: SpotifyTrackId(t.id!),
+              uri: t.uri!,
+              name: t.name!,
+              artistNames: t.artists?.map((a) => a.name ?? '').toList() ?? [],
+              albumId: t.album?.id != null
+                  ? SpotifyAlbumId(t.album!.id!)
+                  : null,
+              albumName: t.album?.name,
+              releaseDate: t.album?.releaseDate,
+            );
+          })
+          .toList();
+
+      cache = cache.withLabelSearch(
+        labelName,
+        CachedLabelSearch(
+          labelName: labelName,
+          tracks: cachedTracks,
+          cachedAt: DateTime.now(),
+        ),
+      );
+    }
 
     log.info('    Found ${tracks.length} tracks from search');
 
@@ -495,28 +719,31 @@ class TrackCollector {
       if (releaseDate == null) continue;
 
       // Cache the album info early if we have it and it's not already cached
-      if (albumToCache?.id != null &&
-          !cache.albums.containsKey(SpotifyAlbumId(albumToCache!.id!))) {
-        cache = cache.withAlbums({
-          SpotifyAlbumId(albumToCache.id!): CachedAlbum(
-            id: SpotifyAlbumId(albumToCache.id!),
-            name: albumToCache.name ?? '',
-            releaseDate: releaseDate,
-            // AlbumSimple doesn't have label, only full Album does
-            label: albumToCache is Album ? albumToCache.label : null,
-            artistNames: albumToCache.artists
-                ?.map((a) => a.name ?? '')
-                .toList(),
-            cachedAt: DateTime.now(),
-          ),
-        });
+      if (albumToCache?.id != null) {
+        final albumId = SpotifyAlbumId(albumToCache!.id!);
+        if (!cache.albums.containsKey(albumId)) {
+          cache = cache.withAlbums({
+            albumId: CachedAlbum(
+              id: albumId,
+              name: albumToCache.name ?? '',
+              releaseDate: releaseDate,
+              // AlbumSimple doesn't have label, only full Album does
+              label: albumToCache is Album ? albumToCache.label : null,
+              artistNames: albumToCache.artists
+                  ?.map((a) => a.name ?? '')
+                  .toList(),
+              cachedAt: DateTime.now(),
+            ),
+          });
+        }
       }
 
       try {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
         if (!parsedReleaseDate.isInRange(cutoffDate, endDate)) continue;
 
-        final cachedAlbum = cache.albums[track.album!.id!];
+        final trackAlbumId = SpotifyAlbumId(track.album!.id!);
+        final cachedAlbum = cache.albums[trackAlbumId];
         Album? fullAlbum;
 
         final String trackLabel;
@@ -525,9 +752,7 @@ class TrackCollector {
         } else {
           final album = await requestPool.request(
             () => api.albums.get(track.album!.id!),
-            identifier: SpotifyCacheIdentifier.album(
-              SpotifyAlbumId(track.album!.id!),
-            ),
+            identifier: SpotifyCacheIdentifier.album(trackAlbumId),
           );
           fullAlbum = album;
           trackLabel = fullAlbum.label!;
@@ -569,11 +794,12 @@ class TrackCollector {
           // album stored
           if ((fullAlbum != null) ||
               (cachedAlbum == null && track.album != null)) {
-            final id = fullAlbum?.id ?? track.album!.id!;
+            final albumIdString = fullAlbum?.id ?? track.album!.id!;
+            final albumId = SpotifyAlbumId(albumIdString);
 
             cache = cache.withAlbums({
-              SpotifyAlbumId(id): CachedAlbum(
-                id: SpotifyAlbumId(id),
+              albumId: CachedAlbum(
+                id: albumId,
                 name: fullAlbum?.name ?? track.album!.name!,
                 releaseDate: fullAlbum?.releaseDate ?? track.album!.releaseDate,
                 label: trackLabel,

@@ -72,6 +72,12 @@ extension type const SpotifyCacheIdentifier._(String _value) implements String {
   const SpotifyCacheIdentifier.artistAlbums(SpotifyArtistId artistId)
     : _value = 'artist-albums:$artistId';
 
+  /// Creates a cache identifier for a specific page of artist albums.
+  const SpotifyCacheIdentifier.artistAlbumsPage(
+    SpotifyArtistId artistId,
+    int offset,
+  ) : _value = 'artist-albums:$artistId:page:$offset';
+
   /// Creates a cache identifier for label search requests.
   const SpotifyCacheIdentifier.labelSearch(String labelName)
     : _value = 'label-search:$labelName';
