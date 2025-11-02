@@ -173,7 +173,9 @@ class CacheAdapter {
       artistId.toString(),
     );
 
-    final list = await _db.select(_db.cachedArtistAlbumLists).getSingleOrNull();
+    final list = await (_db.select(
+      _db.cachedArtistAlbumLists,
+    )..where((l) => l.artistId.equals(artistId.toString()))).getSingleOrNull();
     if (list == null) return null;
 
     return entities.CachedArtistAlbums(
@@ -200,7 +202,9 @@ class CacheAdapter {
     if (!isFresh) return null;
 
     final tracks = await labelSearchesDao.getLabelTracks(labelName);
-    final search = await _db.select(_db.cachedLabelSearches).getSingleOrNull();
+    final search = await (_db.select(
+      _db.cachedLabelSearches,
+    )..where((s) => s.labelName.equals(labelName))).getSingleOrNull();
 
     if (search == null) return null;
 
