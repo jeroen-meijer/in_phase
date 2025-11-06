@@ -11,7 +11,7 @@ class Cache with MapBase<String, Object> {
 
   final Map<String, dynamic> _data;
 
-  static const _cacheFileName = '.rkdb_cache';
+  static const _cacheFileName = '.in_phase_cache';
   static File get _cacheFile => File(path.join(_getUserDir(), _cacheFileName));
 
   static String _getUserDir() {

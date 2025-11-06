@@ -1,27 +1,27 @@
-# rkdb_dart
+# InPhase
 
-A Rekordbox management tool for syncing Spotify playlists with your Rekordbox database.
+A music library management tool for creating and syncing playlists between Spotify and Rekordbox.
 
 ## Installation
 
 ```bash
-fvm dart pub global activate rkdb_dart
+fvm dart pub global activate in_phase
 ```
 
 ## Usage
 
 ### Login to Spotify
 ```bash
-rkdb login
+in_phase login
 ```
 
 ### Sync playlists
 ```bash
 # Sync specific playlists by ID
-rkdb sync <playlist_id1> <playlist_id2>
+in_phase sync <playlist_id1> <playlist_id2>
 
 # Or sync all playlists from config
-rkdb sync
+in_phase sync
 ```
 
 ## Commands
@@ -31,7 +31,7 @@ rkdb sync
 
 ## Configuration
 
-The tool uses a `sync_config.yaml` file to configure which playlists to sync and how to organize them. The config file is automatically created at `~/.rkdb/sync_config.yaml` on first run.
+The tool uses a `sync_config.yaml` file to configure which playlists to sync and how to organize them. The config file is automatically created at `~/.in_phase/sync_config.yaml` on first run.
 
 ### Configuration Options
 

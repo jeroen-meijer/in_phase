@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:rkdb_dart/src/misc/request_pool.dart';
+import 'package:in_phase/src/misc/request_pool.dart';
 import 'package:test/test.dart';
 
 void main() {

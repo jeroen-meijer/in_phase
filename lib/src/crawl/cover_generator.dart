@@ -8,7 +8,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:oauth2/oauth2.dart' as oauth2;
 import 'package:path/path.dart' as path;
-import 'package:rkdb_dart/src/logger/logger.dart' show log;
+import 'package:in_phase/src/logger/logger.dart' show log;
 
 /// Check if the image path is a URL.
 bool _isUrl(String imagePath) {

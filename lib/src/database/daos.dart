@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
-import 'package:rkdb_dart/src/database/database.dart';
-import 'package:rkdb_dart/src/database/tables.dart';
-import 'package:rkdb_dart/src/spotify/spotify.dart';
+import 'package:in_phase/src/database/database.dart';
+import 'package:in_phase/src/database/tables.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 
 part 'daos.g.dart';
 

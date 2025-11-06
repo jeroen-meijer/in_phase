@@ -1,7 +1,7 @@
-name: rkdb_dart
-app_name: rkdb
-description: A Rekordbox management tool.
-version: 1.0.0
+name: in_phase
+app_name: InPhase
+description: A music library management tool for creating and syncing playlists between Spotify and Rekordbox.
+version: 1.0.1
 publish_to: none
 
 environment:
@@ -41,7 +41,7 @@ dev_dependencies:
   very_good_analysis: ^9.0.0
 
 executables:
-  rkdb:
+  in_phase:
 
 pubspec_extract:
   class_name: Pubspec

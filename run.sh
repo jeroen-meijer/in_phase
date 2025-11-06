@@ -5,7 +5,7 @@ set -e
 # 0. Check if build/.build_hash exists
 # 1. Calculate hashes of all dart files in any lib/ folder + pubspec.yaml files
 # 2. Compare hashes to previous hashes (if previous hashes exist)
-# 3. If hashes are different or we had no hash file, compile rkdb
+# 3. If hashes are different or we had no hash file, compile in_phase
 # 4. If hashes are the same, use existing binary
 
 # Create build directory if it doesn't exist
@@ -29,7 +29,7 @@ else
 fi
 
 # Check if binary exists
-BINARY_PATH="build/rkdb"
+BINARY_PATH="build/in_phase"
 BINARY_EXISTS=false
 if [ -f "$BINARY_PATH" ]; then
     BINARY_EXISTS=true
@@ -37,10 +37,10 @@ fi
 
 # Compile if hashes are different, no hash file exists, or binary doesn't exist
 if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "$BINARY_EXISTS" = false ]; then
-    echo "Compiling rkdb..."
+    echo "Compiling in_phase..."
 
     dart pub get
-    dart compile exe bin/rkdb.dart -o "$BINARY_PATH"
+    dart compile exe bin/in_phase.dart -o "$BINARY_PATH"
 
     # Save the current hash
     echo "$CURRENT_HASH" > "$BUILD_HASH_FILE"

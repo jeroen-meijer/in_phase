@@ -3,18 +3,18 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dcli/dcli.dart' hide Env;
 import 'package:io/io.dart';
-import 'package:rkdb_dart/src/cli/cli.dart';
-import 'package:rkdb_dart/src/logger/logger.dart';
-import 'package:rkdb_dart/src/misc/misc.dart';
+import 'package:in_phase/src/cli/cli.dart';
+import 'package:in_phase/src/logger/logger.dart';
+import 'package:in_phase/src/misc/misc.dart';
 
-/// Creates the `CommandRunner` for rkdb_dart.
-CommandRunner<int> createRkdbCommandRunner({
+/// Creates the `CommandRunner` for InPhase.
+CommandRunner<int> createInPhaseCommandRunner({
   IOSink? output,
   IOSink? error,
 }) {
   final runner =
       CommandRunner<int>(
-          'rkdb',
+          'in_phase',
           'A command-line interface for Rekordbox database utilities.',
         )
         ..addCommand(CrawlCommand())
@@ -38,8 +38,8 @@ CommandRunner<int> createRkdbCommandRunner({
 }
 
 /// Runs the CLI with the provided [arguments].
-Future<int> runRkdbCli(List<String> arguments) async {
-  final runner = createRkdbCommandRunner();
+Future<int> runInPhaseCli(List<String> arguments) async {
+  final runner = createInPhaseCommandRunner();
 
   try {
     log.debugMode = arguments.contains('--verbose');

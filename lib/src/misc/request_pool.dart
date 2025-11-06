@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:dcli/dcli.dart';
-import 'package:rkdb_dart/src/logger/logger.dart';
+import 'package:in_phase/src/logger/logger.dart';
 import 'package:uuid/uuid.dart';
 
 void Function(String message, {Object? id, bool? isReturning}) createLogger(

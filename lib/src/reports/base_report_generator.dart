@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:intl/intl.dart';
-import 'package:rkdb_dart/src/misc/misc.dart';
-import 'package:rkdb_dart/src/reports/markdown_generator.dart';
+import 'package:in_phase/src/misc/misc.dart';
+import 'package:in_phase/src/reports/markdown_generator.dart';
 
 /// Base class for report generators with common functionality.
 abstract class BaseReportGenerator {

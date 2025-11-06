@@ -1,5 +1,5 @@
-import 'package:rkdb_dart/src/crawl/track_collector.dart';
-import 'package:rkdb_dart/src/entities/entities.dart';
+import 'package:in_phase/src/crawl/track_collector.dart';
+import 'package:in_phase/src/entities/entities.dart';
 
 /// Deduplicates a list of tracks based on the specified mode.
 List<CollectedTrack> deduplicate(

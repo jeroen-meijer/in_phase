@@ -3,17 +3,17 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:io/io.dart';
 import 'package:path/path.dart' as path;
-import 'package:rkdb_dart/src/crawl/cover_generator.dart';
-import 'package:rkdb_dart/src/crawl/date_utils.dart';
-import 'package:rkdb_dart/src/crawl/deduplicator.dart';
-import 'package:rkdb_dart/src/crawl/template_engine.dart';
-import 'package:rkdb_dart/src/crawl/track_collector.dart';
-import 'package:rkdb_dart/src/database/database.exports.dart';
-import 'package:rkdb_dart/src/entities/entities.dart';
-import 'package:rkdb_dart/src/logger/logger.dart';
-import 'package:rkdb_dart/src/misc/misc.dart';
-import 'package:rkdb_dart/src/reports/reports.dart';
-import 'package:rkdb_dart/src/spotify/spotify.dart';
+import 'package:in_phase/src/crawl/cover_generator.dart';
+import 'package:in_phase/src/crawl/date_utils.dart';
+import 'package:in_phase/src/crawl/deduplicator.dart';
+import 'package:in_phase/src/crawl/template_engine.dart';
+import 'package:in_phase/src/crawl/track_collector.dart';
+import 'package:in_phase/src/database/database.exports.dart';
+import 'package:in_phase/src/entities/entities.dart';
+import 'package:in_phase/src/logger/logger.dart';
+import 'package:in_phase/src/misc/misc.dart';
+import 'package:in_phase/src/reports/reports.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
 
 class CrawlCommand extends Command<int> {

@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 class Constants {
-  static const appName = 'rkdb';
-  static const version = '1.0.0';
+  static const appName = 'InPhase';
+  static const version = '1.0.1';
 
-  static final appDataDir = File(path.join(_getUserDir(), '.rkdb'));
+  static final appDataDir = File(path.join(_getUserDir(), '.in_phase'));
 
-  static final cacheFile = File(path.join(appDataDir.path, '.rkdb_cache'));
+  static final cacheFile = File(path.join(appDataDir.path, '.in_phase_cache'));
+  static final cacheDbFile = File(path.join(appDataDir.path, 'cache.db'));
 
   static final syncConfigFile = File(
     path.join(appDataDir.path, 'sync_config.yaml'),

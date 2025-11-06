@@ -1,5 +1,5 @@
-import 'package:rkdb_dart/src/crawl/date_utils.dart';
-import 'package:rkdb_dart/src/entities/entities.dart';
+import 'package:in_phase/src/crawl/date_utils.dart';
+import 'package:in_phase/src/entities/entities.dart';
 
 /// Valid template variables for playlist names and descriptions.
 enum TemplateVariable {

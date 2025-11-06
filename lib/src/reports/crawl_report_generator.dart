@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:intl/intl.dart';
-import 'package:rkdb_dart/src/entities/entities.dart';
-import 'package:rkdb_dart/src/reports/base_report_generator.dart';
-import 'package:rkdb_dart/src/reports/markdown_generator.dart';
+import 'package:in_phase/src/entities/entities.dart';
+import 'package:in_phase/src/reports/base_report_generator.dart';
+import 'package:in_phase/src/reports/markdown_generator.dart';
 
 /// Generates markdown reports for crawl operations.
 class CrawlReportGenerator extends BaseReportGenerator {

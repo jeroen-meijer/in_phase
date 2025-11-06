@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:rkdb_dart/src/database/daos.dart';
-import 'package:rkdb_dart/src/database/tables.dart';
+import 'package:in_phase/src/database/daos.dart';
+import 'package:in_phase/src/database/tables.dart';
+import 'package:in_phase/src/misc/misc.dart';
 
 part 'database.g.dart';
 
@@ -49,11 +49,9 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Creates a database instance with a directory path.
-  /// The database file will be named 'cache.db'.
-  factory AppDatabase.fromDirectory(Directory dir) {
-    final file = File(p.join(dir.path, 'cache.db'));
-    return AppDatabase.fromFile(file);
+  /// Creates a database instance from the cache database file.
+  factory AppDatabase.fromCacheDbFile() {
+    return AppDatabase.fromFile(Constants.cacheDbFile);
   }
 
   @override
@@ -78,7 +76,7 @@ class AppDatabase extends _$AppDatabase {
           // Check if the column already exists
           final result = await m.database
               .customSelect(
-                "PRAGMA table_info(artist_album_relationships)",
+                'PRAGMA table_info(artist_album_relationships)',
               )
               .get();
 

@@ -1,5 +1,5 @@
-import 'package:rkdb_dart/src/entities/entities.dart';
-import 'package:rkdb_dart/src/spotify/spotify.dart';
+import 'package:in_phase/src/entities/entities.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 
 /// A complete sync report for a sync command run.
 class SyncReport {

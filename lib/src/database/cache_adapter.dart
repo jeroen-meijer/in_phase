@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
-import 'package:rkdb_dart/src/database/daos.dart';
-import 'package:rkdb_dart/src/database/database.dart';
-import 'package:rkdb_dart/src/database/database_provider.dart';
-import 'package:rkdb_dart/src/entities/entities.dart' as entities;
-import 'package:rkdb_dart/src/spotify/spotify.dart';
+import 'package:in_phase/src/database/daos.dart';
+import 'package:in_phase/src/database/database.dart';
+import 'package:in_phase/src/database/database_provider.dart';
+import 'package:in_phase/src/entities/entities.dart' as entities;
+import 'package:in_phase/src/spotify/spotify.dart';
 
 /// Adapter that provides CrawlCache-like interface backed by Drift database.
 ///

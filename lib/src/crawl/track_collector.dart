@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:rkdb_dart/src/crawl/date_utils.dart';
-import 'package:rkdb_dart/src/database/database.exports.dart';
-import 'package:rkdb_dart/src/entities/entities.dart' as entities;
-import 'package:rkdb_dart/src/logger/logger.dart';
-import 'package:rkdb_dart/src/misc/misc.dart';
-import 'package:rkdb_dart/src/spotify/spotify.dart';
+import 'package:in_phase/src/crawl/date_utils.dart';
+import 'package:in_phase/src/database/database.exports.dart';
+import 'package:in_phase/src/entities/entities.dart' as entities;
+import 'package:in_phase/src/logger/logger.dart';
+import 'package:in_phase/src/misc/misc.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
 
 /// {@template collected_track}
