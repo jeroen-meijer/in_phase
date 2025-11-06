@@ -6,4 +6,3 @@ Future<void> main(List<String> arguments) async {
   final exitCodeValue = await runInPhaseCli(arguments);
   exit(exitCodeValue);
 }
-

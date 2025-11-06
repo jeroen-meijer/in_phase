@@ -1,6 +1,7 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:io';
 
-import 'package:intl/intl.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/reports/base_report_generator.dart';
 import 'package:in_phase/src/reports/markdown_generator.dart';

@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:dcli/dcli.dart' hide Env;
 import 'package:doos/doos.dart';
-import 'package:json_annotation/json_annotation.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:spotify/spotify.dart';
 
 part 'api.g.dart';

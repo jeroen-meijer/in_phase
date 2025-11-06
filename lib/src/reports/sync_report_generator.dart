@@ -1,6 +1,7 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:io';
 
-import 'package:intl/intl.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/reports/base_report_generator.dart';
 import 'package:in_phase/src/reports/markdown_generator.dart';
@@ -17,16 +18,17 @@ class SyncReportGenerator extends BaseReportGenerator {
     writeReportHeader(buffer, 'Sync Report', report.startTime, report.endTime);
 
     // Add sync-specific summary items
-    buffer.write(
-      MarkdownGenerator.list([
-        'Playlists Synced: ${MarkdownGenerator.bold(report.playlistReports.length.toString())}',
-        'Total Tracks: ${MarkdownGenerator.bold(report.totalTracks.toString())}',
-        'Successfully Added: ${MarkdownGenerator.bold(report.totalAdded.toString())}',
-        'Custom Tracks: ${MarkdownGenerator.bold(report.totalCustom.toString())}',
-        'Missing (Not Found): ${MarkdownGenerator.bold(report.totalMissing.toString())}',
-      ]),
-    );
-    buffer.writeln();
+    buffer
+      ..write(
+        MarkdownGenerator.list([
+          'Playlists Synced: ${MarkdownGenerator.bold(report.playlistReports.length.toString())}',
+          'Total Tracks: ${MarkdownGenerator.bold(report.totalTracks.toString())}',
+          'Successfully Added: ${MarkdownGenerator.bold(report.totalAdded.toString())}',
+          'Custom Tracks: ${MarkdownGenerator.bold(report.totalCustom.toString())}',
+          'Missing (Not Found): ${MarkdownGenerator.bold(report.totalMissing.toString())}',
+        ]),
+      )
+      ..writeln();
 
     // Per-playlist reports
     for (final playlistReport in report.playlistReports) {

@@ -1,5 +1,5 @@
-import 'package:json_annotation/json_annotation.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'cache_models.g.dart';
 

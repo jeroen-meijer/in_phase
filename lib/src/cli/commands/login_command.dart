@@ -1,8 +1,8 @@
 import 'package:args/command_runner.dart';
 import 'package:dcli/dcli.dart';
-import 'package:io/io.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
+import 'package:io/io.dart';
 
 class LoginCommand extends Command<int> {
   LoginCommand() {

@@ -1,8 +1,10 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:io';
 
-import 'package:intl/intl.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/reports/markdown_generator.dart';
+import 'package:intl/intl.dart';
 
 /// Base class for report generators with common functionality.
 abstract class BaseReportGenerator {
@@ -28,7 +30,7 @@ abstract class BaseReportGenerator {
     DateTime endTime,
   ) {
     buffer
-      ..write(MarkdownGenerator.header(title, level: 1))
+      ..write(MarkdownGenerator.header(title))
       ..writeln()
       ..write(MarkdownGenerator.header('Summary', level: 2))
       ..writeln()

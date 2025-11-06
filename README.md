@@ -170,6 +170,14 @@ in_phase crawl
 
 Automatically discovers new tracks from configured sources (playlists, artists, labels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
 
+### Open config directory
+
+```bash
+in_phase config reveal
+```
+
+Opens the config directory (`~/.in_phase`) in your file manager. This directory contains all configuration files, cache files, and other data used by InPhase. This command is especially helpful for non-technical users who want to edit configuration files or see where everything is stored.
+
 ## Requirements
 
 - Rekordbox database access

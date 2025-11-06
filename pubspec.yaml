@@ -24,7 +24,10 @@ dependencies:
   oauth2: ^2.0.3
   oxidized: ^6.2.0
   path: ^1.9.1
-  rekorddart: ^1.0.1
+  rekorddart:
+    git:
+      url: https://github.com/jeroen-meijer/rekorddart
+      ref: 1.0.2
   spotify:
     git:
       url: https://github.com/jeroen-meijer/spotify-dart

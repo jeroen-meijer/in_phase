@@ -2,6 +2,8 @@
 
 The `sync` command uses a `sync_config.yaml` file to configure which playlists to sync and how to organize them. The config file is automatically created at `~/.in_phase/sync_config.yaml` on first run.
 
+**Tip:** Use `in_phase config reveal` to quickly open the config directory in your file manager, making it easy to find and edit configuration files.
+
 ## Configuration Options
 
 ```yaml

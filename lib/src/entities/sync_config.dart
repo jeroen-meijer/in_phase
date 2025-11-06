@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:glob/glob.dart';
-import 'package:json_annotation/json_annotation.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_codec/yaml_codec.dart';
 

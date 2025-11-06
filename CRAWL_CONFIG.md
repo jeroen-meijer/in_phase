@@ -2,6 +2,8 @@
 
 The `crawl` command uses a `crawl_config.yaml` file to configure automated playlist creation from Spotify sources. The config file is automatically created at `~/.in_phase/crawl_config.yaml` on first run.
 
+**Tip:** Use `in_phase config reveal` to quickly open the config directory in your file manager, making it easy to find and edit configuration files.
+
 ## Overview
 
 The crawl command searches Spotify for new tracks from configured sources (playlists, artists, or labels) and automatically creates playlists with those tracks. This is useful for creating weekly discovery playlists, release roundups, or curated collections based on specific sources.
@@ -227,6 +229,8 @@ Override the job's date range with custom dates:
 ```bash
 in_phase crawl --start-date 2024-01-01 --end-date 2024-01-31
 ```
+
+Note that the end date is **inclusive**, meaning that the tracks added on the end date **will** be included in the playlist.
 
 This overrides the `added_between_days` setting for all jobs.
 

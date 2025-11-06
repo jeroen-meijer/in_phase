@@ -1,8 +1,6 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:io/io.dart';
-import 'package:path/path.dart' as path;
 import 'package:in_phase/src/crawl/cover_generator.dart';
 import 'package:in_phase/src/crawl/date_utils.dart';
 import 'package:in_phase/src/crawl/deduplicator.dart';
@@ -14,6 +12,8 @@ import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/reports/reports.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
+import 'package:io/io.dart';
+import 'package:path/path.dart' as path;
 import 'package:spotify/spotify.dart';
 
 class CrawlCommand extends Command<int> {
