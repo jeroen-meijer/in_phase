@@ -65,6 +65,18 @@ in_phase sync
 
 **Note**: Make sure `~/.pub-cache/bin` (or `%LOCALAPPDATA%\Pub\Cache\bin` on Windows) is in your system PATH. The Dart installation instructions will help you set this up.
 
+### Step 3a: Set Up Rekordbox (Optional)
+
+**If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to first complete the setup steps for the `rekorddart` package.
+
+Please follow the installation and setup instructions in the [rekorddart README](https://github.com/jeroen-meijer/rekorddart#getting-started) before continuing. The key requirements are:
+
+- Install SQLCipher
+- Set the `SQLCIPHER_DYLIB` environment variable
+- (Optional) Set the `REKORDBOX_DB_KEY` environment variable or download it using the rekorddart tool
+
+**If you only want to use Spotify features** (like the `crawl` command), you can skip this step.
+
 ### Step 4: Set Up Spotify API Credentials
 
 Before you can use InPhase, you need to create a Spotify app and get API credentials. This is free and only takes a few minutes:
