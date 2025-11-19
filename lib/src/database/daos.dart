@@ -18,7 +18,7 @@ typedef SyncedTrack = ({
 @DriftAccessor(tables: [CachedPlaylists, CachedPlaylistTracks])
 class PlaylistsDao extends DatabaseAccessor<AppDatabase>
     with _$PlaylistsDaoMixin {
-  PlaylistsDao(super.db);
+  PlaylistsDao(super.attachedDatabase);
 
   /// Gets a cached playlist by ID.
   Future<CachedPlaylist?> getPlaylist(String playlistId) {
@@ -68,7 +68,7 @@ class PlaylistsDao extends DatabaseAccessor<AppDatabase>
 /// DAO for cached albums operations.
 @DriftAccessor(tables: [CachedAlbums])
 class AlbumsDao extends DatabaseAccessor<AppDatabase> with _$AlbumsDaoMixin {
-  AlbumsDao(super.db);
+  AlbumsDao(super.attachedDatabase);
 
   /// Gets a cached album by ID.
   Future<CachedAlbum?> getAlbum(String albumId) {
@@ -117,7 +117,7 @@ class AlbumsDao extends DatabaseAccessor<AppDatabase> with _$AlbumsDaoMixin {
 @DriftAccessor(tables: [TrackAlbumMappings])
 class TrackAlbumMappingsDao extends DatabaseAccessor<AppDatabase>
     with _$TrackAlbumMappingsDaoMixin {
-  TrackAlbumMappingsDao(super.db);
+  TrackAlbumMappingsDao(super.attachedDatabase);
 
   /// Gets the album ID for a track.
   Future<String?> getAlbumIdForTrack(String trackId) async {
@@ -141,7 +141,7 @@ class TrackAlbumMappingsDao extends DatabaseAccessor<AppDatabase>
 /// DAO for cached artists operations.
 @DriftAccessor(tables: [CachedArtists])
 class ArtistsDao extends DatabaseAccessor<AppDatabase> with _$ArtistsDaoMixin {
-  ArtistsDao(super.db);
+  ArtistsDao(super.attachedDatabase);
 
   /// Gets a cached artist by ID.
   Future<CachedArtist?> getArtist(String artistId) {
@@ -169,7 +169,7 @@ class ArtistsDao extends DatabaseAccessor<AppDatabase> with _$ArtistsDaoMixin {
 @DriftAccessor(tables: [CachedArtistAlbumLists, ArtistAlbumRelationships])
 class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
     with _$ArtistAlbumsDaoMixin {
-  ArtistAlbumsDao(super.db);
+  ArtistAlbumsDao(super.attachedDatabase);
 
   /// Gets the album list for an artist.
   Future<List<String>> getArtistAlbums(String artistId) async {
@@ -245,7 +245,7 @@ class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
 @DriftAccessor(tables: [CachedLabelSearches, CachedLabelTracks])
 class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
     with _$LabelSearchesDaoMixin {
-  LabelSearchesDao(super.db);
+  LabelSearchesDao(super.attachedDatabase);
 
   /// Gets tracks for a label search.
   Future<List<CachedLabelTrack>> getLabelTracks(String labelName) {
@@ -305,7 +305,7 @@ class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
 @DriftAccessor(tables: [CacheMetadata])
 class MetadataDao extends DatabaseAccessor<AppDatabase>
     with _$MetadataDaoMixin {
-  MetadataDao(super.db);
+  MetadataDao(super.attachedDatabase);
 
   /// Gets the cache metadata.
   Future<CacheMetadataData?> getMetadata() {
@@ -366,7 +366,7 @@ extension StringListToJson on List<String> {
 @DriftAccessor(tables: [SyncTrackMappings])
 class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMappingsDaoMixin {
-  SyncMappingsDao(super.db);
+  SyncMappingsDao(super.attachedDatabase);
 
   /// Gets a Rekordbox song ID for a Spotify track ID.
   Future<String?> getMapping(SpotifyTrackId spotifyTrackId) async {
@@ -426,7 +426,7 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
 @DriftAccessor(tables: [SyncMissingTracks])
 class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMissingTracksDaoMixin {
-  SyncMissingTracksDao(super.db);
+  SyncMissingTracksDao(super.attachedDatabase);
 
   /// Adds or updates a missing track.
   Future<void> insertMissingTrack({
@@ -480,7 +480,7 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
 @DriftAccessor(tables: [SyncPlaylists, SyncPlaylistTracks])
 class SyncPlaylistsDao extends DatabaseAccessor<AppDatabase>
     with _$SyncPlaylistsDaoMixin {
-  SyncPlaylistsDao(super.db);
+  SyncPlaylistsDao(super.attachedDatabase);
 
   /// Gets a synced playlist by ID.
   Future<SyncPlaylist?> getPlaylist(SpotifyPlaylistId playlistId) async {

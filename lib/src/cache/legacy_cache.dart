@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
@@ -75,13 +76,13 @@ class Cache with MapBase<String, Object> {
 
   @override
   void operator []=(String key, Object? value) {
-    setValue(key, value);
+    unawaited(setValue(key, value));
   }
 
   @override
   void clear() {
     _data.clear();
-    _write();
+    unawaited(_write());
   }
 
   @override
@@ -90,6 +91,6 @@ class Cache with MapBase<String, Object> {
   @override
   void remove(Object? key) {
     _data.remove(key);
-    _write();
+    unawaited(_write());
   }
 }
