@@ -5,7 +5,7 @@ import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:uuid/uuid.dart';
 
-void Function(String message, {Object? id, bool? isReturning}) createLogger(
+void Function(String message, {Object? id, bool? isReturning}) _createLogger(
   String context,
 ) {
   return (String message, {Object? id, bool? isReturning}) {
@@ -45,7 +45,7 @@ final class RequestPool {
     this.retryDelay = const Duration(seconds: 5),
     this.defaultTtl = const Duration(hours: 1),
   }) {
-    final log = createLogger('constructor');
+    final log = _createLogger('constructor');
     log(
       'created RequestPool with maxConcurrent=$maxConcurrent, '
       'maxRetries=$maxRetries, retryDelay=$retryDelay',
@@ -115,7 +115,7 @@ final class RequestPool {
     Duration? ttl,
   }) {
     identifier ??= _uuid.v4();
-    final log = createLogger('request');
+    final log = _createLogger('request');
     log(
       'requesting with force=$force, '
       'retryFailed=$retryFailed, '
@@ -136,8 +136,8 @@ final class RequestPool {
         log('created new state', id: identifier);
       }
       state.version++;
-      _failedRequests.remove(identifier);
-      _successRequests.remove(identifier);
+      unawaited(_failedRequests.remove(identifier));
+      unawaited(_successRequests.remove(identifier));
       _activeRequests[identifier] = state.completer.future.then<T>(
         (v) => v as T,
       );
@@ -189,7 +189,7 @@ final class RequestPool {
       });
       log('set TTL timer, duration=$ttl', id: identifier);
     } else {
-      _successRequests.remove(key);
+      unawaited(_successRequests.remove(key));
     }
 
     final pendingRequest = _PendingRequest<T>(
@@ -222,7 +222,7 @@ final class RequestPool {
 
   /// Executes a single request with retry logic.
   void _executeRequest<T>(_PendingRequest<T> pendingRequest) {
-    final log = createLogger('_executeRequest');
+    final log = _createLogger('_executeRequest');
     _runningCount++;
     log(
       'executing request, version=${pendingRequest.version}',
@@ -241,88 +241,90 @@ final class RequestPool {
       return;
     }
 
-    pendingRequest
-        .requestFn()
-        .then((result) {
-          final v = _states[pendingRequest.identifier]?.version;
-          if (v == pendingRequest.version) {
-            log(
-              'request completed successfully',
-              id: pendingRequest.identifier,
-              isReturning: true,
-            );
-            pendingRequest.completer.complete(result);
-            _cacheSuccess(pendingRequest.identifier);
-          } else {
-            log(
-              'request completed but outdated, currentVersion=$v, '
-              'requestVersion=${pendingRequest.version}',
-              id: pendingRequest.identifier,
-            );
-            _runningCount--;
-            _processQueue();
-          }
-        })
-        .catchError((Object error, StackTrace stackTrace) {
-          final v = _states[pendingRequest.identifier]?.version;
-          if (v != pendingRequest.version) {
-            log(
-              'request failed but outdated, currentVersion=$v, '
-              'requestVersion=${pendingRequest.version}',
-              id: pendingRequest.identifier,
-            );
-            _runningCount--;
-            _processQueue();
-            return;
-          }
-
-          pendingRequest.attemptsLeft--;
-          log(
-            'request failed, attemptsLeft=${pendingRequest.attemptsLeft}\n'
-            'error=$error\n'
-            'stackTrace=$stackTrace',
-            id: pendingRequest.identifier,
-          );
-
-          if (pendingRequest.attemptsLeft > 0) {
-            log(
-              'scheduling retry in $retryDelay',
-              id: pendingRequest.identifier,
-            );
-            Timer(retryDelay, () {
-              final vr = _states[pendingRequest.identifier]?.version;
-              if (vr == pendingRequest.version) {
-                log(
-                  'retrying request',
-                  id: pendingRequest.identifier,
-                );
-                _pendingQueue.addFirst(pendingRequest);
-              } else {
-                log(
-                  'retry cancelled, currentVersion=$vr, '
-                  'requestVersion=${pendingRequest.version}',
-                  id: pendingRequest.identifier,
-                );
-              }
+    unawaited(
+      pendingRequest
+          .requestFn()
+          .then((result) {
+            final v = _states[pendingRequest.identifier]?.version;
+            if (v == pendingRequest.version) {
+              log(
+                'request completed successfully',
+                id: pendingRequest.identifier,
+                isReturning: true,
+              );
+              pendingRequest.completer.complete(result);
+              _cacheSuccess(pendingRequest.identifier);
+            } else {
+              log(
+                'request completed but outdated, currentVersion=$v, '
+                'requestVersion=${pendingRequest.version}',
+                id: pendingRequest.identifier,
+              );
               _runningCount--;
               _processQueue();
-            });
-          } else {
+            }
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            final v = _states[pendingRequest.identifier]?.version;
+            if (v != pendingRequest.version) {
+              log(
+                'request failed but outdated, currentVersion=$v, '
+                'requestVersion=${pendingRequest.version}',
+                id: pendingRequest.identifier,
+              );
+              _runningCount--;
+              _processQueue();
+              return;
+            }
+
+            pendingRequest.attemptsLeft--;
             log(
-              'request failed permanently\n'
+              'request failed, attemptsLeft=${pendingRequest.attemptsLeft}\n'
               'error=$error\n'
               'stackTrace=$stackTrace',
               id: pendingRequest.identifier,
             );
-            pendingRequest.completer.completeError(error, stackTrace);
-            _cleanupFailed(pendingRequest.identifier);
-          }
-        });
+
+            if (pendingRequest.attemptsLeft > 0) {
+              log(
+                'scheduling retry in $retryDelay',
+                id: pendingRequest.identifier,
+              );
+              Timer(retryDelay, () {
+                final vr = _states[pendingRequest.identifier]?.version;
+                if (vr == pendingRequest.version) {
+                  log(
+                    'retrying request',
+                    id: pendingRequest.identifier,
+                  );
+                  _pendingQueue.addFirst(pendingRequest);
+                } else {
+                  log(
+                    'retry cancelled, currentVersion=$vr, '
+                    'requestVersion=${pendingRequest.version}',
+                    id: pendingRequest.identifier,
+                  );
+                }
+                _runningCount--;
+                _processQueue();
+              });
+            } else {
+              log(
+                'request failed permanently\n'
+                'error=$error\n'
+                'stackTrace=$stackTrace',
+                id: pendingRequest.identifier,
+              );
+              pendingRequest.completer.completeError(error, stackTrace);
+              _cleanupFailed(pendingRequest.identifier);
+            }
+          }),
+    );
   }
 
   /// Caches a successful result under TTL and cleans up active state.
   void _cacheSuccess(Object identifier) {
-    final log = createLogger('_cacheSuccess');
+    final log = _createLogger('_cacheSuccess');
     final future = _activeRequests.remove(identifier);
     if (future != null && _ttlTimers.containsKey(identifier)) {
       _successRequests[identifier] = future;
@@ -336,7 +338,7 @@ final class RequestPool {
 
   /// Cleans up a failed request and moves it to failed requests map.
   void _cleanupFailed(Object identifier) {
-    final log = createLogger('_cleanupFailed');
+    final log = _createLogger('_cleanupFailed');
     log(
       'cleaning up failed request',
       id: identifier,
@@ -349,7 +351,7 @@ final class RequestPool {
         id: identifier,
       );
     }
-    _successRequests.remove(identifier);
+    unawaited(_successRequests.remove(identifier));
     _states.remove(identifier);
     _runningCount--;
     _processQueue();
@@ -357,14 +359,14 @@ final class RequestPool {
 
   /// Clears a cached request from all maps and cancels its TTL timer.
   void _clearCached(Object identifier) {
-    final log = createLogger('_clearCached');
+    final log = _createLogger('_clearCached');
     log(
       'clearing cached request',
       id: identifier,
     );
-    _activeRequests.remove(identifier);
-    _failedRequests.remove(identifier);
-    _successRequests.remove(identifier);
+    unawaited(_activeRequests.remove(identifier));
+    unawaited(_failedRequests.remove(identifier));
+    unawaited(_successRequests.remove(identifier));
     _ttlTimers.remove(identifier)?.cancel();
     _states.remove(identifier);
   }
@@ -382,7 +384,7 @@ final class RequestPool {
   /// NOTE(jeroen-meijer): Use with caution - this will cause all pending
   /// and active requests to complete with a StateError.
   void clear() {
-    final log = createLogger('clear');
+    final log = _createLogger('clear');
     log('clearing all requests');
     while (_pendingQueue.isNotEmpty) {
       final pending = _pendingQueue.removeFirst();

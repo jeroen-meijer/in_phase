@@ -375,7 +375,6 @@ typedef ValueDeserializer<T> = T? Function(Object value);
 /// A function that handles onChange() calls.
 ///
 /// Used by [DoosStorageEntry] to handle the onChange() method call.
-// ignore: avoid_positional_boolean_parameters
 typedef OnChangeHandler =
     // ignore: avoid_positional_boolean_parameters
     Future<void> Function(String key, bool fetchInitialValue);

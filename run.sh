@@ -8,6 +8,9 @@ set -e
 # 3. If hashes are different or we had no hash file, compile in_phase
 # 4. If hashes are the same, use existing binary
 
+THIS_SCRIPT_DIR=$(dirname "$0")
+pushd "$THIS_SCRIPT_DIR" > /dev/null
+
 # Create build directory if it doesn't exist
 mkdir -p build
 
@@ -52,3 +55,5 @@ fi
 
 # Execute the binary with all passed arguments
 "$BINARY_PATH" "$@"
+
+popd > /dev/null
