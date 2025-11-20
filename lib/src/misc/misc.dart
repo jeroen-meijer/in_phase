@@ -1,7 +1,10 @@
 export 'constants.dart';
+export 'cue_kinds.dart';
 export 'encoders.dart';
 export 'env.dart';
+export 'fuzzy_search.dart';
 export 'request_pool.dart';
 export 'string_extensions.dart';
+export 'with_teardown.dart';
 export 'yaml_map_extensions.dart';
 export 'zonable.dart';

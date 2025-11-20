@@ -5,18 +5,20 @@ words:
   - djmd
   - dylib
   - fuzzywuzzy
+  - in_phase
   - itunes
   - libsqlcipher
   - meijer
+  - Microsec
   - nullable
   - printerr
   - rekordbox
   - rekorddart
-  - in_phase
   - spotify
   - sqlcipher
   - Sqlcipher
   - sqlite
+  - teardowns
   - zonable
   - Zonable
   - zonables

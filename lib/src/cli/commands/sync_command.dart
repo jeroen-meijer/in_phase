@@ -51,18 +51,17 @@ class SyncCommand extends Command<int> {
     final commandStartTime = DateTime.now();
     final playlistReports = <SyncPlaylistReport>[];
 
-    final teardown = <Future<void> Function()>[];
-    try {
+    return withTeardown((addTeardown) async {
       final syncConfig = await SyncConfig.fromFile(Constants.syncConfigFile);
 
       final api = await spotifyLogin();
-      teardown.add(() async => (await api.client).close());
+      addTeardown(() async => (await api.client).close());
 
       final rbDb = await RekordboxDatabase.connect();
-      teardown.add(rbDb.close);
+      addTeardown(rbDb.close);
 
       final requestPool = Zonable.fromZone<RequestPool>();
-      teardown.add(() async => requestPool.clear());
+      addTeardown(() async => requestPool.clear());
 
       final syncDb = db();
 
@@ -419,12 +418,7 @@ class SyncCommand extends Command<int> {
       log.info('Sync report saved to: ${green(reportFile.path)}');
 
       return ExitCode.success.code;
-    } finally {
-      await Future.wait([
-        for (final fn in teardown)
-          fn().catchError((Object e) => printerr('Error in teardown: $e')),
-      ]);
-    }
+    });
   }
 
   static Future<List<PlaylistSimple>> _getPlaylistsFromArgs(

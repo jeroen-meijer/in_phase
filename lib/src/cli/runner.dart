@@ -19,7 +19,9 @@ CommandRunner<int> createInPhaseCommandRunner({
         )
         ..addCommand(ConfigCommand())
         ..addCommand(CrawlCommand())
+        ..addCommand(CuesCommand())
         ..addCommand(LoginCommand())
+        ..addCommand(SearchCommand())
         ..addCommand(SyncCommand());
 
   runner.argParser

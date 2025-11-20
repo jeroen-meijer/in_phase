@@ -80,7 +80,8 @@ enum TemplateVariable {
   // Job and configuration variables
   jobName('job_name'),
   jobNamePretty('job_name_pretty'),
-  inputSources('input_sources');
+  inputSources('input_sources')
+  ;
 
   const TemplateVariable(this.placeholder);
 
