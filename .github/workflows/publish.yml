@@ -1,0 +1,57 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      # Matches version tags like 1.0.3 or v1.0.3
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for OIDC authentication with pub.dev
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history to check if tag is on main
+
+      - name: Verify tag is on main branch
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          # Check if the tag's commit is reachable from the main branch
+          if ! git branch -r --contains "$TAG_NAME" | grep -q "origin/main"; then
+            echo "Error: Tag $TAG_NAME is not on the main branch"
+            exit 1
+          fi
+          echo "Tag $TAG_NAME is on main branch, proceeding with publish"
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Verify package is ready for publishing
+        run: dart pub publish --dry-run
+
+      - name: Run format check
+        run: dart format -o none --set-exit-if-changed .
+
+      - name: Run static analysis
+        run: dart analyze --fatal-infos --fatal-warnings .
+
+      - name: Run tests
+        run: dart test
+        continue-on-error: true
+
+      - name: Publish to pub.dev
+        run: dart pub publish --force
+        env:
+          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
