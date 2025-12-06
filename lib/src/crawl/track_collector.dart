@@ -162,19 +162,22 @@ class TrackCollector {
     );
 
     // Cache the playlist
-    final cachedTracks = playlistTracks.where((pt) => pt.track?.id != null).map(
-      (playlistTrack) {
-        final track = playlistTrack.track!;
-        return entities.CachedPlaylistTrack(
-          trackId: SpotifyTrackId(track.id!),
-          uri: track.uri!,
-          name: track.name!,
-          artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-          addedAt: playlistTrack.addedAt!,
-          albumId: SpotifyAlbumId(track.album!.id!),
-        );
-      },
-    ).toList();
+    final cachedTracks = playlistTracks
+        .where((pt) => pt.track?.id != null && pt.addedAt != null)
+        .map((playlistTrack) {
+          final track = playlistTrack.track!;
+          return entities.CachedPlaylistTrack(
+            trackId: SpotifyTrackId(track.id!),
+            uri: track.uri!,
+            name: track.name!,
+            artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
+            addedAt: playlistTrack.addedAt!,
+            albumId: track.album?.id != null
+                ? SpotifyAlbumId(track.album!.id!)
+                : null,
+          );
+        })
+        .toList();
 
     await cacheAdapter.cachePlaylist(
       spotifyPlaylistId,

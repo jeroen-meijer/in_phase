@@ -57,9 +57,9 @@ class PlaylistsDao extends DatabaseAccessor<AppDatabase>
         cachedPlaylistTracks,
       )..where((t) => t.playlistId.equals(playlistId))).go();
 
-      // Insert new tracks
+      // Insert new tracks (handle duplicates gracefully)
       await batch((batch) {
-        batch.insertAll(cachedPlaylistTracks, tracks);
+        batch.insertAllOnConflictUpdate(cachedPlaylistTracks, tracks);
       });
     });
   }
