@@ -6,7 +6,7 @@ The `crawl` command uses a `crawl_config.yaml` file to configure automated playl
 
 ## Overview
 
-The crawl command searches Spotify for new tracks from configured sources (playlists, artists, or labels) and automatically creates playlists with those tracks. This is useful for creating weekly discovery playlists, release roundups, or curated collections based on specific sources.
+The crawl command searches Spotify for new tracks from configured sources (playlists, artists, labels, or YouTube channels) and automatically creates playlists with those tracks. This is useful for creating weekly discovery playlists, release roundups, or curated collections based on specific sources.
 
 ## Configuration Structure
 
@@ -48,6 +48,8 @@ jobs:
         - *my_artist
       labels:
         - *label_my_label
+      youtube_channels:
+        - '@SkankandbassUK'
 ```
 
 ## Job Configuration
@@ -67,6 +69,7 @@ Each job in the `jobs` array defines a single automated playlist creation task.
   - **`playlists`** - List of Spotify playlist IDs (optional)
   - **`artists`** - List of Spotify artist IDs (optional)
   - **`labels`** - List of label names (optional)
+  - **`youtube_channels`** - List of YouTube channel handles or IDs (optional, e.g., `@SkankandbassUK` or `UCCXCgbZcT7rjU0vS0POSWIQ`)
 
 ### Optional Fields
 
@@ -131,11 +134,13 @@ Playlist names, descriptions, and cover captions support template variables encl
 - `{real_playlist_count}` - Number of unique playlist sources
 - `{real_artist_source_count}` - Number of unique artist sources
 - `{real_label_source_count}` - Number of unique label sources
+- `{real_youtube_channel_source_count}` - Number of unique YouTube channel sources
 
 ### Job Configuration Variables
 - `{job_playlist_count}` - Number of playlists configured in job
 - `{job_artist_count}` - Number of artists configured in job
 - `{job_label_count}` - Number of labels configured in job
+- `{job_youtube_channel_count}` - Number of YouTube channels configured in job
 - `{job_name}` - Job name
 - `{job_name_pretty}` - Job name formatted for display
 
@@ -156,6 +161,8 @@ _notes:
     flint_and_figure: &flint_and_figure 4UJP03mzC9b90Qq1TqavvN
   labels:
     critical_music: &label_critical "Critical Music"
+  youtube_channels:
+    skankandbass: &youtube_skankandbass '@SkankandbassUK'
 
 jobs:
   - name: liquid_weekly
@@ -167,6 +174,8 @@ jobs:
         - *flint_and_figure
       labels:
         - *label_critical
+      youtube_channels:
+        - *youtube_skankandbass
 ```
 
 ## Date Filtering
@@ -176,6 +185,7 @@ The `added_between_days` filter determines how far back to look for tracks:
 - For **playlists**: Uses either the track's release date or when it was added to the playlist (controlled by `add_playlist_tracks_based_on`)
 - For **artists**: Uses the track's release date
 - For **labels**: Uses the track's release date
+- For **YouTube channels**: Uses the video's publish/upload date
 
 Example: `added_between_days: 7` will include tracks released or added in the last 7 days.
 

@@ -119,7 +119,7 @@ Future<List<FuzzyFindMatch<RbArtistAndSong>>> findFuzzyTrackMatches({
       score = (score + 100).clamp(0, 100);
     } else if (isMultiTermQuery) {
       // For multi-term queries, boost tracks that contain all terms
-      final allTermsPresent = queryTerms.every((term) => target.contains(term));
+      final allTermsPresent = queryTerms.every(target.contains);
       if (allTermsPresent) {
         // Boost tracks that contain all query terms (+30 points)
         score = (score + 30).clamp(0, 100);

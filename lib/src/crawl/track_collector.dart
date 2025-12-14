@@ -7,6 +7,7 @@ import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 /// {@template collected_track}
 /// Represents a track collected from a source with metadata.
@@ -99,6 +100,37 @@ class CollectedTrackSourceLabel extends CollectedTrackSource {
   List<Object?> get props => [name];
 }
 
+/// {@template collected_track_source_youtube_channel}
+/// The source of a collected track from a YouTube channel.
+/// {@endtemplate}
+class CollectedTrackSourceYoutubeChannel extends CollectedTrackSource {
+  /// {@macro collected_track_source_youtube_channel}
+  const CollectedTrackSourceYoutubeChannel({
+    required this.id,
+    required this.name,
+  });
+
+  /// The ID or handle of the YouTube channel.
+  final String id;
+
+  /// The name of the YouTube channel.
+  final String name;
+
+  @override
+  List<Object?> get props => [id, name];
+}
+
+/// Parsed YouTube video title containing artists and track name.
+class _ParsedTitle {
+  const _ParsedTitle({
+    required this.artists,
+    required this.trackName,
+  });
+
+  final List<String> artists;
+  final String trackName;
+}
+
 /// {@template track_collector}
 /// Collects tracks from various Spotify sources (playlists, artists, labels).
 /// {@endtemplate}
@@ -157,7 +189,7 @@ class TrackCollector {
     // Fetch tracks from Spotify
     log.info('    🔄 Fetching tracks from Spotify...');
     final playlistTracks = await requestPool.request(
-      () => api.playlists.getTracksByPlaylistId(playlistId).all(50),
+      () => api.playlists.getPlaylistTracks(playlistId).all(50),
       identifier: SpotifyCacheIdentifier.playlistTracks(spotifyPlaylistId),
     );
 
@@ -842,6 +874,269 @@ class TrackCollector {
     return collectedTracks;
   }
 
+  /// Collects tracks from a YouTube channel by searching Spotify for matching
+  /// tracks.
+  Future<List<CollectedTrack>> collectFromYoutubeChannel(
+    String channelIdentifier,
+    DateTime cutoffDate,
+    DateTime endDate,
+  ) async {
+    log.info('  📺 Collecting from YouTube channel: $channelIdentifier');
+
+    final yt = YoutubeExplode();
+
+    try {
+      final channel = await _getYoutubeChannel(yt, channelIdentifier);
+      final channelName = channel.title;
+      final channelId = channel.id.toString();
+
+      log.info('    Channel: $channelName');
+
+      final videosInRange = await _getVideosInDateRange(
+        yt.channels.getUploads(channel.id),
+        cutoffDate,
+        endDate,
+      );
+
+      log.info('    Found ${videosInRange.length} videos in date range');
+
+      final collectedTracks = <CollectedTrack>[];
+
+      for (final video in videosInRange) {
+        try {
+          final spotifyTrack = await _searchSpotifyForVideo(video);
+          final videoDate = _getVideoDate(video);
+          if (spotifyTrack != null && videoDate != null) {
+            collectedTracks.add(
+              _createCollectedTrackFromSpotify(
+                spotifyTrack,
+                videoDate,
+                channelId,
+                channelName,
+              ),
+            );
+
+            final artistNames = _formatArtistNames(spotifyTrack.artists);
+            log.debug(
+              '    ✓ $artistNames - ${spotifyTrack.name} '
+              '(from YouTube: ${video.title})',
+            );
+          } else {
+            log.debug('    ⚠️  No Spotify match found for: ${video.title}');
+          }
+        } catch (e) {
+          log.warning('    ⚠️  Error processing video ${video.id}: $e');
+        }
+      }
+
+      log.info(
+        '    ✅ Found ${collectedTracks.length} tracks from YouTube channel',
+      );
+
+      return collectedTracks;
+    } finally {
+      yt.close();
+    }
+  }
+
+  /// Gets a YouTube channel by handle or ID.
+  Future<Channel> _getYoutubeChannel(
+    YoutubeExplode yt,
+    String identifier,
+  ) async {
+    return identifier.startsWith('@')
+        ? await yt.channels.getByHandle(identifier)
+        : await yt.channels.get(identifier);
+  }
+
+  /// Filters YouTube videos to those within the date range.
+  Future<List<Video>> _getVideosInDateRange(
+    Stream<Video> uploads,
+    DateTime cutoffDate,
+    DateTime endDate,
+  ) async {
+    final videosInRange = <Video>[];
+
+    await for (final video in uploads) {
+      final videoDate = _getVideoDate(video);
+      if (videoDate == null) continue;
+
+      // Stop if we've gone past the cutoff date (videos are in reverse
+      // chronological order)
+      if (videoDate.isBefore(cutoffDate)) break;
+
+      // Include videos within the date range
+      if (videoDate.isInRange(cutoffDate, endDate)) {
+        videosInRange.add(video);
+      }
+    }
+
+    return videosInRange;
+  }
+
+  /// Gets the publish or upload date from a YouTube video.
+  DateTime? _getVideoDate(Video video) {
+    return video.publishDate ?? video.uploadDate;
+  }
+
+  /// Creates a CollectedTrack from a Spotify track and YouTube video metadata.
+  CollectedTrack _createCollectedTrackFromSpotify(
+    Track spotifyTrack,
+    DateTime? addedAt,
+    String channelId,
+    String channelName,
+  ) {
+    if (addedAt == null) {
+      throw ArgumentError('Video date cannot be null');
+    }
+    return CollectedTrack(
+      id: SpotifyTrackId(spotifyTrack.id!),
+      uri: spotifyTrack.uri!,
+      name: spotifyTrack.name!,
+      artistNames: _extractArtistNames(spotifyTrack.artists),
+      addedAt: addedAt,
+      source: CollectedTrackSourceYoutubeChannel(
+        id: channelId,
+        name: channelName,
+      ),
+      albumId: spotifyTrack.album?.id != null
+          ? SpotifyAlbumId(spotifyTrack.album!.id!)
+          : null,
+    );
+  }
+
+  /// Extracts artist names from Spotify track artists.
+  List<String> _extractArtistNames(List<dynamic>? artists) {
+    return artists
+            ?.map((a) => (a as dynamic).name as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .toList() ??
+        [];
+  }
+
+  /// Formats artist names for display.
+  String _formatArtistNames(List<dynamic>? artists) {
+    final names = _extractArtistNames(artists);
+    return names.isEmpty ? 'Unknown Artist' : names.join(', ');
+  }
+
+  /// Searches Spotify for a track matching the YouTube video.
+  Future<Track?> _searchSpotifyForVideo(Video video) async {
+    final title = video.title;
+    final parsed = _parseVideoTitle(title);
+
+    if (parsed == null) {
+      return _searchSpotifyQuery(title);
+    }
+
+    // Try multiple search strategies in order of preference
+    final searchStrategies = <String Function()>[
+      // Strategy 1: Exact match with first artist
+      () => _buildExactQuery([parsed.artists.first], parsed.trackName),
+      // Strategy 2: Exact match with all artists (if multiple)
+      if (parsed.artists.length > 1)
+        () => _buildExactQuery(parsed.artists, parsed.trackName),
+      // Strategy 3: Fuzzy search with all artists
+      () => '${parsed.artists.join(' ')} ${parsed.trackName}',
+      // Strategy 4: Fallback to full title
+      () => title,
+    ];
+
+    for (final strategy in searchStrategies) {
+      final query = strategy();
+      final track = await _searchSpotifyQuery(query);
+      if (track != null && _validateArtistMatch(track, parsed.artists)) {
+        return track;
+      }
+    }
+
+    return null;
+  }
+
+  /// Parses a YouTube video title into artists and track name.
+  /// Returns null if the title doesn't match the expected format.
+  _ParsedTitle? _parseVideoTitle(String title) {
+    final parts = title.split(' - ');
+    if (parts.length < 2) return null;
+
+    final artistPart = parts[0].trim();
+    final trackPart = parts.sublist(1).join(' - ').trim();
+
+    if (trackPart.isEmpty) return null;
+
+    final artists = _parseArtists(artistPart);
+    if (artists.isEmpty) return null;
+
+    return _ParsedTitle(artists: artists, trackName: trackPart);
+  }
+
+  /// Parses artist names from a string, handling "&" and "and" separators.
+  List<String> _parseArtists(String artistPart) {
+    return artistPart
+        .split(RegExp(r'\s+&\s+|\s+and\s+', caseSensitive: false))
+        .map((a) => a.trim())
+        .where((a) => a.isNotEmpty)
+        .toList();
+  }
+
+  /// Builds an exact Spotify search query with artist and track filters.
+  String _buildExactQuery(List<String> artists, String trackName) {
+    final artistFilters = artists
+        .map((a) => 'artist:"${_escapeSpotifyQuery(a)}"')
+        .join(' ');
+    return '$artistFilters track:"${_escapeSpotifyQuery(trackName)}"';
+  }
+
+  /// Performs a Spotify search with the given query string.
+  Future<Track?> _searchSpotifyQuery(String query) async {
+    try {
+      final searchResults = await requestPool.request(
+        () => api.search.get(query, types: [SearchType.track]).first(5),
+        identifier: 'youtube-search:$query',
+      );
+
+      final tracks = searchResults
+          .expand((page) => page.items?.whereType<Track>() ?? <Track>[])
+          .toList();
+
+      return tracks.isNotEmpty ? tracks.first : null;
+    } catch (e) {
+      log.debug('    Search query failed: $query ($e)');
+      return null;
+    }
+  }
+
+  /// Validates that the Spotify track's artists match the expected artists.
+  /// Uses fuzzy matching with an 80% similarity threshold.
+  bool _validateArtistMatch(Track track, List<String> expectedArtists) {
+    final trackArtists =
+        track.artists
+            ?.map((a) => (a.name ?? '').toLowerCase())
+            .where((n) => n.isNotEmpty)
+            .toList() ??
+        [];
+
+    if (trackArtists.isEmpty) return false;
+
+    const similarityThreshold = 80;
+
+    for (final expectedArtist in expectedArtists) {
+      final expectedLower = expectedArtist.toLowerCase();
+      for (final trackArtist in trackArtists) {
+        if (ratio(expectedLower, trackArtist) >= similarityThreshold) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Escapes special characters in Spotify search queries.
+  String _escapeSpotifyQuery(String query) {
+    return query.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  }
+
   Future<List<CollectedTrack>> _filterPlaylistTracksByDate(
     List<entities.CachedPlaylistTrack> cachedTracks,
     DateTime cutoffDate,
@@ -879,7 +1174,10 @@ class TrackCollector {
               name: album.name ?? '',
               releaseDate: album.releaseDate,
               label: album.label,
-              artistNames: album.artists?.map((a) => a.name ?? '').toList(),
+              artistNames: album.artists
+                  ?.map((a) => a.name ?? '')
+                  .where((String n) => n.isNotEmpty)
+                  .toList(),
               cachedAt: DateTime.now(),
             );
 

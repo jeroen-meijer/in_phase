@@ -173,3 +173,29 @@ class CrawlSourceInfoLabel extends CrawlSourceInfo {
   @override
   List<Object?> get props => [name];
 }
+
+/// {@template crawl_source_info_youtube_channel}
+/// Source information for a track from a YouTube channel.
+/// {@endtemplate}
+class CrawlSourceInfoYoutubeChannel extends CrawlSourceInfo {
+  /// {@macro crawl_source_info_youtube_channel}
+  const CrawlSourceInfoYoutubeChannel({
+    required this.id,
+    required this.name,
+  });
+
+  /// The ID or handle of the YouTube channel.
+  final String id;
+
+  /// The name of the YouTube channel.
+  final String name;
+
+  @override
+  String get displayName => name;
+
+  @override
+  String get typeName => 'YouTube Channel';
+
+  @override
+  List<Object?> get props => [id, name];
+}

@@ -183,6 +183,7 @@ class CrawlInputs {
     this.playlists,
     this.artists,
     this.labels,
+    this.youtubeChannels,
   });
 
   factory CrawlInputs.fromJson(Map<String, dynamic> json) =>
@@ -201,6 +202,12 @@ class CrawlInputs {
   /// List of label names (can include YAML anchor references).
   @JsonKey(includeIfNull: false)
   final List<String>? labels;
+
+  /// List of YouTube channel handles or IDs (e.g., '@SkankandbassUK' or
+  /// 'UCCXCgbZcT7rjU0vS0POSWIQ').
+  /// Can include YAML anchor references.
+  @JsonKey(includeIfNull: false)
+  final List<String>? youtubeChannels;
 }
 
 /// Deduplication modes.

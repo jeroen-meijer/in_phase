@@ -108,6 +108,9 @@ CrawlInputs _$CrawlInputsFromJson(Map<String, dynamic> json) => CrawlInputs(
       ?.map((e) => e as String)
       .toList(),
   labels: (json['labels'] as List<dynamic>?)?.map((e) => e as String).toList(),
+  youtubeChannels: (json['youtube_channels'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
 );
 
 Map<String, dynamic> _$CrawlInputsToJson(CrawlInputs instance) =>
@@ -115,4 +118,5 @@ Map<String, dynamic> _$CrawlInputsToJson(CrawlInputs instance) =>
       'playlists': ?instance.playlists,
       'artists': ?instance.artists,
       'labels': ?instance.labels,
+      'youtube_channels': ?instance.youtubeChannels,
     };

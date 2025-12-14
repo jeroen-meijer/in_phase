@@ -86,7 +86,7 @@ class SyncCommand extends Command<int> {
           spSnapshotId,
         )) {
           playlistFetchFutures[spPlaylistId] = requestPool.request(
-            () => api.playlists.getTracksByPlaylistId(spPlaylistId).all(50),
+            () => api.playlists.getPlaylistTracks(spPlaylistId).all(50),
             identifier: SpotifyCacheIdentifier.playlistTracks(spPlaylistId),
           );
         }

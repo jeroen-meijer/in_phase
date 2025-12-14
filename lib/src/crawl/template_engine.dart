@@ -64,6 +64,7 @@ enum TemplateVariable {
   jobPlaylistCount('job_playlist_count'),
   jobArtistCount('job_artist_count'),
   jobLabelCount('job_label_count'),
+  jobYoutubeChannelCount('job_youtube_channel_count'),
 
   // Real content counts (from actual tracks)
   realArtistCount('real_artist_count'),
@@ -71,6 +72,7 @@ enum TemplateVariable {
   realPlaylistCount('real_playlist_count'),
   realArtistSourceCount('real_artist_source_count'),
   realLabelSourceCount('real_label_source_count'),
+  realYoutubeChannelSourceCount('real_youtube_channel_source_count'),
 
   // Legacy aliases (for backward compatibility)
   playlistCount('playlist_count'), // same as job_playlist_count
@@ -119,6 +121,7 @@ class TemplateEngine {
     required int realPlaylistCount,
     required int realArtistSourceCount,
     required int realLabelCount,
+    required int realYoutubeChannelCount,
   }) {
     final context = _TemplateContext(
       job: job,
@@ -130,6 +133,7 @@ class TemplateEngine {
       realPlaylistCount: realPlaylistCount,
       realArtistSourceCount: realArtistSourceCount,
       realLabelCount: realLabelCount,
+      realYoutubeChannelCount: realYoutubeChannelCount,
     );
 
     return template.replaceAllMapped(_placeholderPattern, (match) {
@@ -269,6 +273,8 @@ class TemplateEngine {
         return ctx.jobArtistCount.toString();
       case TemplateVariable.jobLabelCount:
         return ctx.jobLabelCount.toString();
+      case TemplateVariable.jobYoutubeChannelCount:
+        return ctx.jobYoutubeChannelCount.toString();
 
       // Real content counts (from actual tracks)
       case TemplateVariable.realArtistCount:
@@ -281,6 +287,8 @@ class TemplateEngine {
         return ctx.realArtistSourceCount.toString();
       case TemplateVariable.realLabelSourceCount:
         return ctx.realLabelCount.toString();
+      case TemplateVariable.realYoutubeChannelSourceCount:
+        return ctx.realYoutubeChannelCount.toString();
 
       // Legacy aliases
       case TemplateVariable.playlistCount:
@@ -385,6 +393,7 @@ class _TemplateContext {
     required this.realPlaylistCount,
     required this.realArtistSourceCount,
     required this.realLabelCount,
+    required this.realYoutubeChannelCount,
   }) : now = DateTime.now(),
        weekNum = getWeekNumber(endDate),
        dateRangeStart = cutoffDate.add(const Duration(days: 1)),
@@ -403,7 +412,12 @@ class _TemplateContext {
     jobPlaylistCount = job.inputs.playlists?.length ?? 0;
     jobArtistCount = job.inputs.artists?.length ?? 0;
     jobLabelCount = job.inputs.labels?.length ?? 0;
-    sourceCount = jobPlaylistCount + jobArtistCount + jobLabelCount;
+    jobYoutubeChannelCount = job.inputs.youtubeChannels?.length ?? 0;
+    sourceCount =
+        jobPlaylistCount +
+        jobArtistCount +
+        jobLabelCount +
+        jobYoutubeChannelCount;
 
     // Build input sources string
     final sources = <String>[];
@@ -417,6 +431,12 @@ class _TemplateContext {
     }
     if (jobLabelCount > 0) {
       sources.add('$jobLabelCount label${jobLabelCount > 1 ? 's' : ''}');
+    }
+    if (jobYoutubeChannelCount > 0) {
+      sources.add(
+        '$jobYoutubeChannelCount YouTube channel'
+        '${jobYoutubeChannelCount > 1 ? 's' : ''}',
+      );
     }
     inputSources = sources.isEmpty ? 'various sources' : sources.join(', ');
 
@@ -457,6 +477,7 @@ class _TemplateContext {
   final int realPlaylistCount;
   final int realArtistSourceCount;
   final int realLabelCount;
+  final int realYoutubeChannelCount;
 
   final DateTime now;
   final int weekNum;
@@ -472,6 +493,7 @@ class _TemplateContext {
   late final int jobPlaylistCount;
   late final int jobArtistCount;
   late final int jobLabelCount;
+  late final int jobYoutubeChannelCount;
   late final int sourceCount;
   late final String inputSources;
   late final String dateRangeMonth;

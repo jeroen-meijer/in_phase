@@ -340,6 +340,30 @@ class CrawlCommand extends Command<int> {
       log.info('');
     }
 
+    // Collect from YouTube channels
+    final youtubeChannelIds = job.inputs.youtubeChannels ?? [];
+    if (youtubeChannelIds.isNotEmpty) {
+      log.info(
+        '  📺 Collecting from ${youtubeChannelIds.length} '
+        'YouTube channel(s)...',
+      );
+      for (final channelId in youtubeChannelIds) {
+        try {
+          final tracks = await collector.collectFromYoutubeChannel(
+            channelId,
+            cutoffDate,
+            endDate,
+          );
+          allTracks.addAll(tracks);
+        } catch (e) {
+          log.error(
+            '    ❌ Error collecting from YouTube channel $channelId: $e',
+          );
+        }
+      }
+      log.info('');
+    }
+
     log.info('  📊 Collected ${allTracks.length} total tracks');
 
     if (allTracks.isEmpty) {
@@ -401,6 +425,7 @@ class CrawlCommand extends Command<int> {
       realPlaylistCount: realStats.playlistCount,
       realArtistSourceCount: realStats.artistSourceCount,
       realLabelCount: realStats.labelCount,
+      realYoutubeChannelCount: realStats.youtubeChannelCount,
     );
 
     final playlistDescription = job.outputPlaylist.description != null
@@ -415,6 +440,7 @@ class CrawlCommand extends Command<int> {
             realPlaylistCount: realStats.playlistCount,
             realArtistSourceCount: realStats.artistSourceCount,
             realLabelCount: realStats.labelCount,
+            realYoutubeChannelCount: realStats.youtubeChannelCount,
           )
         : null;
 
@@ -441,6 +467,7 @@ class CrawlCommand extends Command<int> {
         realPlaylistCount: realStats.playlistCount,
         realArtistSourceCount: realStats.artistSourceCount,
         realLabelCount: realStats.labelCount,
+        realYoutubeChannelCount: realStats.youtubeChannelCount,
       );
 
       // Generate cover (but don't upload yet)
@@ -582,6 +609,8 @@ class CrawlCommand extends Command<int> {
       CollectedTrackSourceLabel(:final name) => CrawlSourceInfoLabel(
         name: name,
       ),
+      CollectedTrackSourceYoutubeChannel(:final id, :final name) =>
+        CrawlSourceInfoYoutubeChannel(id: id, name: name),
     };
   }
 
@@ -602,6 +631,8 @@ class CrawlCommand extends Command<int> {
 
       case CollectedTrackSourceLabel():
         return 'Released within date range';
+      case CollectedTrackSourceYoutubeChannel():
+        return 'Uploaded to YouTube channel within date range';
     }
   }
 
@@ -623,6 +654,8 @@ class CrawlCommand extends Command<int> {
 
       case CollectedTrackSourceLabel(:final name):
         return 'Label "$name" (released within timeframe)';
+      case CollectedTrackSourceYoutubeChannel(:final name):
+        return 'YouTube channel "$name" (uploaded within timeframe)';
     }
   }
 
@@ -633,6 +666,7 @@ class CrawlCommand extends Command<int> {
     final uniquePlaylists = <String>{};
     final uniqueArtistSources = <String>{};
     final uniqueLabels = <String>{};
+    final uniqueYoutubeChannels = <String>{};
 
     for (final track in tracks) {
       // Count unique artists
@@ -651,6 +685,8 @@ class CrawlCommand extends Command<int> {
           uniqueArtistSources.add(id);
         case CollectedTrackSourceLabel(:final name):
           uniqueLabels.add(name);
+        case CollectedTrackSourceYoutubeChannel(:final id):
+          uniqueYoutubeChannels.add(id);
       }
     }
 
@@ -660,6 +696,7 @@ class CrawlCommand extends Command<int> {
       playlistCount: uniquePlaylists.length,
       artistSourceCount: uniqueArtistSources.length,
       labelCount: uniqueLabels.length,
+      youtubeChannelCount: uniqueYoutubeChannels.length,
     );
   }
 }
@@ -672,6 +709,7 @@ class _RealStats {
     required this.playlistCount,
     required this.artistSourceCount,
     required this.labelCount,
+    required this.youtubeChannelCount,
   });
 
   final int artistCount;
@@ -679,4 +717,5 @@ class _RealStats {
   final int playlistCount;
   final int artistSourceCount;
   final int labelCount;
+  final int youtubeChannelCount;
 }
