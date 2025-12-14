@@ -1,71 +1,75 @@
-# InPhase
+# 💿 InPhase
+
+[![pub.dev](https://img.shields.io/pub/v/in_phase.svg)](https://pub.dev/packages/in_phase)
 
 A music library management tool for creating and syncing playlists between Spotify and Rekordbox.
 
 ## Installation
 
-### Step 1: Install Dart
+### Prerequisites
 
-First, you need to install Dart on your computer. Dart is the programming language this tool is built with.
+Both installation methods require Dart to be installed on your system:
 
 - **macOS**: Download from [dart.dev/get-dart](https://dart.dev/get-dart) or install via Homebrew: `brew install dart`
 - **Windows**: Download the installer from [dart.dev/get-dart](https://dart.dev/get-dart)
 - **Linux**: Follow the instructions at [dart.dev/get-dart](https://dart.dev/get-dart)
 
-After installing, verify it works by opening a terminal/command prompt and running:
+After installing, verify it works:
 
 ```bash
 dart --version
 ```
 
-You should see a version number. If you get an error, make sure Dart is added to your system's PATH (the installation instructions above will guide you through this).
+### Option 1: Install from pub.dev (Recommended)
 
-### Step 2: Clone the Repository
-
-"Cloning" means downloading the source code from GitHub to your computer. You'll need Git installed (it usually comes with macOS and Linux, or download from [git-scm.com](https://git-scm.com/)).
-
-Open a terminal/command prompt and navigate to where you want to install the tool, then run:
+The easiest way to install InPhase is using Dart's package manager:
 
 ```bash
-git clone https://github.com/jeroen-meijer/in_phase.git
-cd in_phase
+dart pub global activate in_phase
 ```
 
-This downloads the code and moves you into the project folder.
-
-### Step 3: Choose How to Run the Tool
-
-You have two options:
-
-#### Option A: Use the Run Script (Easiest)
-
-This is the simplest way. The `run.sh` script automatically compiles and runs the tool for you:
-
-```bash
-./run.sh login
-./run.sh sync
-```
-
-**Note for Windows users**: You'll need to use Git Bash or WSL (Windows Subsystem for Linux) to run `.sh` scripts, or use Option B instead.
-
-#### Option B: Activate with Dart Pub
-
-This makes the tool available system-wide so you can run `in_phase` from anywhere:
-
-```bash
-dart pub global activate --source path .
-```
-
-After this, you can use the tool from any directory:
+After installation, you can use the tool from any directory:
 
 ```bash
 in_phase login
 in_phase sync
 ```
 
-**Note**: Make sure `~/.pub-cache/bin` (or `%LOCALAPPDATA%\Pub\Cache\bin` on Windows) is in your system PATH. The Dart installation instructions will help you set this up.
+**Note**: Make sure `~/.pub-cache/bin` (or `%LOCALAPPDATA%\Pub\Cache\bin` on Windows) is in your system PATH.
 
-### Step 3a: Set Up Rekordbox (Optional)
+### Option 2: Build from Source
+
+If you want to build from source or contribute to the project:
+
+1. **Clone the Repository**
+
+   ```bash
+   git clone https://github.com/jeroen-meijer/in_phase.git
+   cd in_phase
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   dart pub get
+   ```
+
+3. **Activate the Tool**
+
+   ```bash
+   dart pub global activate --source path .
+   ```
+
+   Or use the run script directly:
+
+   ```bash
+   ./run.sh login
+   ./run.sh sync
+   ```
+
+   **Note for Windows users**: You'll need to use Git Bash or WSL (Windows Subsystem for Linux) to run `.sh` scripts, or use `dart pub global activate` instead.
+
+### Set Up Rekordbox (Optional)
 
 **If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to first complete the setup steps for the `rekorddart` package.
 
@@ -77,7 +81,7 @@ Please follow the installation and setup instructions in the [rekorddart README]
 
 **If you only want to use Spotify features** (like the `crawl` command), you can skip this step.
 
-### Step 4: Set Up Spotify API Credentials
+### Set Up Spotify API Credentials
 
 Before you can use InPhase, you need to create a Spotify app and get API credentials. This is free and only takes a few minutes:
 
