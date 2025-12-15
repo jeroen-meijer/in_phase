@@ -184,7 +184,7 @@ Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](SYNC_CO
 in_phase crawl
 ```
 
-Automatically discovers new tracks from configured sources (playlists, artists, labels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
+Automatically discovers new tracks from configured sources (playlists, artists, labels, or YouTube channels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
 
 ### Open config directory
 

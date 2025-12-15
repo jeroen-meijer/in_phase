@@ -108,6 +108,8 @@ class CollectedTrackSourceYoutubeChannel extends CollectedTrackSource {
   const CollectedTrackSourceYoutubeChannel({
     required this.id,
     required this.name,
+    required this.videoTitle,
+    required this.videoId,
   });
 
   /// The ID or handle of the YouTube channel.
@@ -116,8 +118,14 @@ class CollectedTrackSourceYoutubeChannel extends CollectedTrackSource {
   /// The name of the YouTube channel.
   final String name;
 
+  /// The title of the original YouTube video.
+  final String videoTitle;
+
+  /// The ID of the YouTube video.
+  final String videoId;
+
   @override
-  List<Object?> get props => [id, name];
+  List<Object?> get props => [id, name, videoTitle, videoId];
 }
 
 /// Parsed YouTube video title containing artists and track name.
@@ -132,7 +140,8 @@ class _ParsedTitle {
 }
 
 /// {@template track_collector}
-/// Collects tracks from various Spotify sources (playlists, artists, labels).
+/// Collects tracks from various Spotify sources (playlists, artists, labels,
+/// YouTube channels).
 /// {@endtemplate}
 class TrackCollector {
   /// {@macro track_collector}
@@ -913,6 +922,8 @@ class TrackCollector {
                 videoDate,
                 channelId,
                 channelName,
+                video.title,
+                video.id.toString(),
               ),
             );
 
@@ -985,6 +996,8 @@ class TrackCollector {
     DateTime? addedAt,
     String channelId,
     String channelName,
+    String videoTitle,
+    String videoId,
   ) {
     if (addedAt == null) {
       throw ArgumentError('Video date cannot be null');
@@ -998,6 +1011,8 @@ class TrackCollector {
       source: CollectedTrackSourceYoutubeChannel(
         id: channelId,
         name: channelName,
+        videoTitle: videoTitle,
+        videoId: videoId,
       ),
       albumId: spotifyTrack.album?.id != null
           ? SpotifyAlbumId(spotifyTrack.album!.id!)

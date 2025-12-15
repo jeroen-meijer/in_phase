@@ -1,7 +1,7 @@
 name: in_phase
 app_name: InPhase
 description: A music library management tool for creating and syncing playlists between Spotify and Rekordbox.
-version: 1.1.1
+version: 1.1.2
 repository: https://github.com/jeroen-meijer/in_phase
 
 environment:

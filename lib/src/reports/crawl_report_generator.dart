@@ -56,10 +56,11 @@ class CrawlReportGenerator extends BaseReportGenerator {
     // Use base class for tracks table
     final headers = ['Track Name', 'Artists', 'Source', 'Reason'];
     final rows = report.trackEntries.map((entry) {
+      final sourceText = _formatSourceInfo(entry.sourceInfo);
       return [
         entry.trackName,
         entry.artistsString,
-        '${entry.sourceInfo.typeName}: ${entry.sourceInfo.displayName}',
+        sourceText,
         entry.reason,
       ];
     }).toList();
@@ -73,5 +74,20 @@ class CrawlReportGenerator extends BaseReportGenerator {
     );
 
     buffer.write(MarkdownGenerator.horizontalRule());
+  }
+
+  /// Formats source information for display, creating hyperlinks for YouTube
+  /// videos.
+  String _formatSourceInfo(CrawlSourceInfo sourceInfo) {
+    return switch (sourceInfo) {
+      CrawlSourceInfoYoutubeChannel(
+        :final name,
+        :final videoTitle,
+        :final videoId,
+      ) =>
+        '${sourceInfo.typeName}: $name - '
+            '${MarkdownGenerator.link(videoTitle, "https://www.youtube.com/watch?v=$videoId")}',
+      _ => '${sourceInfo.typeName}: ${sourceInfo.displayName}',
+    };
   }
 }

@@ -1,5 +1,11 @@
+## 1.1.2
+
+- feat: improved YouTube channel source reporting in crawl reports
+- docs: update documentation to include YouTube channel configuration
+
 ## 1.1.1
 
+- feat: add support for YouTube channel sources to crawl command
 - ci: add publish script
 
 ## 1.1.0

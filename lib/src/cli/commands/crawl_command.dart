@@ -609,8 +609,18 @@ class CrawlCommand extends Command<int> {
       CollectedTrackSourceLabel(:final name) => CrawlSourceInfoLabel(
         name: name,
       ),
-      CollectedTrackSourceYoutubeChannel(:final id, :final name) =>
-        CrawlSourceInfoYoutubeChannel(id: id, name: name),
+      CollectedTrackSourceYoutubeChannel(
+        :final id,
+        :final name,
+        :final videoTitle,
+        :final videoId,
+      ) =>
+        CrawlSourceInfoYoutubeChannel(
+          id: id,
+          name: name,
+          videoTitle: videoTitle,
+          videoId: videoId,
+        ),
     };
   }
 

@@ -182,6 +182,8 @@ class CrawlSourceInfoYoutubeChannel extends CrawlSourceInfo {
   const CrawlSourceInfoYoutubeChannel({
     required this.id,
     required this.name,
+    required this.videoTitle,
+    required this.videoId,
   });
 
   /// The ID or handle of the YouTube channel.
@@ -190,6 +192,12 @@ class CrawlSourceInfoYoutubeChannel extends CrawlSourceInfo {
   /// The name of the YouTube channel.
   final String name;
 
+  /// The title of the original YouTube video.
+  final String videoTitle;
+
+  /// The ID of the YouTube video.
+  final String videoId;
+
   @override
   String get displayName => name;
 
@@ -197,5 +205,5 @@ class CrawlSourceInfoYoutubeChannel extends CrawlSourceInfo {
   String get typeName => 'YouTube Channel';
 
   @override
-  List<Object?> get props => [id, name];
+  List<Object?> get props => [id, name, videoTitle, videoId];
 }
