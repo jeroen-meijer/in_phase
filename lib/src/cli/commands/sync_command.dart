@@ -55,6 +55,7 @@ class SyncCommand extends Command<int> {
       final syncConfig = await SyncConfig.fromFile(Constants.syncConfigFile);
 
       final api = await spotifyLogin();
+      // ignore: invalid_use_of_visible_for_testing_member
       addTeardown(() async => (await api.client).close());
 
       final rbDb = await RekordboxDatabase.connect();

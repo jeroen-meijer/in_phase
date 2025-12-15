@@ -81,6 +81,9 @@ class CrawlCommand extends Command<int> {
 
       // Login to Spotify
       final api = await spotifyLogin();
+
+      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
+      // ignore: invalid_use_of_visible_for_testing_member
       teardown.add(() async => (await api.client).close());
 
       // Initialize request pool
@@ -553,6 +556,7 @@ class CrawlCommand extends Command<int> {
     // Upload cover image if it was generated
     if (generatedCoverPath != null) {
       log.info('  📤 Uploading cover image...');
+      // ignore: invalid_use_of_visible_for_testing_member
       final client = await api.client;
       final uploadSuccess = await uploadPlaylistImage(
         spotifyClient: client,
