@@ -132,6 +132,18 @@ Future<void> spotifyLogout() async {
   await _credentialsEntry.remove();
 }
 
+/// Attempts to restore a Spotify session from cached credentials.
+///
+/// Unlike [spotifyLogin], this does NOT open a browser or trigger OAuth flow.
+/// Returns the authenticated [SpotifyApi] if valid cached credentials exist,
+/// or `null` if no cached credentials are available.
+///
+/// Throws [AuthorizationException] if cached credentials exist but are invalid/expired
+/// and cannot be refreshed.
+Future<SpotifyApi?> tryRestoreSpotifySession() async {
+  return _attemptCachedCredentialsLogin();
+}
+
 @JsonSerializable()
 class _SavedClientCredentials {
   _SavedClientCredentials({
