@@ -3,6 +3,8 @@ export 'cue_kinds.dart';
 export 'encoders.dart';
 export 'env.dart';
 export 'fuzzy_search.dart';
+export 'musical_key.dart';
+export 'nullable_extensions.dart';
 export 'request_pool.dart';
 export 'string_extensions.dart';
 export 'with_teardown.dart';

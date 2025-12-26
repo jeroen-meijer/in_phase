@@ -11,6 +11,10 @@ set -e
 THIS_SCRIPT_DIR=$(dirname "$0")
 pushd "$THIS_SCRIPT_DIR" > /dev/null
 
+print_grey() {
+    echo -e "\033[90m$1\033[0m"
+}
+
 # Create build directory if it doesn't exist
 mkdir -p build
 
@@ -40,7 +44,7 @@ fi
 
 # Compile if hashes are different, no hash file exists, or binary doesn't exist
 if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "$BINARY_EXISTS" = false ]; then
-    echo "Compiling in_phase..."
+    print_grey "Compiling in_phase..."
 
     dart pub get
     dart compile exe bin/in_phase.dart -o "$BINARY_PATH"
@@ -48,9 +52,7 @@ if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "
     # Save the current hash
     echo "$CURRENT_HASH" > "$BUILD_HASH_FILE"
 
-    echo "Compilation complete."
-else
-    echo "Using existing binary (no changes detected)."
+    print_grey "Compilation complete."
 fi
 
 # Execute the binary with all passed arguments

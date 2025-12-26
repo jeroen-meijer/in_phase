@@ -174,17 +174,30 @@ class SearchCommand extends Command<int> {
         db.djmdCue,
       )..where((c) => c.contentID.equals(trackId))).get();
 
+      // Get key information if available
+      DjmdKeyData? key;
+      if (track.keyID case final keyID?) {
+        key = await (db.select(
+          db.djmdKey,
+        )..where((k) => k.id.equals(keyID))).getSingleOrNull();
+      }
+
       final artistName = artist?.name ?? 'Unknown Artist';
       final trackTitle = track.title ?? 'Unknown Title';
 
-      // Format: [track_id] Artist - Title (X cues)
+      // Format: [track_id] Artist - Title (X cues) [4A]
       final idStr = trackId.padLeft(12);
       final formattedCues = _formatCues(cues);
       final indexStr = (i + 1).toString().padLeft(2);
 
+      final keyDisplay = key?.scaleName
+          .let(mapKeyToCamelot)
+          .let((camelotKey) => ' ${magenta('[$camelotKey]')}')
+          .or('');
+
       log.info(
         '${grey(indexStr)}. [ ${blue(idStr)} ] $artistName - '
-        '$trackTitle ($formattedCues)',
+        '$trackTitle ($formattedCues)$keyDisplay',
       );
     }
   }
@@ -218,6 +231,14 @@ class SearchCommand extends Command<int> {
       genre = await (db.select(
         db.djmdGenre,
       )..where((g) => g.id.equals(genreID))).getSingleOrNull();
+    }
+
+    // Get key info if available
+    DjmdKeyData? key;
+    if (track.keyID case final keyID?) {
+      key = await (db.select(
+        db.djmdKey,
+      )..where((k) => k.id.equals(keyID))).getSingleOrNull();
     }
 
     // Get cue counts and details
@@ -267,6 +288,8 @@ class SearchCommand extends Command<int> {
       if (genreName != null) ['Genre', genreName],
       if (bpm != null) ['BPM', bpm],
       if (length != null) ['Length', length],
+      if (key?.scaleName case final scaleName?)
+        ['Key', mapKeyToCamelot(scaleName) ?? scaleName],
       [
         'Cues',
         if (allCues.isNotEmpty) _formatCues(allCues) else 'None',
