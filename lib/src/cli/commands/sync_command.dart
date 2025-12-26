@@ -102,7 +102,7 @@ class SyncCommand extends Command<int> {
             ),
           ])
           .map(
-            (e) => _RbSongAndArtist(
+            (e) => (
               artist: e.readTableOrNull(rbDb.djmdArtist),
               song: e.readTable(rbDb.djmdContent),
             ),
@@ -482,14 +482,14 @@ class SyncCommand extends Command<int> {
     required SpotifyTrackId spTrackId,
     required String spTrackName,
     required List<String> spArtistNames,
-    required List<_RbSongAndArtist> rbSongsAndArtists,
+    required List<RbArtistAndSong> rbSongsAndArtists,
     required RekordboxSongId? cachedMapping,
     int threshold = 80,
   }) async {
     // Check cached mapping first
     if (cachedMapping case final rbSongId?) {
       if (rbSongsAndArtists.firstWhereOrNull((e) => e.song.id == rbSongId)
-          case _RbSongAndArtist(song: final rbSong)) {
+          case RbArtistAndSong(song: final rbSong)?) {
         return rbSong;
       } else {
         log.warning(
@@ -509,7 +509,7 @@ class SyncCommand extends Command<int> {
       threads: threads,
     );
 
-    final _RbSongAndArtist(:artist, :song) = fuzzyMatch.value;
+    final RbArtistAndSong(:artist, :song) = fuzzyMatch.value;
 
     log.info(
       'Best match: "${artist?.name ?? 'Unknown artist'} - ${song.title}" '
@@ -534,18 +534,18 @@ class SyncCommand extends Command<int> {
         .firstWhereOrNull(_camelotKeyRegex.hasMatch);
   }
 
-  static Future<FuzzyFindMatch<_RbSongAndArtist>> _findFuzzyMatch({
+  static Future<FuzzyFindMatch<RbArtistAndSong>> _findFuzzyMatch({
     required String spTrackName,
     required List<String> spArtistNames,
-    required List<_RbSongAndArtist> rbSongsAndArtists,
+    required List<RbArtistAndSong> rbSongsAndArtists,
     int threads = 4,
   }) async {
     if (rbSongsAndArtists.isEmpty) {
       throw Exception('No Rekordbox songs and artists to find match for');
     }
 
-    FuzzyFindMatch<_RbSongAndArtist> findFuzzyMatchForChunk(
-      List<_RbSongAndArtist> rbSongsAndArtists,
+    FuzzyFindMatch<RbArtistAndSong> findFuzzyMatchForChunk(
+      List<RbArtistAndSong> rbSongsAndArtists,
     ) {
       final query = _normalizeQuery(
         spArtistNames,
@@ -583,7 +583,7 @@ class SyncCommand extends Command<int> {
         Isolate.run(() => findFuzzyMatchForChunk(chunk)),
     ]);
 
-    return maxBy<FuzzyFindMatch<_RbSongAndArtist>, int>(
+    return maxBy<FuzzyFindMatch<RbArtistAndSong>, int>(
       results,
       (e) => e.score,
     )!;
@@ -596,26 +596,6 @@ class SyncCommand extends Command<int> {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
-}
-
-class _RbSongAndArtist {
-  const _RbSongAndArtist({
-    required this.artist,
-    required this.song,
-  });
-
-  final DjmdArtistData? artist;
-  final DjmdContentData song;
-}
-
-class FuzzyFindMatch<T> {
-  const FuzzyFindMatch({
-    required this.value,
-    required this.score,
-  });
-
-  final T value;
-  final int score;
 }
 
 class _TracklistEntry {
@@ -635,7 +615,7 @@ class _TracklistEntry {
 Future<List<_TracklistEntry>> _applyCustomTracks({
   required List<CustomTrack> customTracks,
   required List<_TracklistEntry> initialTracklist,
-  required List<_RbSongAndArtist> rbAllSongsAndArtists,
+  required List<RbArtistAndSong> rbAllSongsAndArtists,
   required void Function(String) logPlaylist,
 }) async {
   // Separate inserts and replaces
@@ -671,6 +651,7 @@ Future<List<_TracklistEntry>> _applyCustomTracks({
     workingTracklist = _processInserts(
       inserts: insertsToProcess,
       tracklist: workingTracklist,
+      rbAllSongsAndArtists: rbAllSongsAndArtists,
       logPlaylist: logPlaylist,
     );
   }
@@ -680,6 +661,7 @@ Future<List<_TracklistEntry>> _applyCustomTracks({
     workingTracklist = _processReplacements(
       replacements: replacesToProcess,
       tracklist: workingTracklist,
+      rbAllSongsAndArtists: rbAllSongsAndArtists,
       logPlaylist: logPlaylist,
     );
   }
@@ -687,23 +669,39 @@ Future<List<_TracklistEntry>> _applyCustomTracks({
   return workingTracklist;
 }
 
+/// Helper function to format track name from Rekordbox song data.
+String _formatTrackName(RbArtistAndSong? rbSong) {
+  if (rbSong == null) return 'Unknown';
+  final artist = rbSong.artist?.name ?? 'Unknown Artist';
+  final title = rbSong.song.title ?? 'Unknown Title';
+  return '$artist - $title';
+}
+
 /// Processes insert-type custom tracks.
 List<_TracklistEntry> _processInserts({
   required List<CustomTrack> inserts,
   required List<_TracklistEntry> tracklist,
+  required List<RbArtistAndSong> rbAllSongsAndArtists,
   required void Function(String) logPlaylist,
 }) {
   final result = List<_TracklistEntry>.from(tracklist);
 
-  // Group inserts by their target index
-  final insertsByIndex = <int?, List<String>>{};
+  // Group inserts by their target index, storing offset info for relative positioning
+  final insertsByIndex =
+      <
+        int?,
+        List<({CustomTrack insert, int? offset, RekordboxSongId? targetId})>
+      >{};
 
   for (final insert in inserts) {
     int? targetIndex;
+    int? offset;
+    RekordboxSongId? targetId;
 
     if (insert.target != null) {
+      targetId = insert.target;
       // Find the target track and calculate index
-      final offset =
+      offset =
           insert.index ?? (insert.position != null ? insert.position! - 1 : 0);
 
       for (var i = 0; i < result.length; i++) {
@@ -714,9 +712,14 @@ List<_TracklistEntry> _processInserts({
       }
 
       if (targetIndex == null) {
+        final customTrackName = _formatTrackName(
+          rbAllSongsAndArtists.firstWhereOrNull(
+            (e) => e.song.id == insert.rekordboxId,
+          ),
+        );
         logPlaylist(
-          '  ⚠️  WARNING: Custom track ${insert.rekordboxId} references '
-          'missing target track ID ${insert.target}. Skipping.',
+          '  ⚠️  WARNING: Custom track "$customTrackName" [${insert.rekordboxId}] '
+          'references missing target track ID ${insert.target}. Skipping.',
         );
         continue;
       }
@@ -729,24 +732,41 @@ List<_TracklistEntry> _processInserts({
     // Validate index bounds
     if (targetIndex != null &&
         (targetIndex < 0 || targetIndex > result.length)) {
+      final customTrackName = _formatTrackName(
+        rbAllSongsAndArtists.firstWhereOrNull(
+          (e) => e.song.id == insert.rekordboxId,
+        ),
+      );
       logPlaylist(
-        '  ⚠️  WARNING: Custom track ${insert.rekordboxId} specifies '
-        'out-of-bounds index $targetIndex. Appending to end.',
+        '  ⚠️  WARNING: Custom track "$customTrackName" [${insert.rekordboxId}] '
+        'specifies out-of-bounds index $targetIndex. Appending to end.',
       );
       targetIndex = null;
     }
 
-    insertsByIndex.putIfAbsent(targetIndex, () => []).add(insert.rekordboxId);
+    insertsByIndex.putIfAbsent(targetIndex, () => []).add((
+      insert: insert,
+      offset: offset,
+      targetId: targetId,
+    ));
   }
 
   // Insert tracks at the end (null index) first
   final tracksToAppend = insertsByIndex.remove(null) ?? [];
-  for (final trackId in tracksToAppend) {
-    logPlaylist('  ├ Appending custom track [$trackId] to end of playlist');
+  for (final entry in tracksToAppend) {
+    final customTrackName = _formatTrackName(
+      rbAllSongsAndArtists.firstWhereOrNull(
+        (e) => e.song.id == entry.insert.rekordboxId,
+      ),
+    );
+    logPlaylist(
+      '  ├ Appending custom track "$customTrackName" [${entry.insert.rekordboxId}] '
+      'to end of playlist',
+    );
     result.add(
       _TracklistEntry(
         originalIndex: null,
-        trackId: RekordboxSongId(trackId),
+        trackId: entry.insert.rekordboxId,
         isCustom: true,
       ),
     );
@@ -757,10 +777,11 @@ List<_TracklistEntry> _processInserts({
     ..sort((a, b) => b!.compareTo(a!));
 
   for (final targetIndex in sortedIndices) {
-    final tracksToInsert = insertsByIndex[targetIndex]!;
+    final insertsToProcess = insertsByIndex[targetIndex]!;
 
     // Find insertion position in the working list
     var insertionPos = 0;
+    _TracklistEntry? targetEntry;
     for (var i = 0; i < result.length; i++) {
       if (result[i].originalIndex != null &&
           result[i].originalIndex! > targetIndex!) {
@@ -768,20 +789,85 @@ List<_TracklistEntry> _processInserts({
         break;
       }
       insertionPos = i + 1;
+      // Find the target entry if we're inserting relative to a track
+      if (result[i].originalIndex == targetIndex! + 1) {
+        targetEntry = result[i];
+      }
     }
 
-    logPlaylist(
-      '  ├ Inserting ${tracksToInsert.length} custom track(s) at '
-      'index $targetIndex: $tracksToInsert',
-    );
+    // Find target track info for relative positioning
+    String? targetTrackName;
+    int? relativeOffset;
+    for (final entry in insertsToProcess) {
+      if (entry.targetId != null) {
+        final targetRbSong = rbAllSongsAndArtists.firstWhereOrNull(
+          (e) => e.song.id == entry.targetId,
+        );
+        if (targetRbSong != null) {
+          targetTrackName = _formatTrackName(targetRbSong);
+          relativeOffset = entry.offset;
+          break;
+        }
+      }
+    }
+
+    // Build log message with track names
+    final trackNames = insertsToProcess
+        .map((entry) {
+          final customTrackName = _formatTrackName(
+            rbAllSongsAndArtists.firstWhereOrNull(
+              (e) => e.song.id == entry.insert.rekordboxId,
+            ),
+          );
+          return '"$customTrackName" [${entry.insert.rekordboxId}]';
+        })
+        .join(', ');
+
+    String logMessage;
+    if (targetTrackName != null && relativeOffset != null) {
+      // Format relative position string
+      // offset 0 = 1 position after, offset 1 = 2 positions after, etc.
+      // offset -1 = 1 position before, offset -2 = 2 positions before, etc.
+      String positionStr;
+      if (relativeOffset == 0) {
+        positionStr = '1 position after';
+      } else if (relativeOffset > 0) {
+        final positionsAfter = relativeOffset + 1;
+        positionStr = positionsAfter == 1
+            ? '1 position after'
+            : '$positionsAfter positions after';
+      } else {
+        final absOffset = relativeOffset.abs();
+        positionStr = absOffset == 1
+            ? '1 position before'
+            : '$absOffset positions before';
+      }
+      logMessage =
+          '  ├ Inserting ${insertsToProcess.length} custom track(s) '
+          '($trackNames) $positionStr "$targetTrackName"';
+    } else if (targetEntry != null) {
+      final entryTrackName = _formatTrackName(
+        rbAllSongsAndArtists.firstWhereOrNull(
+          (e) => e.song.id == targetEntry!.trackId.value,
+        ),
+      );
+      logMessage =
+          '  ├ Inserting ${insertsToProcess.length} custom track(s) '
+          '($trackNames) at index $targetIndex (relative to "$entryTrackName")';
+    } else {
+      logMessage =
+          '  ├ Inserting ${insertsToProcess.length} custom track(s) '
+          '($trackNames) at index $targetIndex';
+    }
+    logPlaylist(logMessage);
 
     // Insert tracks in order, incrementing position to maintain sequence
-    for (final trackId in tracksToInsert) {
+    for (final entry in insertsToProcess) {
       result.insert(
         insertionPos,
         _TracklistEntry(
           originalIndex: targetIndex,
-          trackId: RekordboxSongId(trackId),
+          trackId: entry.insert.rekordboxId,
           isCustom: true,
         ),
       );
@@ -796,6 +882,7 @@ List<_TracklistEntry> _processInserts({
 List<_TracklistEntry> _processReplacements({
   required List<CustomTrack> replacements,
   required List<_TracklistEntry> tracklist,
+  required List<RbArtistAndSong> rbAllSongsAndArtists,
   required void Function(String) logPlaylist,
 }) {
   final result = List<_TracklistEntry>.from(tracklist);
@@ -808,13 +895,23 @@ List<_TracklistEntry> _processReplacements({
       for (var i = 0; i < result.length; i++) {
         if (result[i].trackId.value == replacement.target &&
             !result[i].isCustom) {
+          final targetTrackName = _formatTrackName(
+            rbAllSongsAndArtists.firstWhereOrNull(
+              (e) => e.song.id == result[i].trackId.value,
+            ),
+          );
+          final customTrackName = _formatTrackName(
+            rbAllSongsAndArtists.firstWhereOrNull(
+              (e) => e.song.id == replacement.rekordboxId,
+            ),
+          );
           logPlaylist(
-            '  ├ Replacing track with ID ${result[i].trackId.value} '
-            'with custom track ${replacement.rekordboxId}',
+            '  ├ Replacing "$targetTrackName" [${result[i].trackId.value}] '
+            'with custom track "$customTrackName" [${replacement.rekordboxId}]',
           );
           result[i] = _TracklistEntry(
             originalIndex: result[i].originalIndex,
-            trackId: RekordboxSongId(replacement.rekordboxId),
+            trackId: replacement.rekordboxId,
             isCustom: true,
           );
           replaced = true;
@@ -831,13 +928,24 @@ List<_TracklistEntry> _processReplacements({
         for (var i = 0; i < result.length; i++) {
           if (result[i].originalIndex == targetIndex + 1 &&
               !result[i].isCustom) {
+            final targetTrackName = _formatTrackName(
+              rbAllSongsAndArtists.firstWhereOrNull(
+                (e) => e.song.id == result[i].trackId.value,
+              ),
+            );
+            final customTrackName = _formatTrackName(
+              rbAllSongsAndArtists.firstWhereOrNull(
+                (e) => e.song.id == replacement.rekordboxId,
+              ),
+            );
             logPlaylist(
-              '  ├ Replacing track with ID ${result[i].trackId.value} at '
-              'index $targetIndex with custom track ${replacement.rekordboxId}',
+              '  ├ Replacing "$targetTrackName" [${result[i].trackId.value}] '
+              'at index $targetIndex with custom track '
+              '"$customTrackName" [${replacement.rekordboxId}]',
             );
             result[i] = _TracklistEntry(
               originalIndex: targetIndex,
-              trackId: RekordboxSongId(replacement.rekordboxId),
+              trackId: replacement.rekordboxId,
               isCustom: true,
             );
             replaced = true;
@@ -848,11 +956,16 @@ List<_TracklistEntry> _processReplacements({
     }
 
     if (!replaced) {
+      final customTrackName = _formatTrackName(
+        rbAllSongsAndArtists.firstWhereOrNull(
+          (e) => e.song.id == replacement.rekordboxId,
+        ),
+      );
       if (replacement.target != null) {
         logPlaylist(
           '  ⚠️  WARNING: Could not replace track with target ID '
           '${replacement.target} (not found). Custom track '
-          '${replacement.rekordboxId} not inserted.',
+          '"$customTrackName" [${replacement.rekordboxId}] not inserted.',
         );
       } else {
         final targetIndex = replacement.position != null
@@ -860,7 +973,8 @@ List<_TracklistEntry> _processReplacements({
             : replacement.index;
         logPlaylist(
           '  ⚠️  WARNING: Could not replace track at index $targetIndex '
-          '(not found). Custom track ${replacement.rekordboxId} not inserted.',
+          '(not found). Custom track "$customTrackName" '
+          '[${replacement.rekordboxId}] not inserted.',
         );
       }
     }
