@@ -1,3 +1,9 @@
+## 1.1.3
+
+- feat: add `cache clean` command to delete build folder containing sync and crawl reports
+- feat: automatically initialize default config files with helpful examples on first run
+- chore: remove unused constants (`syncCacheFile`, `crawlCacheFile`)
+
 ## 1.1.2
 
 - feat: improved YouTube channel source reporting in crawl reports

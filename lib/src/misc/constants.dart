@@ -4,9 +4,9 @@ import 'package:path/path.dart' as path;
 
 class Constants {
   static const appName = 'InPhase';
-  static const version = '1.0.1';
+  static const version = '1.1.3';
 
-  static final appDataDir = File(path.join(_getUserDir(), '.in_phase'));
+  static final appDataDir = Directory(path.join(_getUserDir(), '.in_phase'));
 
   static final cacheFile = File(path.join(appDataDir.path, '.in_phase_cache'));
   static final cacheDbFile = File(path.join(appDataDir.path, 'cache.db'));
@@ -15,16 +15,8 @@ class Constants {
     path.join(appDataDir.path, 'sync_config.yaml'),
   );
 
-  static final syncCacheFile = File(
-    path.join(appDataDir.path, 'sync_cache.yaml'),
-  );
-
   static final crawlConfigFile = File(
     path.join(appDataDir.path, 'crawl_config.yaml'),
-  );
-
-  static final crawlCacheFile = File(
-    path.join(appDataDir.path, 'crawl_cache.yaml'),
   );
 
   static final buildDir = Directory(

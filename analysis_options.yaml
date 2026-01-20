@@ -6,6 +6,7 @@ analyzer:
     - 'build/**'
   errors:
     avoid_catches_without_on_clauses: ignore
+    avoid_slow_async_io: ignore
 
 linter:
   rules:
