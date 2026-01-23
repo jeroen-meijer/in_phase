@@ -71,15 +71,86 @@ If you want to build from source or contribute to the project:
 
 ### Set Up Rekordbox (Optional)
 
-**If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to first complete the setup steps for the `rekorddart` package.
+**If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to complete the setup steps below. **If you only want to use Spotify features** (like the `crawl` command), you can skip this entire section.
 
-Please follow the installation and setup instructions in the [rekorddart README](https://github.com/jeroen-meijer/rekorddart#getting-started) before continuing. The key requirements are:
+#### Prerequisites
 
-- Install SQLCipher
-- (Optional) Set the `SQLCIPHER_DYLIB` environment variable
-- (Optional) Set the `REKORDBOX_DB_KEY` environment variable or download it using the rekorddart tool
+1. **Install Rekordbox 6.0.0+**
+   - Download from [rekordbox.com/en/download](https://rekordbox.com/en/download/)
+   - Make sure Rekordbox is installed and you have a library set up
 
-**If you only want to use Spotify features** (like the `crawl` command), you can skip this step.
+2. **Install SQLCipher 4.0.0+**
+   
+   SQLCipher is required to access the encrypted Rekordbox database. Install it for your platform:
+
+   **macOS (Homebrew):**
+   ```bash
+   brew install sqlcipher
+   ```
+
+   **Windows:**
+   - Download pre-compiled binaries from [zetetic.net/sqlcipher/downloads](https://www.zetetic.net/sqlcipher/downloads/)
+   - Extract and add to your system PATH
+
+   **Linux:**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt install sqlcipher
+
+   # Fedora
+   sudo dnf install sqlcipher
+   ```
+
+   The library will automatically detect SQLCipher in common installation locations. If you have a custom installation, you can set the path manually (see below).
+
+#### Environment Variables (Optional)
+
+InPhase uses the `rekorddart` package to access your Rekordbox database. Most users won't need to set these, but they're available if needed:
+
+**SQLCIPHER_DYLIB** (Optional - only needed for custom SQLCipher installations):
+```bash
+# macOS/Linux
+export SQLCIPHER_DYLIB=/path/to/your/libsqlcipher.dylib
+
+# Windows PowerShell
+[System.Environment]::SetEnvironmentVariable('SQLCIPHER_DYLIB', 'C:\path\to\libsqlcipher.dll', 'User')
+```
+
+**REKORDBOX_DB_KEY** (Optional - defaults to a standard key):
+```bash
+# macOS/Linux - add to your shell config file (~/.zshrc, ~/.bashrc, etc.)
+export REKORDBOX_DB_KEY=your_key_here
+
+# Windows PowerShell
+[System.Environment]::SetEnvironmentVariable('REKORDBOX_DB_KEY', 'your_key_here', 'User')
+```
+
+#### Getting the Rekordbox Database Key
+
+The database key is used to decrypt your Rekordbox database. You have three options:
+
+1. **Use the default key** (Recommended for most users):
+   - No action needed! InPhase will automatically use a default key if `REKORDBOX_DB_KEY` is not set.
+   - This works for most standard Rekordbox installations.
+
+2. **Download using the rekorddart tool**:
+   ```bash
+   # Install the rekorddart executable
+   dart pub global activate rekorddart
+   
+   # Download and display the encryption key
+   download_key
+   ```
+   Then copy the displayed key and set it as the `REKORDBOX_DB_KEY` environment variable (see above).
+
+3. **Set manually** (if you already know your key):
+   - Set the `REKORDBOX_DB_KEY` environment variable with your key (see above).
+
+#### Additional Resources
+
+For more detailed information, troubleshooting, or advanced configuration options, see the [rekorddart README](https://github.com/jeroen-meijer/rekorddart#getting-started).
+
+> **⚠️ Important**: Always make a backup of your Rekordbox library before using InPhase with Rekordbox features. While InPhase is designed to be safe, modifying your Rekordbox database directly can potentially cause issues if something goes wrong.
 
 ### Set Up Spotify API Credentials
 

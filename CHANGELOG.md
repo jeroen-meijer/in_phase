@@ -1,3 +1,9 @@
+## 1.1.4
+
+- feat: add `update` command to update InPhase to the latest version
+- docs: expand Rekordbox setup instructions with comprehensive rekorddart prerequisites
+- chore: update rekorddart to 1.1.1 (use default encryption key when REKORDBOX_DB_KEY is not set)
+
 ## 1.1.3
 
 - feat: add `cache clean` command to delete build folder containing sync and crawl reports

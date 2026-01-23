@@ -15,7 +15,7 @@ CommandRunner<int> createInPhaseCommandRunner({
 }) {
   final runner =
       CommandRunner<int>(
-          'in_phase',
+          Constants.commandName,
           'A command-line interface for Rekordbox database utilities.',
         )
         ..addCommand(CacheCommand())
@@ -24,7 +24,8 @@ CommandRunner<int> createInPhaseCommandRunner({
         ..addCommand(CuesCommand())
         ..addCommand(LoginCommand())
         ..addCommand(SearchCommand())
-        ..addCommand(SyncCommand());
+        ..addCommand(SyncCommand())
+        ..addCommand(UpdateCommand());
 
   runner.argParser
     ..addFlag(
