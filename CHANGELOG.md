@@ -1,3 +1,7 @@
+## Upcoming
+
+- fix: exit search after initial query instead of entering interactive mode
+
 ## 1.1.4
 
 - feat: add `update` command to update InPhase to the latest version

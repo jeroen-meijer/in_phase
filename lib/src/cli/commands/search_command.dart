@@ -88,9 +88,10 @@ class SearchCommand extends Command<int> {
 
       log.info('${green('✓')} Loaded ${allTracks.length} track(s)\n');
 
-      // If initial query provided, process it once
+      // If initial query provided, process it once and exit
       if (initialQuery.isNotEmpty) {
         await _processQuery(db, allTracks, initialQuery, limit);
+        return ExitCode.success.code;
       }
 
       // Interactive loop
