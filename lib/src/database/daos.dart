@@ -420,6 +420,18 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
       );
     });
   }
+
+  /// Removes invalid mappings for the given Spotify track IDs.
+  /// Use when a cached Rekordbox ID points to a deleted song and no new match
+  /// was found.
+  Future<void> deleteMappings(Iterable<SpotifyTrackId> spotifyTrackIds) async {
+    final ids = spotifyTrackIds.map((id) => id.toString()).toList();
+    if (ids.isEmpty) return;
+
+    await (delete(syncTrackMappings)
+          ..where((t) => t.spotifyTrackId.isIn(ids)))
+        .go();
+  }
 }
 
 /// Data access object for sync missing tracks.

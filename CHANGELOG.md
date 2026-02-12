@@ -1,5 +1,6 @@
 ## Upcoming
 
+- fix: remove invalid sync cache mappings when Rekordbox track was deleted
 - fix: exit search after initial query instead of entering interactive mode
 
 ## 1.1.4

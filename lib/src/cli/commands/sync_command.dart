@@ -230,8 +230,9 @@ class SyncCommand extends Command<int> {
         // Build initial tracklist from Spotify
         final rbPlaylistSongQueue = <_TracklistEntry>[];
 
-        // Batch collect mappings and missing tracks for bulk insert
+        // Batch collect mappings, invalid mappings to remove, and missing tracks
         final newMappings = <SpotifyTrackId, String>{};
+        final invalidMappingIds = <SpotifyTrackId>[];
         final newMissingTracks =
             <({SpotifyTrackId id, String artist, String title})>[];
 
@@ -311,6 +312,12 @@ class SyncCommand extends Command<int> {
           } else {
             logTrack('No match found, adding to missing tracks', first: false);
 
+            // Remove invalid cached mapping if we had one (e.g. Rekordbox track was
+            // deleted) so we re-search on next sync instead of retrying stale ID
+            if (cachedMappingId != null) {
+              invalidMappingIds.add(cachedTrack.id);
+            }
+
             // Batch collect missing track for bulk insert later
             newMissingTracks.add((
               id: cachedTrack.id,
@@ -327,6 +334,14 @@ class SyncCommand extends Command<int> {
               ),
             );
           }
+        }
+
+        // Remove invalid mappings (stale Rekordbox IDs for deleted tracks)
+        if (invalidMappingIds.isNotEmpty) {
+          logPlaylist(
+            'Removing ${invalidMappingIds.length} invalid mapping(s)...',
+          );
+          await syncDb.syncMappingsDao.deleteMappings(invalidMappingIds);
         }
 
         // Bulk insert all new mappings and missing tracks for this playlist
