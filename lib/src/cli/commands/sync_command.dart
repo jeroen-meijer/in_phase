@@ -230,7 +230,8 @@ class SyncCommand extends Command<int> {
         // Build initial tracklist from Spotify
         final rbPlaylistSongQueue = <_TracklistEntry>[];
 
-        // Batch collect mappings, invalid mappings to remove, and missing tracks
+        // Batch collect mappings, invalid mappings to remove,
+        // and missing tracks
         final newMappings = <SpotifyTrackId, String>{};
         final invalidMappingIds = <SpotifyTrackId>[];
         final newMissingTracks =
@@ -312,8 +313,9 @@ class SyncCommand extends Command<int> {
           } else {
             logTrack('No match found, adding to missing tracks', first: false);
 
-            // Remove invalid cached mapping if we had one (e.g. Rekordbox track was
-            // deleted) so we re-search on next sync instead of retrying stale ID
+            // Remove invalid cached mapping if we had one
+            // (e.g. Rekordbox track was deleted) so we re-search on next sync
+            // instead of retrying stale ID
             if (cachedMappingId != null) {
               invalidMappingIds.add(cachedTrack.id);
             }
@@ -700,7 +702,8 @@ List<_TracklistEntry> _processInserts({
 }) {
   final result = List<_TracklistEntry>.from(tracklist);
 
-  // Group inserts by their target index, storing offset info for relative positioning
+  // Group inserts by their target index, storing offset info for relative
+  // positioning
   final insertsByIndex =
       <
         int?,
@@ -732,7 +735,8 @@ List<_TracklistEntry> _processInserts({
           ),
         );
         logPlaylist(
-          '  ⚠️  WARNING: Custom track "$customTrackName" [${insert.rekordboxId}] '
+          '  ⚠️  WARNING: Custom track '
+          '"$customTrackName" [${insert.rekordboxId}] '
           'references missing target track ID ${insert.target}. Skipping.',
         );
         continue;
@@ -752,7 +756,8 @@ List<_TracklistEntry> _processInserts({
         ),
       );
       logPlaylist(
-        '  ⚠️  WARNING: Custom track "$customTrackName" [${insert.rekordboxId}] '
+        '  ⚠️  WARNING: Custom track '
+        '"$customTrackName" [${insert.rekordboxId}] '
         'specifies out-of-bounds index $targetIndex. Appending to end.',
       );
       targetIndex = null;
@@ -774,7 +779,8 @@ List<_TracklistEntry> _processInserts({
       ),
     );
     logPlaylist(
-      '  ├ Appending custom track "$customTrackName" [${entry.insert.rekordboxId}] '
+      '  ├ Appending custom track '
+      '"$customTrackName" [${entry.insert.rekordboxId}] '
       'to end of playlist',
     );
     result.add(

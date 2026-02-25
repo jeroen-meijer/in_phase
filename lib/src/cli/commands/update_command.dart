@@ -39,11 +39,12 @@ class UpdateCommand extends Command<int> {
       return ExitCode.success.code;
     }
 
-    log.info(
-      'New version available: ${blue(latestVersion)} '
-      '(current: ${Constants.version})',
-    );
-    log.info('Updating InPhase...');
+    log
+      ..info(
+        'New version available: ${blue(latestVersion)} '
+        '(current: ${Constants.version})',
+      )
+      ..info('Updating InPhase...');
 
     late ProcessResult result;
     try {
