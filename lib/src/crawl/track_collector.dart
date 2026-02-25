@@ -1191,7 +1191,7 @@ class TrackCollector {
               label: album.label,
               artistNames: album.artists
                   ?.map((a) => a.name ?? '')
-                  .where((String n) => n.isNotEmpty)
+                  .where((n) => n.isNotEmpty)
                   .toList(),
               cachedAt: DateTime.now(),
             );

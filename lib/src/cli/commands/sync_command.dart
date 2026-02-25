@@ -147,7 +147,7 @@ class SyncCommand extends Command<int> {
               return (
                 id: SpotifyTrackId(track.id!),
                 name: track.name!,
-                artistNames: track.artists!.map((Artist a) => a.name!).toList(),
+                artistNames: track.artists!.map((a) => a.name!).toList(),
               );
             },
           ).toList();
