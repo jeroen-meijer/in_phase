@@ -85,23 +85,32 @@ class _Logger {
       ].join(isMultiLine ? ' ↴\n' : ' ');
     }
 
-    // ignore: avoid_print
-    print(message);
+    raw(message);
   }
 
+  /// Prints the object at debug level.
   void debug(Object? object) {
     _log(_LogLevel.debug, object);
   }
 
+  /// Prints the object at info level.
   void info(Object? object) {
     _log(_LogLevel.info, object);
   }
 
+  /// Prints the object at warning level.
   void warning(Object? object) {
     _log(_LogLevel.warning, object);
   }
 
+  /// Prints the object at error level.
   void error(Object? object) {
     _log(_LogLevel.error, object);
+  }
+
+  /// Prints the object without any formatting or coloring.
+  void raw(Object? object) {
+    // ignore: avoid_print
+    print(object);
   }
 }

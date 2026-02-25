@@ -23,17 +23,14 @@ Future<void> ensureDefaultConfigs() async {
     await appDataDir.create(recursive: true);
   }
 
-  // Initialize sync config if it doesn't exist
-  final syncConfigFile = Constants.syncConfigFile;
-  if (!await syncConfigFile.exists()) {
-    await syncConfigFile.create(recursive: true);
-    await syncConfigFile.writeAsString(DefaultConfigs.syncConfig);
-  }
+  await _ensureConfig(Constants.syncConfigFile, DefaultConfigs.syncConfig);
+  await _ensureConfig(Constants.crawlConfigFile, DefaultConfigs.crawlConfig);
+  await _ensureConfig(Constants.curateConfigFile, DefaultConfigs.curateConfig);
+}
 
-  // Initialize crawl config if it doesn't exist
-  final crawlConfigFile = Constants.crawlConfigFile;
-  if (!await crawlConfigFile.exists()) {
-    await crawlConfigFile.create(recursive: true);
-    await crawlConfigFile.writeAsString(DefaultConfigs.crawlConfig);
+Future<void> _ensureConfig(File file, String defaultContent) async {
+  if (!await file.exists()) {
+    await file.create(recursive: true);
+    await file.writeAsString(defaultContent);
   }
 }

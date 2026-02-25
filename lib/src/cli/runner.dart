@@ -20,6 +20,7 @@ CommandRunner<int> createInPhaseCommandRunner({
         ..addCommand(CacheCommand())
         ..addCommand(ConfigCommand())
         ..addCommand(CrawlCommand())
+        ..addCommand(CurateCommand())
         ..addCommand(CuesCommand())
         ..addCommand(LoginCommand())
         ..addCommand(SearchCommand())
@@ -58,16 +59,19 @@ Future<int> runInPhaseCli(List<String> arguments) async {
       return ExitCode.success.code;
     }
 
-    return runWithCliDependencies<int?>(
+    final exitCode = await runWithCliDependencies<int?>(
       () async {
         try {
           return runner.run(arguments);
+        } on UsageException {
+          rethrow;
         } catch (e) {
           printerr(e);
           return ExitCode.software.code;
         }
       },
-    ).then((exitCode) => exitCode ?? ExitCode.success.code);
+    );
+    return exitCode ?? ExitCode.success.code;
   } on UsageException catch (e) {
     printerr(e.message);
     printerr(e.usage);

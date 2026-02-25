@@ -8,6 +8,28 @@ extension type SpotifyPlaylistId(String _value) implements String {
     return null;
   }
 
+  /// Extracts playlist ID from ID, URI (spotify:playlist:xxx), or share URL.
+  static SpotifyPlaylistId? tryExtract(String input) {
+    final s = input.trim();
+
+    // Check for URI
+    if (s.startsWith('spotify:playlist:')) {
+      final id = s.split(':').last.split('?').first;
+      return tryParse(id);
+    }
+
+    // Check for share URL
+    if (Uri.tryParse(s) case Uri(
+      host: 'open.spotify.com' || 'spotify.com',
+      pathSegments: ['playlist', final id, ...],
+    )) {
+      return tryParse(id);
+    }
+
+    // Check for ID
+    return tryParse(s);
+  }
+
   String get uri => 'spotify:playlist:$_value';
 }
 

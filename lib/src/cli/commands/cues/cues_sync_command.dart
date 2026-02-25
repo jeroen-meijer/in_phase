@@ -41,10 +41,9 @@ class CuesSyncCommand extends Command<int> {
 
     // Validate that exactly one flag is provided
     if (fromMemory == fromHot) {
-      log.error(
+      usageException(
         'Exactly one of --from-memory or --from-hot must be specified.',
       );
-      return ExitCode.usage.code;
     }
 
     final syncDirection = fromMemory

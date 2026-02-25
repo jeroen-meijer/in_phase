@@ -1,4 +1,4 @@
-/// Default configuration files for sync and crawl commands.
+/// Default configuration files for sync, crawl, and curate commands.
 ///
 /// These are embedded as string constants to ensure they're always available,
 /// even when the package is globally activated via `dart pub global activate`.
@@ -141,5 +141,31 @@ custom_tracks: {}
 #       - "Label Name 1"
 #       - "Label Name 2"
 jobs: []
+''';
+
+  /// Default curate configuration.
+  static const String curateConfig = '''
+# Curate Configuration
+# Usage: in_phase curate <playlist> [--skip=N]
+# Playlist: ID, URI (spotify:playlist:...), or share URL (https://open.spotify.com/playlist/...)
+# See CURATE_CONFIG.md for full documentation.
+
+# Start each track at this position (default 1:15)
+start_position: "1:15"
+
+# Seek step in seconds when pressing ←/→
+seek_step: 15
+
+# When true, advance to next track after adding to one playlist.
+# When false, stay so you can add to multiple playlists before continuing.
+next_after_add: false
+
+# Target playlists to add to (key 1 = first, key 2 = second, etc.)
+# Replace with your playlist ID, URI, or share URL
+targets:
+  - id: "YOUR_PLAYLIST_ID_1"
+    name: "Favorites"
+  - id: "YOUR_PLAYLIST_ID_2"
+    name: "To Review"
 ''';
 }

@@ -9,6 +9,8 @@ export 'musical_key.dart';
 export 'nullable_extensions.dart';
 export 'request_pool.dart';
 export 'string_extensions.dart';
+export 'terminal_style.dart';
+export 'time_utils.dart';
 export 'with_teardown.dart';
 export 'yaml_map_extensions.dart';
 export 'zonable.dart';

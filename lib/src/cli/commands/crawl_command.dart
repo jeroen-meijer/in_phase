@@ -103,8 +103,9 @@ class CrawlCommand extends Command<int> {
             .toList();
 
         if (jobsToRun.isEmpty) {
-          log.error('No matching jobs found for: ${requestedJobs.join(', ')}');
-          return ExitCode.usage.code;
+          usageException(
+            'No matching jobs found for: ${requestedJobs.join(', ')}',
+          );
         }
       }
 
@@ -124,11 +125,9 @@ class CrawlCommand extends Command<int> {
           customStartDate = DateTime.parse(startDateStr);
           log.info('Using custom start date: ${formatDate(customStartDate)}');
         } catch (e) {
-          log.error(
-            'Invalid start date format: $startDateStr. '
-            'Expected YYYY-MM-DD',
+          usageException(
+            'Invalid start date format: $startDateStr. Expected YYYY-MM-DD',
           );
-          return ExitCode.usage.code;
         }
       }
 
@@ -137,17 +136,17 @@ class CrawlCommand extends Command<int> {
           customEndDate = DateTime.parse(endDateStr);
           log.info('Using custom end date: ${formatDate(customEndDate)}');
         } catch (e) {
-          log.error(
+          usageException(
             'Invalid end date format: $endDateStr. Expected YYYY-MM-DD',
           );
-          return ExitCode.usage.code;
         }
       }
 
       if (customStartDate != null && customEndDate != null) {
         if (customStartDate.isAfter(customEndDate)) {
-          log.error('Start date must be before or equal to end date');
-          return ExitCode.usage.code;
+          usageException(
+            'Start date must be before or equal to end date',
+          );
         }
       }
 

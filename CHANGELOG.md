@@ -2,6 +2,7 @@
 
 ## 1.1.5
 
+- feat: add `curate` command to preview playlist tracks and organize them into target playlists
 - fix: remove invalid sync cache mappings when Rekordbox track was deleted
 - fix: exit search after initial query instead of entering interactive mode
 

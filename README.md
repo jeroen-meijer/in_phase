@@ -257,6 +257,15 @@ in_phase crawl
 
 Automatically discovers new tracks from configured sources (playlists, artists, labels, or YouTube channels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
 
+### Curate playlists
+
+```bash
+# Preview tracks and add to target playlists
+in_phase curate <playlist>
+```
+
+Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](CURATE_CONFIG.md) for configuration details.
+
 ### Open config directory
 
 ```bash

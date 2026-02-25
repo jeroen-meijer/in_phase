@@ -443,10 +443,9 @@ class SyncCommand extends Command<int> {
   ) async {
     final playlistIds = args
         .map((e) => e.trim())
-        .map((e) => Uri.tryParse(e)?.pathSegments.last ?? e)
         .map(
           (e) =>
-              SpotifyPlaylistId.tryParse(e) ??
+              SpotifyPlaylistId.tryExtract(e) ??
               (throw Exception('Invalid playlist ID: $e')),
         );
 
