@@ -428,9 +428,9 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
     final ids = spotifyTrackIds.map((id) => id.toString()).toList();
     if (ids.isEmpty) return;
 
-    await (delete(syncTrackMappings)
-          ..where((t) => t.spotifyTrackId.isIn(ids)))
-        .go();
+    await (delete(
+      syncTrackMappings,
+    )..where((t) => t.spotifyTrackId.isIn(ids))).go();
   }
 }
 
