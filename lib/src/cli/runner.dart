@@ -4,7 +4,6 @@ import 'package:args/command_runner.dart';
 import 'package:dcli/dcli.dart' hide Env;
 import 'package:in_phase/src/cli/cli.dart';
 import 'package:in_phase/src/logger/logger.dart';
-import 'package:in_phase/src/misc/config_initializer.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:io/io.dart';
 
