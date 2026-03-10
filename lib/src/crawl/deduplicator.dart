@@ -1,4 +1,4 @@
-import 'package:in_phase/src/crawl/track_collector.dart';
+import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/entities/entities.dart';
 
 /// Deduplicates a list of tracks based on the specified mode.

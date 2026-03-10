@@ -19,7 +19,11 @@ class _Logger {
 
   DateTime? _lastLogTime;
 
-  void _log(_LogLevel logLevel, Object? object) {
+  void _log(
+    _LogLevel logLevel,
+    Object? object, {
+    String tag = '',
+  }) {
     if (logLevel == _LogLevel.debug && !debugMode) {
       return;
     }
@@ -48,9 +52,15 @@ class _Logger {
     final deserializedObjectLines = deserializedObject.split('\n');
     final isMultiLine = deserializedObjectLines.length > 1;
 
+    const tagColumnWidth = 24;
+    final tagPrefix = tag.isEmpty
+        ? ''
+        : '${grey('[$tag]'.padRight(tagColumnWidth), level: 0)} ';
+
     var message = deserializedObjectLines
         .map((line) => isMultiLine ? '  $line' : line)
         .map((line) => color?.call(line) ?? line)
+        .map((line) => tagPrefix.isEmpty ? line : tagPrefix + line)
         .join('\n');
     if (debugMode) {
       final now = DateTime.now();
@@ -89,23 +99,27 @@ class _Logger {
   }
 
   /// Prints the object at debug level.
-  void debug(Object? object) {
-    _log(_LogLevel.debug, object);
+  /// [tag] When non-empty, prepended in grey to identify the log source.
+  void debug(Object? object, {String tag = ''}) {
+    _log(_LogLevel.debug, object, tag: tag);
   }
 
   /// Prints the object at info level.
-  void info(Object? object) {
-    _log(_LogLevel.info, object);
+  /// [tag] When non-empty, prepended in grey to identify the log source.
+  void info(Object? object, {String tag = ''}) {
+    _log(_LogLevel.info, object, tag: tag);
   }
 
   /// Prints the object at warning level.
-  void warning(Object? object) {
-    _log(_LogLevel.warning, object);
+  /// [tag] When non-empty, prepended in grey to identify the log source.
+  void warning(Object? object, {String tag = ''}) {
+    _log(_LogLevel.warning, object, tag: tag);
   }
 
   /// Prints the object at error level.
-  void error(Object? object) {
-    _log(_LogLevel.error, object);
+  /// [tag] When non-empty, prepended in grey to identify the log source.
+  void error(Object? object, {String tag = ''}) {
+    _log(_LogLevel.error, object, tag: tag);
   }
 
   /// Prints the object without any formatting or coloring.

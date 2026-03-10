@@ -1,4 +1,5 @@
 export 'cache_models.dart';
+export 'collect_config.dart';
 export 'crawl_config.dart';
 export 'curate_config.dart';
 export 'reports/reports.dart';

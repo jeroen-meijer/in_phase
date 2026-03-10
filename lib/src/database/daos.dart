@@ -12,6 +12,7 @@ typedef SyncedTrack = ({
   SpotifyTrackId id,
   String name,
   List<String> artistNames,
+  DateTime? addedAt,
 });
 
 /// DAO for cached playlists operations.
@@ -445,6 +446,7 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     required SpotifyTrackId spotifyTrackId,
     required String artist,
     required String title,
+    required DateTime lastInsertedAt,
     String? itunesUrl,
   }) async {
     await into(syncMissingTracks).insertOnConflictUpdate(
@@ -453,7 +455,7 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
         artist: artist,
         title: title,
         itunesUrl: Value(itunesUrl),
-        lastInsertedAt: DateTime.now(),
+        lastInsertedAt: lastInsertedAt,
       ),
     );
   }
@@ -465,11 +467,11 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
 
   /// Batch inserts multiple missing tracks.
   Future<void> insertMissingTracksBatch(
-    List<({SpotifyTrackId id, String artist, String title})> tracks,
+    List<({SpotifyTrackId id, String artist, String title, DateTime addedAt})>
+    tracks,
   ) async {
     if (tracks.isEmpty) return;
 
-    final now = DateTime.now();
     await batch((batch) {
       batch.insertAllOnConflictUpdate(
         syncMissingTracks,
@@ -480,11 +482,23 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
               artist: track.artist,
               title: track.title,
               itunesUrl: const Value(null),
-              lastInsertedAt: now,
+              lastInsertedAt: track.addedAt,
             ),
         ],
       );
     });
+  }
+
+  /// Removes tracks from the missing table once they are found.
+  Future<void> deleteMissingTracks(
+    Iterable<SpotifyTrackId> spotifyTrackIds,
+  ) async {
+    final ids = spotifyTrackIds.map((id) => id.toString()).toList();
+    if (ids.isEmpty) return;
+
+    await (delete(
+      syncMissingTracks,
+    )..where((t) => t.spotifyTrackId.isIn(ids))).go();
   }
 }
 

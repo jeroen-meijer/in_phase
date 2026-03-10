@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:in_phase/src/crawl/date_utils.dart';
+import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart' as entities;
 import 'package:in_phase/src/logger/logger.dart';
@@ -155,14 +155,21 @@ class TrackCollector {
   final RequestPool requestPool;
   final CacheAdapter cacheAdapter;
 
+  static String _shortId(String id, {int maxLen = 12}) =>
+      id.length > maxLen ? id.substring(0, maxLen) : id;
+
   /// Collects tracks from a playlist within the specified date range.
   Future<List<CollectedTrack>> collectFromPlaylist(
     String playlistId,
     DateTime cutoffDate,
     DateTime endDate,
-    entities.PlaylistTrackDateMode dateMode,
-  ) async {
-    log.info('  📜 Collecting from playlist: $playlistId');
+    entities.PlaylistTrackDateMode dateMode, {
+    CrawlProgressReporter? progress,
+  }) async {
+    var tag = _shortId(playlistId);
+    if (progress == null) {
+      log.info(tag: tag, '  📜 Collecting from playlist: $playlistId');
+    }
 
     final spotifyPlaylistId = SpotifyPlaylistId(playlistId);
 
@@ -174,8 +181,12 @@ class TrackCollector {
 
     final snapshotId = playlist.snapshotId ?? '';
     final playlistName = playlist.name ?? 'Unknown Playlist';
+    tag = playlistName;
+    progress?.setDisplayName(playlistName);
 
-    log.info('    Playlist: $playlistName (snapshot: $snapshotId)');
+    if (progress == null) {
+      log.info(tag: tag, '    Playlist: $playlistName (snapshot: $snapshotId)');
+    }
 
     // Check if cached and unchanged
     final cachedPlaylist = await cacheAdapter.getPlaylist(spotifyPlaylistId);
@@ -184,7 +195,9 @@ class TrackCollector {
       snapshotId,
     );
     if (cachedPlaylist != null && !isChanged) {
-      log.info('    💾 Using cached playlist data');
+      if (progress == null) {
+        log.info(tag: tag, '    💾 Using cached playlist data');
+      }
       return _filterPlaylistTracksByDate(
         cachedPlaylist.tracks,
         cutoffDate,
@@ -192,11 +205,14 @@ class TrackCollector {
         playlistId,
         playlistName,
         dateMode,
+        suppressStatusLogs: progress != null,
       );
     }
 
     // Fetch tracks from Spotify
-    log.info('    🔄 Fetching tracks from Spotify...');
+    if (progress == null) {
+      log.info(tag: tag, '    🔄 Fetching tracks from Spotify...');
+    }
     final playlistTracks = await requestPool.request(
       () => api.playlists.getPlaylistTracks(playlistId).all(50),
       identifier: SpotifyCacheIdentifier.playlistTracks(spotifyPlaylistId),
@@ -230,7 +246,45 @@ class TrackCollector {
       ),
     );
 
-    log.info('    ✅ Found ${playlistTracks.length} tracks from playlist');
+    if (progress == null) {
+      log.info(
+        tag: tag,
+        '    ✅ Found ${playlistTracks.length} tracks from playlist',
+      );
+    }
+
+    // Pre-fetch albums needing release date (batch for request pool)
+    final albumIdsToFetch = <SpotifyAlbumId>[];
+    if (dateMode == entities.PlaylistTrackDateMode.releaseDate) {
+      final seen = <SpotifyAlbumId>{};
+      for (final playlistTrack in playlistTracks) {
+        final track = playlistTrack.track;
+        if (track?.album?.id == null || track?.album?.releaseDate != null) {
+          continue;
+        }
+        final albumId = SpotifyAlbumId(track!.album!.id!);
+        if (seen.add(albumId)) albumIdsToFetch.add(albumId);
+      }
+    }
+    final albumFutures = albumIdsToFetch.map(
+      (albumId) async {
+        try {
+          return await requestPool.request(
+            () => api.albums.get(albumId.toString()),
+            identifier: SpotifyCacheIdentifier.album(albumId),
+          );
+        } catch (e) {
+          log.warning(tag: tag, '    ⚠️  Error fetching album $albumId: $e');
+          return null;
+        }
+      },
+    );
+    final fetchedAlbums = <SpotifyAlbumId, Album>{};
+    final albumResults = await Future.wait(albumFutures);
+    for (var i = 0; i < albumIdsToFetch.length; i++) {
+      final album = albumResults[i];
+      if (album != null) fetchedAlbums[albumIdsToFetch[i]] = album;
+    }
 
     // Convert to CollectedTrack with date filtering
     final collectedTracks = <CollectedTrack>[];
@@ -245,30 +299,25 @@ class TrackCollector {
       if (dateMode == entities.PlaylistTrackDateMode.addedDate) {
         trackDate = playlistTrack.addedAt!;
       } else {
-        // Use release date - need to get it from the album
+        // Use release date - from album or pre-fetched map
         var releaseDate = track.album?.releaseDate;
         var albumToCache = track.album;
 
-        // If release date is missing, try to fetch the full album
         if (releaseDate == null && track.album?.id != null) {
-          try {
-            final album = await requestPool.request(
-              () => api.albums.get(track.album!.id!),
-              identifier: SpotifyCacheIdentifier.album(
-                SpotifyAlbumId(track.album!.id!),
-              ),
-            );
-            releaseDate = album.releaseDate;
-            albumToCache = album;
-          } catch (e) {
+          final albumId = SpotifyAlbumId(track.album!.id!);
+          final fetched = fetchedAlbums[albumId];
+          if (fetched != null) {
+            releaseDate = fetched.releaseDate;
+            albumToCache = fetched;
+          } else {
             log.warning(
-              '    ⚠️  Error fetching album ${track.album!.id!}: $e',
+              tag: tag,
+              '    ⚠️  Could not get album ${track.album!.id!} for release date',
             );
           }
         }
 
         if (releaseDate == null) {
-          // Skip tracks without release date
           continue;
         }
 
@@ -282,7 +331,6 @@ class TrackCollector {
                 id: albumId,
                 name: albumToCache.name ?? '',
                 releaseDate: releaseDate,
-                // AlbumSimple doesn't have label, only full Album does
                 label: albumToCache is Album ? albumToCache.label : null,
                 artistNames: albumToCache.artists
                     ?.map((a) => a.name ?? '')
@@ -297,6 +345,7 @@ class TrackCollector {
           trackDate = parseSpotifyReleaseDate(releaseDate);
         } catch (e) {
           log.warning(
+            tag: tag,
             '    ⚠️  Could not parse release date for track ${track.id}: '
             '$releaseDate',
           );
@@ -332,12 +381,14 @@ class TrackCollector {
           track.artists?.map((a) => a.name ?? '').join(', ') ??
           'Unknown Artist';
       log.debug(
+        tag: tag,
         '    ✓ $artistNames - ${track.name} '
         '(included because $dateModeText on ${formatDate(trackDate)})',
       );
     }
 
     log.info(
+      tag: tag,
       '    📅 ${collectedTracks.length} tracks in date range '
       '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
       // ignore: lines_longer_than_80_chars
@@ -351,9 +402,13 @@ class TrackCollector {
   Future<List<CollectedTrack>> collectFromArtist(
     String artistId,
     DateTime cutoffDate,
-    DateTime endDate,
-  ) async {
-    log.info('  🎤 Collecting from artist: $artistId');
+    DateTime endDate, {
+    CrawlProgressReporter? progress,
+  }) async {
+    var tag = _shortId(artistId);
+    if (progress == null) {
+      log.info(tag: tag, '  🎤 Collecting from artist: $artistId');
+    }
 
     final spotifyArtistId = SpotifyArtistId(artistId);
 
@@ -362,8 +417,12 @@ class TrackCollector {
     final String artistName;
 
     if (cachedArtist != null && !cachedArtist.isStale) {
-      log.info('    💾 Using cached artist metadata');
+      tag = cachedArtist.name;
       artistName = cachedArtist.name;
+      progress?.setDisplayName(artistName);
+      if (progress == null) {
+        log.info(tag: tag, '    💾 Using cached artist metadata');
+      }
     } else {
       // Fetch artist info
       final artist = await requestPool.request(
@@ -372,6 +431,8 @@ class TrackCollector {
       );
 
       artistName = artist.name ?? 'Unknown Artist';
+      tag = artistName;
+      progress?.setDisplayName(artistName);
 
       // Cache artist metadata
       await cacheAdapter.cacheArtist(
@@ -384,7 +445,9 @@ class TrackCollector {
       );
     }
 
-    log.info('    Artist: $artistName');
+    if (progress == null) {
+      log.info(tag: tag, '    Artist: $artistName');
+    }
 
     // Check if artist albums are cached and fresh (from today)
     final cachedArtistAlbums = await cacheAdapter.getArtistAlbums(
@@ -393,7 +456,12 @@ class TrackCollector {
     final List<Album> albums;
 
     if (cachedArtistAlbums != null && cachedArtistAlbums.isFreshToday) {
-      log.info('    💾 Using cached artist albums list (fresh today)');
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    💾 Using cached artist albums list (fresh today)',
+        );
+      }
       // Reconstruct album list from cached IDs
       // We still need minimal album info, but we can use our album cache
       albums = [];
@@ -409,12 +477,20 @@ class TrackCollector {
           );
         }
       }
-      log.info('    Reconstructed ${albums.length} albums from cache');
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    Reconstructed ${albums.length} albums from cache',
+        );
+      }
     } else {
-      log.info(
-        '    🔄 Fetching artist albums '
-        '${cachedArtistAlbums != null ? '(cache stale)' : '(not cached)'}',
-      );
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    🔄 Fetching artist albums '
+          '${cachedArtistAlbums != null ? '(cache stale)' : '(not cached)'}',
+        );
+      }
 
       // Fetch albums with early termination (cache-based and date-based)
       // Using getPage() instead of stream() to enable RequestPool deduplication
@@ -430,6 +506,7 @@ class TrackCollector {
       while (true) {
         pagesFetched++;
         log.debug(
+          tag: tag,
           '    Fetching page $pagesFetched of artist albums (offset: $offset)',
         );
 
@@ -451,10 +528,13 @@ class TrackCollector {
           // Check if we hit a cached album - if so, stop fetching
           if (cachedArtistAlbums != null &&
               cachedArtistAlbums.albumIds.contains(albumId)) {
-            log.info(
-              '    ✓ Found cached album "${album.name}", '
-              'stopping fetch and using cache',
-            );
+            if (progress == null) {
+              log.info(
+                tag: tag,
+                '    ✓ Found cached album "${album.name}", '
+                'stopping fetch and using cache',
+              );
+            }
             hitCache = true;
             break;
           }
@@ -465,16 +545,20 @@ class TrackCollector {
             try {
               final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
               if (releaseDate.isBefore(cutoffDate)) {
-                log.info(
-                  '    ✓ Found album "${album.name}" from '
-                  '${formatDate(releaseDate)}, before cutoff '
-                  '${formatDate(cutoffDate)}, stopping fetch',
-                );
+                if (progress == null) {
+                  log.info(
+                    tag: tag,
+                    '    ✓ Found album "${album.name}" from '
+                    '${formatDate(releaseDate)}, before cutoff '
+                    '${formatDate(cutoffDate)}, stopping fetch',
+                  );
+                }
                 hitDateCutoff = true;
                 break;
               }
             } catch (e) {
               log.warning(
+                tag: tag,
                 '    ⚠️  Could not parse release date: ${album.releaseDate}',
               );
             }
@@ -530,39 +614,59 @@ class TrackCollector {
           : hitDateCutoff
           ? 'date cutoff'
           : 'full fetch';
-      log.info(
-        '    Found ${albums.length} albums/singles '
-        '($pagesFetched pages, $terminationReason)',
-      );
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    Found ${albums.length} albums/singles '
+          '($pagesFetched pages, $terminationReason)',
+        );
+      }
     }
 
-    // Filter albums by release date
+    // Filter albums by release date (batch fetch for request pool)
+    final albumIdsNeedingFetch = <SpotifyAlbumId>[];
+    final seen = <SpotifyAlbumId>{};
+    for (final album in albums) {
+      if (album.releaseDate == null && album.id != null) {
+        final albumId = SpotifyAlbumId(album.id!);
+        if (seen.add(albumId)) albumIdsNeedingFetch.add(albumId);
+      }
+    }
+    final filterAlbumFutures = albumIdsNeedingFetch.map(
+      (albumId) async {
+        try {
+          return await requestPool.request(
+            () => api.albums.get(albumId.toString()),
+            identifier: SpotifyCacheIdentifier.album(albumId),
+          );
+        } catch (e) {
+          log.warning(tag: tag, '    ⚠️  Error fetching album $albumId: $e');
+          return null;
+        }
+      },
+    );
+    final filterAlbumResults = await Future.wait(filterAlbumFutures);
+    final filterFetchedAlbums = <SpotifyAlbumId, Album>{};
+    for (var i = 0; i < albumIdsNeedingFetch.length; i++) {
+      final a = filterAlbumResults[i];
+      if (a != null) filterFetchedAlbums[albumIdsNeedingFetch[i]] = a;
+    }
+
     final recentAlbums = <Album>[];
     for (final album in albums) {
       var releaseDate = album.releaseDate;
       var albumToCache = album;
 
-      // If release date is missing, try to fetch the full album
       if (releaseDate == null && album.id != null) {
-        try {
-          final fullAlbum = await requestPool.request(
-            () => api.albums.get(album.id!),
-            identifier: SpotifyCacheIdentifier.album(
-              SpotifyAlbumId(album.id!),
-            ),
-          );
+        final fullAlbum = filterFetchedAlbums[SpotifyAlbumId(album.id!)];
+        if (fullAlbum != null) {
           releaseDate = fullAlbum.releaseDate;
           albumToCache = fullAlbum;
-        } catch (e) {
-          log.warning(
-            '    ⚠️  Error fetching album ${album.id!}: $e',
-          );
         }
       }
 
       if (releaseDate == null) continue;
 
-      // Cache the album info if we have it and it's not already cached
       if (albumToCache.id != null) {
         final albumId = SpotifyAlbumId(albumToCache.id!);
         final hasAlbum = await cacheAdapter.hasAlbum(albumId);
@@ -589,22 +693,43 @@ class TrackCollector {
         }
       } catch (e) {
         log.warning(
+          tag: tag,
           '    ⚠️  Could not parse release date: $releaseDate',
         );
       }
     }
 
-    log.info('    ${recentAlbums.length} albums/singles in date range');
+    if (progress == null) {
+      log.info(
+        tag: tag,
+        '    ${recentAlbums.length} albums/singles in date range',
+      );
+    }
 
-    // Fetch tracks from recent albums
+    // Fetch tracks from recent albums (batch requests for request pool)
     final allTracks = <CollectedTrack>[];
-    for (final album in recentAlbums) {
-      try {
-        final albumFull = await requestPool.request(
-          () => api.albums.get(album.id!),
-          identifier: SpotifyCacheIdentifier.album(SpotifyAlbumId(album.id!)),
-        );
+    final albumFutures = recentAlbums.map(
+      (album) async {
+        try {
+          return await requestPool.request(
+            () => api.albums.get(album.id!),
+            identifier: SpotifyCacheIdentifier.album(
+              SpotifyAlbumId(album.id!),
+            ),
+          );
+        } catch (e) {
+          log.warning(tag: tag, '    ⚠️  Error fetching album ${album.id}: $e');
+          return null;
+        }
+      },
+    );
+    final albumFulls = await Future.wait(albumFutures);
 
+    for (var i = 0; i < recentAlbums.length; i++) {
+      final album = recentAlbums[i];
+      final albumFull = albumFulls[i];
+      if (albumFull == null) continue;
+      try {
         final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
 
         for (final track in albumFull.tracks ?? <TrackSimple>[]) {
@@ -630,6 +755,7 @@ class TrackCollector {
                 track.artists?.map((a) => a.name ?? '').join(', ') ??
                 'Unknown Artist';
             log.debug(
+              tag: tag,
               '    ✓ $artistNames - ${track.name} '
               '(included because released on ${formatDate(releaseDate)})',
             );
@@ -642,18 +768,20 @@ class TrackCollector {
           albumId: entities.CachedAlbum(
             id: albumId,
             name: albumFull.name ?? '',
-            releaseDate: album.releaseDate,
+            releaseDate: albumFull.releaseDate,
             label: albumFull.label,
             artistNames: albumFull.artists?.map((a) => a.name ?? '').toList(),
             cachedAt: DateTime.now(),
           ),
         });
       } catch (e) {
-        log.warning('    ⚠️  Error processing album ${album.id}: $e');
+        log.warning(tag: tag, '    ⚠️  Error processing album ${album.id}: $e');
       }
     }
 
-    log.info('    ✅ Found ${allTracks.length} tracks from artist');
+    if (progress == null) {
+      log.info(tag: tag, '    ✅ Found ${allTracks.length} tracks from artist');
+    }
 
     return allTracks;
   }
@@ -662,18 +790,30 @@ class TrackCollector {
   Future<List<CollectedTrack>> collectFromLabel(
     String labelName,
     DateTime cutoffDate,
-    DateTime endDate,
-  ) async {
-    log.info('  🏷️  Collecting from label: $labelName');
+    DateTime endDate, {
+    CrawlProgressReporter? progress,
+  }) async {
+    final tag = labelName;
+    progress?.setDisplayName(labelName);
+    if (progress == null) {
+      log.info(tag: tag, '  🏷️  Collecting from label: $labelName');
+    }
 
     // Check if label search is cached and fresh (from today)
     final cachedLabelSearch = await cacheAdapter.getLabelSearch(labelName);
     final List<Track> tracks;
 
     if (cachedLabelSearch != null && cachedLabelSearch.isFreshToday) {
-      log
-        ..info('    💾 Using cached label search results (fresh today)')
-        ..info('    Cached ${cachedLabelSearch.tracks.length} tracks');
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    💾 Using cached label search results (fresh today)',
+        );
+        log.info(
+          tag: tag,
+          '    Cached ${cachedLabelSearch.tracks.length} tracks',
+        );
+      }
 
       // Reconstruct Track objects from cached data
       tracks = cachedLabelSearch.tracks.map((cachedTrack) {
@@ -696,10 +836,13 @@ class TrackCollector {
         return track;
       }).toList();
     } else {
-      log.info(
-        '    🔄 Searching for label tracks '
-        '${cachedLabelSearch != null ? '(cache stale)' : '(not cached)'}',
-      );
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    🔄 Searching for label tracks '
+          '${cachedLabelSearch != null ? '(cache stale)' : '(not cached)'}',
+        );
+      }
 
       // Search for tracks by label
       final searchQuery = 'label:"$labelName"';
@@ -740,7 +883,39 @@ class TrackCollector {
       );
     }
 
-    log.info('    Found ${tracks.length} tracks from search');
+    if (progress == null) {
+      log.info(tag: tag, '    Found ${tracks.length} tracks from search');
+    }
+
+    // Pre-fetch albums needing full data (batch for request pool)
+    final albumIdsToFetch = <SpotifyAlbumId>[];
+    final seenAlbums = <SpotifyAlbumId>{};
+    for (final track in tracks) {
+      if (track.album?.id == null) continue;
+      final albumId = SpotifyAlbumId(track.album!.id!);
+      if (track.album?.releaseDate == null && seenAlbums.add(albumId)) {
+        albumIdsToFetch.add(albumId);
+      }
+    }
+    final albumFutures = albumIdsToFetch.map(
+      (albumId) async {
+        try {
+          return await requestPool.request(
+            () => api.albums.get(albumId.toString()),
+            identifier: SpotifyCacheIdentifier.album(albumId),
+          );
+        } catch (e) {
+          log.warning(tag: tag, '    ⚠️  Error fetching album $albumId: $e');
+          return null;
+        }
+      },
+    );
+    final fetchedAlbums = <SpotifyAlbumId, Album>{};
+    final albumResults = await Future.wait(albumFutures);
+    for (var i = 0; i < albumIdsToFetch.length; i++) {
+      final album = albumResults[i];
+      if (album != null) fetchedAlbums[albumIdsToFetch[i]] = album;
+    }
 
     // Filter tracks by release date and validate label match
     final collectedTracks = <CollectedTrack>[];
@@ -750,21 +925,12 @@ class TrackCollector {
       var releaseDate = track.album?.releaseDate;
       var albumToCache = track.album;
 
-      // If release date is missing, try to fetch the full album
       if (releaseDate == null && track.album?.id != null) {
-        try {
-          final album = await requestPool.request(
-            () => api.albums.get(track.album!.id!),
-            identifier: SpotifyCacheIdentifier.album(
-              SpotifyAlbumId(track.album!.id!),
-            ),
-          );
-          releaseDate = album.releaseDate;
-          albumToCache = album;
-        } catch (e) {
-          log.warning(
-            '    ⚠️  Error fetching album ${track.album!.id!}: $e',
-          );
+        final albumId = SpotifyAlbumId(track.album!.id!);
+        final fetched = fetchedAlbums[albumId];
+        if (fetched != null) {
+          releaseDate = fetched.releaseDate;
+          albumToCache = fetched;
         }
       }
 
@@ -802,13 +968,16 @@ class TrackCollector {
         final String trackLabel;
         if (cachedAlbum case entities.CachedAlbum(:final label?)) {
           trackLabel = label;
+        } else if (fetchedAlbums.containsKey(trackAlbumId)) {
+          fullAlbum = fetchedAlbums[trackAlbumId];
+          trackLabel = fullAlbum?.label ?? '';
         } else {
           final album = await requestPool.request(
             () => api.albums.get(track.album!.id!),
             identifier: SpotifyCacheIdentifier.album(trackAlbumId),
           );
           fullAlbum = album;
-          trackLabel = fullAlbum.label!;
+          trackLabel = album.label ?? '';
         }
 
         // Validate label match using fuzzy matching
@@ -838,6 +1007,7 @@ class TrackCollector {
               track.artists?.map((a) => a.name ?? '').join(', ') ??
               'Unknown Artist';
           log.debug(
+            tag: tag,
             '    ✓ $artistNames - ${track.name} '
             '(included because released on ${formatDate(parsedReleaseDate)} '
             'from label "$labelName")',
@@ -867,18 +1037,24 @@ class TrackCollector {
           mismatchedLabels.add(trackLabel);
         }
       } catch (e) {
-        log.warning('    ⚠️  Error processing track ${track.id}: $e');
+        log.warning(tag: tag, '    ⚠️  Error processing track ${track.id}: $e');
       }
     }
 
     if (mismatchedLabels.isNotEmpty) {
       log.info(
+        tag: tag,
         '    ⚠️  Skipped tracks from mismatched labels: '
         '${mismatchedLabels.join(', ')}',
       );
     }
 
-    log.info('    ✅ Found ${collectedTracks.length} tracks from label');
+    if (progress == null) {
+      log.info(
+        tag: tag,
+        '    ✅ Found ${collectedTracks.length} tracks from label',
+      );
+    }
 
     return collectedTracks;
   }
@@ -888,9 +1064,16 @@ class TrackCollector {
   Future<List<CollectedTrack>> collectFromYoutubeChannel(
     String channelIdentifier,
     DateTime cutoffDate,
-    DateTime endDate,
-  ) async {
-    log.info('  📺 Collecting from YouTube channel: $channelIdentifier');
+    DateTime endDate, {
+    CrawlProgressReporter? progress,
+  }) async {
+    var tag = _shortId(channelIdentifier);
+    if (progress == null) {
+      log.info(
+        tag: tag,
+        '  📺 Collecting from YouTube channel: $channelIdentifier',
+      );
+    }
 
     final yt = YoutubeExplode();
 
@@ -898,8 +1081,12 @@ class TrackCollector {
       final channel = await _getYoutubeChannel(yt, channelIdentifier);
       final channelName = channel.title;
       final channelId = channel.id.toString();
+      tag = channelName;
+      progress?.setDisplayName(channelName);
 
-      log.info('    Channel: $channelName');
+      if (progress == null) {
+        log.info(tag: tag, '    Channel: $channelName');
+      }
 
       final videosInRange = await _getVideosInDateRange(
         yt.channels.getUploads(channel.id),
@@ -907,13 +1094,24 @@ class TrackCollector {
         endDate,
       );
 
-      log.info('    Found ${videosInRange.length} videos in date range');
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    Found ${videosInRange.length} videos in date range',
+        );
+      }
+
+      // Batch Spotify searches for request pool utilization
+      final searchFutures = videosInRange.map(
+        (video) => _searchSpotifyForVideo(video, tag: tag),
+      );
+      final spotifyTracks = await Future.wait(searchFutures);
 
       final collectedTracks = <CollectedTrack>[];
-
-      for (final video in videosInRange) {
+      for (var i = 0; i < videosInRange.length; i++) {
         try {
-          final spotifyTrack = await _searchSpotifyForVideo(video);
+          final video = videosInRange[i];
+          final spotifyTrack = spotifyTracks[i];
           final videoDate = _getVideoDate(video);
           if (spotifyTrack != null && videoDate != null) {
             collectedTracks.add(
@@ -929,20 +1127,30 @@ class TrackCollector {
 
             final artistNames = _formatArtistNames(spotifyTrack.artists);
             log.debug(
+              tag: tag,
               '    ✓ $artistNames - ${spotifyTrack.name} '
               '(from YouTube: ${video.title})',
             );
           } else {
-            log.debug('    ⚠️  No Spotify match found for: ${video.title}');
+            log.debug(
+              tag: tag,
+              '    ⚠️  No Spotify match found for: ${video.title}',
+            );
           }
         } catch (e) {
-          log.warning('    ⚠️  Error processing video ${video.id}: $e');
+          log.warning(
+            tag: tag,
+            '    ⚠️  Error processing video ${videosInRange[i].id}: $e',
+          );
         }
       }
 
-      log.info(
-        '    ✅ Found ${collectedTracks.length} tracks from YouTube channel',
-      );
+      if (progress == null) {
+        log.info(
+          tag: tag,
+          '    ✅ Found ${collectedTracks.length} tracks from YouTube channel',
+        );
+      }
 
       return collectedTracks;
     } finally {
@@ -1036,12 +1244,12 @@ class TrackCollector {
   }
 
   /// Searches Spotify for a track matching the YouTube video.
-  Future<Track?> _searchSpotifyForVideo(Video video) async {
+  Future<Track?> _searchSpotifyForVideo(Video video, {String tag = ''}) async {
     final title = video.title;
     final parsed = _parseVideoTitle(title);
 
     if (parsed == null) {
-      return _searchSpotifyQuery(title);
+      return _searchSpotifyQuery(title, tag: tag);
     }
 
     // Try multiple search strategies in order of preference
@@ -1059,7 +1267,7 @@ class TrackCollector {
 
     for (final strategy in searchStrategies) {
       final query = strategy();
-      final track = await _searchSpotifyQuery(query);
+      final track = await _searchSpotifyQuery(query, tag: tag);
       if (track != null && _validateArtistMatch(track, parsed.artists)) {
         return track;
       }
@@ -1103,7 +1311,7 @@ class TrackCollector {
   }
 
   /// Performs a Spotify search with the given query string.
-  Future<Track?> _searchSpotifyQuery(String query) async {
+  Future<Track?> _searchSpotifyQuery(String query, {String tag = ''}) async {
     try {
       final searchResults = await requestPool.request(
         () => api.search.get(query, types: [SearchType.track]).first(5),
@@ -1116,7 +1324,7 @@ class TrackCollector {
 
       return tracks.isNotEmpty ? tracks.first : null;
     } catch (e) {
-      log.debug('    Search query failed: $query ($e)');
+      log.debug(tag: tag, '    Search query failed: $query ($e)');
       return null;
     }
   }
@@ -1158,8 +1366,10 @@ class TrackCollector {
     DateTime endDate,
     String playlistId,
     String playlistName,
-    entities.PlaylistTrackDateMode dateMode,
-  ) async {
+    entities.PlaylistTrackDateMode dateMode, {
+    bool suppressStatusLogs = false,
+  }) async {
+    final tag = playlistName;
     final filtered = <CollectedTrack>[];
 
     for (final track in cachedTracks) {
@@ -1199,6 +1409,7 @@ class TrackCollector {
             await cacheAdapter.cacheAlbums({albumId: cachedAlbum});
           } catch (e) {
             log.warning(
+              tag: tag,
               '    ⚠️  Error fetching album $albumId: $e',
             );
             continue;
@@ -1210,6 +1421,7 @@ class TrackCollector {
           trackDate = parseSpotifyReleaseDate(releaseDate);
         } catch (e) {
           log.warning(
+            tag: tag,
             '    ⚠️  Could not parse release date for '
             'cached track ${track.trackId}: '
             '$releaseDate',
@@ -1243,17 +1455,21 @@ class TrackCollector {
           ? 'added to playlist'
           : 'released';
       log.debug(
+        tag: tag,
         '    ✓ ${track.artistNames.join(', ')} - ${track.name} '
         '(included because $dateModeText on ${formatDate(trackDate)})',
       );
     }
 
-    log.info(
-      '    📅 ${filtered.length} cached tracks in date range '
-      '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
-      // ignore: lines_longer_than_80_chars
-      '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
-    );
+    if (!suppressStatusLogs) {
+      log.info(
+        tag: tag,
+        '    📅 ${filtered.length} cached tracks in date range '
+        '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
+        // ignore: lines_longer_than_80_chars
+        '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
+      );
+    }
 
     return filtered;
   }

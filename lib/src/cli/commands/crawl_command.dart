@@ -1,11 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:in_phase/src/crawl/cover_generator.dart';
-import 'package:in_phase/src/crawl/date_utils.dart';
-import 'package:in_phase/src/crawl/deduplicator.dart';
-import 'package:in_phase/src/crawl/template_engine.dart';
-import 'package:in_phase/src/crawl/track_collector.dart';
+import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/logger/logger.dart';
@@ -278,92 +274,169 @@ class CrawlCommand extends Command<int> {
       cacheAdapter: getCacheAdapter(),
     );
 
-    // Collect tracks from all sources
+    // Collect tracks from all sources (all started immediately for max pool use)
     final allTracks = <CollectedTrack>[];
+    final dateMode =
+        job.options?.addPlaylistTracksBasedOn ??
+        PlaylistTrackDateMode.releaseDate;
 
-    // Collect from playlists
     final playlistIds = job.inputs.playlists ?? [];
-    if (playlistIds.isNotEmpty) {
-      final dateMode =
-          job.options?.addPlaylistTracksBasedOn ??
-          PlaylistTrackDateMode.releaseDate;
-      log.info('  📜 Collecting from ${playlistIds.length} playlist(s)...');
-      for (final playlistId in playlistIds) {
-        try {
-          final tracks = await collector.collectFromPlaylist(
-            playlistId,
-            cutoffDate,
-            endDate,
-            dateMode,
-          );
-          allTracks.addAll(tracks);
-        } catch (e) {
-          log.error('    ❌ Error collecting from playlist $playlistId: $e');
-        }
-      }
-      log.info('');
-    }
-
-    // Collect from artists
     final artistIds = job.inputs.artists ?? [];
-    if (artistIds.isNotEmpty) {
-      log.info('  🎤 Collecting from ${artistIds.length} artist(s)...');
-      for (final artistId in artistIds) {
-        try {
-          final tracks = await collector.collectFromArtist(
-            artistId,
-            cutoffDate,
-            endDate,
-          );
-          allTracks.addAll(tracks);
-        } catch (e) {
-          log.error('    ❌ Error collecting from artist $artistId: $e');
-        }
-      }
-      log.info('');
-    }
-
-    // Collect from labels
     final labelNames = job.inputs.labels ?? [];
-    if (labelNames.isNotEmpty) {
-      log.info('  🏷️  Collecting from ${labelNames.length} label(s)...');
-      for (final labelName in labelNames) {
-        try {
-          final tracks = await collector.collectFromLabel(
-            labelName,
-            cutoffDate,
-            endDate,
-          );
-          allTracks.addAll(tracks);
-        } catch (e) {
-          log.error('    ❌ Error collecting from label $labelName: $e');
-        }
-      }
-      log.info('');
+    final youtubeChannelIds = job.inputs.youtubeChannels ?? [];
+
+    final identifiers = <String>[
+      ...playlistIds,
+      ...artistIds,
+      ...labelNames,
+      ...youtubeChannelIds,
+    ];
+
+    final display =
+        identifiers.isNotEmpty
+            ? CrawlProgressDisplay(identifiers: identifiers)
+            : null;
+
+    if (display != null) {
+      display.start();
     }
 
-    // Collect from YouTube channels
-    final youtubeChannelIds = job.inputs.youtubeChannels ?? [];
-    if (youtubeChannelIds.isNotEmpty) {
-      log.info(
-        '  📺 Collecting from ${youtubeChannelIds.length} '
-        'YouTube channel(s)...',
+    final collectionFutures = <Future<List<CollectedTrack>>>[];
+    var sourceIndex = 0;
+
+    for (final playlistId in playlistIds) {
+      final idx = sourceIndex++;
+      final progress = display?.reporterFor(idx);
+      collectionFutures.add(
+        collector
+            .collectFromPlaylist(
+              playlistId,
+              cutoffDate,
+              endDate,
+              dateMode,
+              progress: progress,
+            )
+            .then((tracks) {
+              display?.setDone(idx, tracks.length);
+              return tracks;
+            })
+            .catchError((Object e) {
+              if (display != null) {
+                display.setError(idx);
+              } else {
+                log.error('    ❌ Error collecting from playlist $playlistId: $e');
+              }
+              return <CollectedTrack>[];
+            }),
       );
-      for (final channelId in youtubeChannelIds) {
-        try {
-          final tracks = await collector.collectFromYoutubeChannel(
-            channelId,
-            cutoffDate,
-            endDate,
-          );
-          allTracks.addAll(tracks);
-        } catch (e) {
-          log.error(
-            '    ❌ Error collecting from YouTube channel $channelId: $e',
-          );
-        }
+    }
+
+    for (final artistId in artistIds) {
+      final idx = sourceIndex++;
+      final progress = display?.reporterFor(idx);
+      collectionFutures.add(
+        collector
+            .collectFromArtist(
+              artistId,
+              cutoffDate,
+              endDate,
+              progress: progress,
+            )
+            .then((tracks) {
+              display?.setDone(idx, tracks.length);
+              return tracks;
+            })
+            .catchError((Object e) {
+              if (display != null) {
+                display.setError(idx);
+              } else {
+                log.error('    ❌ Error collecting from artist $artistId: $e');
+              }
+              return <CollectedTrack>[];
+            }),
+      );
+    }
+
+    for (final labelName in labelNames) {
+      final idx = sourceIndex++;
+      final progress = display?.reporterFor(idx);
+      collectionFutures.add(
+        collector
+            .collectFromLabel(
+              labelName,
+              cutoffDate,
+              endDate,
+              progress: progress,
+            )
+            .then((tracks) {
+              display?.setDone(idx, tracks.length);
+              return tracks;
+            })
+            .catchError((Object e) {
+              if (display != null) {
+                display.setError(idx);
+              } else {
+                log.error('    ❌ Error collecting from label $labelName: $e');
+              }
+              return <CollectedTrack>[];
+            }),
+      );
+    }
+
+    for (final channelId in youtubeChannelIds) {
+      final idx = sourceIndex++;
+      final progress = display?.reporterFor(idx);
+      collectionFutures.add(
+        collector
+            .collectFromYoutubeChannel(
+              channelId,
+              cutoffDate,
+              endDate,
+              progress: progress,
+            )
+            .then((tracks) {
+              display?.setDone(idx, tracks.length);
+              return tracks;
+            })
+            .catchError((Object e) {
+              if (display != null) {
+                display.setError(idx);
+              } else {
+                log.error(
+                  '    ❌ Error collecting from YouTube channel $channelId: $e',
+                );
+              }
+              return <CollectedTrack>[];
+            }),
+      );
+    }
+
+    if (display == null) {
+      if (playlistIds.isNotEmpty) {
+        log.info('  📜 Collecting from ${playlistIds.length} playlist(s)...');
       }
-      log.info('');
+      if (artistIds.isNotEmpty) {
+        log.info('  🎤 Collecting from ${artistIds.length} artist(s)...');
+      }
+      if (labelNames.isNotEmpty) {
+        log.info('  🏷️  Collecting from ${labelNames.length} label(s)...');
+      }
+      if (youtubeChannelIds.isNotEmpty) {
+        log.info(
+          '  📺 Collecting from ${youtubeChannelIds.length} '
+          'YouTube channel(s)...',
+        );
+      }
+      if (collectionFutures.isNotEmpty) {
+        log.info('');
+      }
+    }
+
+    final collectionResults = await Future.wait(collectionFutures);
+
+    display?.stop();
+    for (final tracks in collectionResults) {
+      allTracks.addAll(tracks);
     }
 
     log.info('  📊 Collected ${allTracks.length} total tracks');

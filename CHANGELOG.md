@@ -1,5 +1,10 @@
 ## Upcoming
 
+- feat(crawl): add in-place TUI with parallel collection, progress display, slots for active sources, recently completed section, spinner and checkmarks, fall back to log output when not a TTY
+- refactor(curate): extract command into curate/ module (types, key handler, display) for maintainability
+- fix(curate): stop re-printing "Added to" status when pressing N after adding a track
+- chore: adopt recursive barrel files (crawl, curate, reports) and update imports to use highest available barrel
+
 ## 1.1.5
 
 - feat: add `curate` command to preview playlist tracks and organize them into target playlists

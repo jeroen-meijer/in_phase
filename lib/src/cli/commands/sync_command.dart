@@ -9,7 +9,7 @@ import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
-import 'package:in_phase/src/reports/sync_report_generator.dart';
+import 'package:in_phase/src/reports/reports.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:io/io.dart';
 import 'package:rekorddart/rekorddart.dart';
@@ -114,6 +114,15 @@ class SyncCommand extends Command<int> {
           .where((e) => _camelotKeyRegex.hasMatch(e.scaleName ?? ''))
           .toSet();
 
+      // Keep one missing-row candidate per Spotify track and retain the latest
+      // playlist-added date across all playlists in this sync run.
+      final missingTracksById =
+          <
+            String,
+            ({SpotifyTrackId id, String artist, String title, DateTime addedAt})
+          >{};
+      final foundTrackIds = <SpotifyTrackId>{};
+
       for (final spPlaylist in spPlaylists) {
         final playlistStartTime = DateTime.now();
         final spPlaylistId = SpotifyPlaylistId(spPlaylist.id!);
@@ -148,6 +157,7 @@ class SyncCommand extends Command<int> {
                 id: SpotifyTrackId(track.id!),
                 name: track.name!,
                 artistNames: track.artists!.map((a) => a.name!).toList(),
+                addedAt: e.addedAt,
               );
             },
           ).toList();
@@ -177,6 +187,7 @@ class SyncCommand extends Command<int> {
                 id: SpotifyTrackId(t.trackId),
                 name: t.name,
                 artistNames: artistNames,
+                addedAt: null,
               );
             },
           ).toList();
@@ -234,8 +245,6 @@ class SyncCommand extends Command<int> {
         // and missing tracks
         final newMappings = <SpotifyTrackId, String>{};
         final invalidMappingIds = <SpotifyTrackId>[];
-        final newMissingTracks =
-            <({SpotifyTrackId id, String artist, String title})>[];
 
         for (var i = 0; i < trackList.length; i++) {
           final cachedTrack = trackList[i];
@@ -280,6 +289,7 @@ class SyncCommand extends Command<int> {
 
           if (rbSong != null) {
             final rbSongId = RekordboxSongId(rbSong.id!);
+            foundTrackIds.add(cachedTrack.id);
 
             logTrack('Found match in Rekordbox: ${rbSong.title}');
 
@@ -320,12 +330,20 @@ class SyncCommand extends Command<int> {
               invalidMappingIds.add(cachedTrack.id);
             }
 
-            // Batch collect missing track for bulk insert later
-            newMissingTracks.add((
-              id: cachedTrack.id,
-              artist: cachedTrack.artistNames.join(', '),
-              title: cachedTrack.name,
-            ));
+            // Aggregate missing tracks globally and keep only the newest
+            // playlist-added date for each Spotify track.
+            if (cachedTrack.addedAt case final addedAt?) {
+              final key = cachedTrack.id.toString();
+              final existing = missingTracksById[key];
+              if (existing == null || addedAt.isAfter(existing.addedAt)) {
+                missingTracksById[key] = (
+                  id: cachedTrack.id,
+                  artist: cachedTrack.artistNames.join(', '),
+                  title: cachedTrack.name,
+                  addedAt: addedAt,
+                );
+              }
+            }
 
             // Track for report
             playlistTrackEntries.add(
@@ -346,16 +364,10 @@ class SyncCommand extends Command<int> {
           await syncDb.syncMappingsDao.deleteMappings(invalidMappingIds);
         }
 
-        // Bulk insert all new mappings and missing tracks for this playlist
+        // Bulk insert mappings for this playlist.
         if (newMappings.isNotEmpty) {
           logPlaylist('Saving ${newMappings.length} track mapping(s)...');
           await syncDb.syncMappingsDao.setMappingsBatch(newMappings);
-        }
-        if (newMissingTracks.isNotEmpty) {
-          logPlaylist('Saving ${newMissingTracks.length} missing track(s)...');
-          await syncDb.syncMissingTracksDao.insertMissingTracksBatch(
-            newMissingTracks,
-          );
         }
 
         // Apply custom tracks if configured
@@ -422,6 +434,23 @@ class SyncCommand extends Command<int> {
             wasFromCache: wasFromCache,
           ),
         );
+      }
+
+      if (missingTracksById.isNotEmpty) {
+        log.info(
+          'Saving ${missingTracksById.length} missing track(s) '
+          'with latest playlist-added dates...',
+        );
+        await syncDb.syncMissingTracksDao.insertMissingTracksBatch(
+          missingTracksById.values.toList(),
+        );
+      }
+      if (foundTrackIds.isNotEmpty) {
+        log.info(
+          'Removing ${foundTrackIds.length} found track(s) '
+          'from missing list...',
+        );
+        await syncDb.syncMissingTracksDao.deleteMissingTracks(foundTrackIds);
       }
 
       // Generate sync report
