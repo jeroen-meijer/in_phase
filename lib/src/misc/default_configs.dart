@@ -168,4 +168,33 @@ targets:
   - id: "YOUR_PLAYLIST_ID_2"
     name: "To Review"
 ''';
+
+  /// Default collect configuration with commented examples.
+  static const String collectConfig = '''
+# Collect Configuration
+# This file configures playlist aggregation: combine tracks from multiple
+# Spotify playlists into a single target playlist. See COLLECT_CONFIG.md for full documentation.
+
+# Optional section for defining YAML anchors (reusable playlist IDs)
+# Example:
+# _notes:
+#   playlists:
+#     liquicity: &playlist_liquicity '5GH6XFP11JTr9wzwsNESwY'
+
+# List of collections. Each aggregates multiple source playlists into one target.
+# Example: Aggregate DnB playlists into "My DnB Collection"
+# collections:
+#   - name: drum_and_bass
+#     target: "37i9dQZF1DXcBWIGoYBM5M"   # Playlist ID, URI, share URL, or exact name
+#     description: "Last updated: {real_datetime}"  # Optional description template
+#     sources:
+#       - *playlist_liquicity            # YAML anchor reference
+#       - "37i9dQZF1DXcBWIGoYBM5M"      # Direct playlist ID
+#       - "DnB Releases*"                # Glob pattern (matches playlist names)
+#       - "Liquid Drum & Bass"           # Exact playlist name
+#     options:
+#       deduplicate: on_match            # on_id | on_match (default: on_id)
+#       replace: true                     # Replace all tracks (true) or append (false). Default: true
+collections: []
+''';
 }

@@ -257,6 +257,18 @@ in_phase crawl
 
 Automatically discovers new tracks from configured sources (playlists, artists, labels, or YouTube channels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
 
+### Collect playlists
+
+```bash
+# Run all collections
+in_phase collect
+
+# Run specific collection(s)
+in_phase collect --collection drum_and_bass
+```
+
+Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](COLLECT_CONFIG.md) for configuration details.
+
 ### Curate playlists
 
 ```bash

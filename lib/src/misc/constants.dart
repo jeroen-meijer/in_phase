@@ -25,6 +25,10 @@ class Constants {
     path.join(appDataDir.path, 'curate_config.yaml'),
   );
 
+  static final collectConfigFile = File(
+    path.join(appDataDir.path, 'collect_config.yaml'),
+  );
+
   static final buildDir = Directory(
     path.join(appDataDir.path, 'build'),
   );

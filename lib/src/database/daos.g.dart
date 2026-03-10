@@ -38,7 +38,6 @@ class AlbumsDaoManager {
 }
 
 mixin _$TrackAlbumMappingsDaoMixin on DatabaseAccessor<AppDatabase> {
-  $CachedAlbumsTable get cachedAlbums => attachedDatabase.cachedAlbums;
   $TrackAlbumMappingsTable get trackAlbumMappings =>
       attachedDatabase.trackAlbumMappings;
   TrackAlbumMappingsDaoManager get managers =>
@@ -48,8 +47,6 @@ mixin _$TrackAlbumMappingsDaoMixin on DatabaseAccessor<AppDatabase> {
 class TrackAlbumMappingsDaoManager {
   final _$TrackAlbumMappingsDaoMixin _db;
   TrackAlbumMappingsDaoManager(this._db);
-  $$CachedAlbumsTableTableManager get cachedAlbums =>
-      $$CachedAlbumsTableTableManager(_db.attachedDatabase, _db.cachedAlbums);
   $$TrackAlbumMappingsTableTableManager get trackAlbumMappings =>
       $$TrackAlbumMappingsTableTableManager(
         _db.attachedDatabase,
@@ -70,10 +67,8 @@ class ArtistsDaoManager {
 }
 
 mixin _$ArtistAlbumsDaoMixin on DatabaseAccessor<AppDatabase> {
-  $CachedArtistsTable get cachedArtists => attachedDatabase.cachedArtists;
   $CachedArtistAlbumListsTable get cachedArtistAlbumLists =>
       attachedDatabase.cachedArtistAlbumLists;
-  $CachedAlbumsTable get cachedAlbums => attachedDatabase.cachedAlbums;
   $ArtistAlbumRelationshipsTable get artistAlbumRelationships =>
       attachedDatabase.artistAlbumRelationships;
   ArtistAlbumsDaoManager get managers => ArtistAlbumsDaoManager(this);
@@ -82,15 +77,11 @@ mixin _$ArtistAlbumsDaoMixin on DatabaseAccessor<AppDatabase> {
 class ArtistAlbumsDaoManager {
   final _$ArtistAlbumsDaoMixin _db;
   ArtistAlbumsDaoManager(this._db);
-  $$CachedArtistsTableTableManager get cachedArtists =>
-      $$CachedArtistsTableTableManager(_db.attachedDatabase, _db.cachedArtists);
   $$CachedArtistAlbumListsTableTableManager get cachedArtistAlbumLists =>
       $$CachedArtistAlbumListsTableTableManager(
         _db.attachedDatabase,
         _db.cachedArtistAlbumLists,
       );
-  $$CachedAlbumsTableTableManager get cachedAlbums =>
-      $$CachedAlbumsTableTableManager(_db.attachedDatabase, _db.cachedAlbums);
   $$ArtistAlbumRelationshipsTableTableManager get artistAlbumRelationships =>
       $$ArtistAlbumRelationshipsTableTableManager(
         _db.attachedDatabase,

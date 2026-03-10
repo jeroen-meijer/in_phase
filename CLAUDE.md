@@ -62,4 +62,5 @@ dart test
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](CRAWL_CONFIG.md) — crawl config format
+- [COLLECT_CONFIG.md](COLLECT_CONFIG.md) — collect config format
 - [CURATE_CONFIG.md](CURATE_CONFIG.md) — curate config and keyboard controls

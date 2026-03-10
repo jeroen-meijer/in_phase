@@ -1,5 +1,12 @@
 ## Upcoming
 
+- feat(collect): add `collect` command to aggregate tracks from multiple Spotify playlists into a single target playlist
+- feat(collect): support playlist source resolution by ID, URI, share URL, exact name, or glob pattern
+- feat(collect): add description template support with variables (real_date, real_datetime, track_count, source_count)
+- feat(collect): add replace/append mode option (default: replace) with duplicate detection in append mode
+- feat(collect): improve target playlist resolution with clear error messages for missing/ambiguous matches
+- fix(collect): ensure all playlist pages are fetched for glob/name resolution (fix pagination issue)
+- docs: add COLLECT_CONFIG.md with comprehensive documentation
 - feat(crawl): add in-place TUI with parallel collection, progress display, slots for active sources, recently completed section, spinner and checkmarks, fall back to log output when not a TTY
 - refactor(curate): extract command into curate/ module (types, key handler, display) for maintainability
 - fix(curate): stop re-printing "Added to" status when pressing N after adding a track

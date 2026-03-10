@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:in_phase/src/crawl/crawl.dart';
+import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:yaml/yaml.dart';
@@ -62,6 +62,7 @@ class CollectCollection {
     required this.name,
     required this.target,
     required this.sources,
+    this.description,
     this.options,
   });
 
@@ -80,6 +81,11 @@ class CollectCollection {
   /// List of source playlist identifiers (IDs, URIs, URLs, exact names, glob patterns).
   final List<String> sources;
 
+  /// Template string for playlist description (supports template variables).
+  /// Updated every time the command runs.
+  @JsonKey(includeIfNull: false)
+  final String? description;
+
   /// Processing options for the collection.
   @JsonKey(includeIfNull: false)
   final CollectOptions? options;
@@ -90,6 +96,7 @@ class CollectCollection {
 class CollectOptions {
   const CollectOptions({
     this.deduplicate,
+    this.replace = true,
   });
 
   factory CollectOptions.fromJson(Map<String, dynamic> json) =>
@@ -101,4 +108,10 @@ class CollectOptions {
   /// Defaults to `on_id` if not specified.
   @JsonKey(includeIfNull: false)
   final DeduplicateMode? deduplicate;
+
+  /// Whether to replace all tracks in the target playlist (true) or append
+  /// to existing tracks (false).
+  /// Defaults to `true` (replace mode).
+  @JsonKey(defaultValue: true)
+  final bool replace;
 }
