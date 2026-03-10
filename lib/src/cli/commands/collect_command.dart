@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:glob/glob.dart';
 import 'package:in_phase/src/crawl/crawl.dart';
-import 'package:in_phase/src/crawl/date_utils.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
@@ -82,8 +81,9 @@ class CollectCommand extends Command<int> {
       var collectionsToRun = config.collections;
       if (requestedCollections.isNotEmpty) {
         collectionsToRun = config.collections
-            .where((collection) =>
-                requestedCollections.contains(collection.name))
+            .where(
+              (collection) => requestedCollections.contains(collection.name),
+            )
             .toList();
 
         if (collectionsToRun.isEmpty) {
@@ -108,13 +108,7 @@ class CollectCommand extends Command<int> {
 
       // Fetch user playlists once (for glob/name resolution)
       log.info('Fetching user playlists for source resolution...');
-      final userPlaylistsIterable = await api.playlists.me.all(50);
-      // Convert to list to ensure all pages are fetched (the iterable from all() is lazy)
-      // Force evaluation by materializing the entire iterable
-      final userPlaylists = <PlaylistSimple>[];
-      for (final playlist in userPlaylistsIterable) {
-        userPlaylists.add(playlist);
-      }
+      final userPlaylists = [...await api.me.playlists.saved().all(50)];
       log.info('Found ${userPlaylists.length} user playlist(s)');
 
       // Process each collection
@@ -162,7 +156,6 @@ class CollectCommand extends Command<int> {
     required List<PlaylistSimple> userPlaylists,
     required bool isDryRun,
   }) async {
-
     // Resolve source playlists
     log.info('  📋 Resolving source playlists...');
     final resolvedPlaylists = await _resolveSources(
@@ -177,17 +170,16 @@ class CollectCommand extends Command<int> {
       return;
     }
 
-    log.info('  ✅ Resolved ${resolvedPlaylists.length} source playlist(s)');
-
-    // Fetch tracks from all source playlists
-    log.info('  📥 Fetching tracks from source playlists...');
+    log
+      ..info('  ✅ Resolved ${resolvedPlaylists.length} source playlist(s)')
+      ..info('  📥 Fetching tracks from source playlists...');
     final allTracks = <CollectedTrack>[];
 
     for (final (index, playlist) in resolvedPlaylists.indexed) {
-        log.info(
-          '    [${index + 1}/${resolvedPlaylists.length}] '
-          'Fetching from "${playlist.name}"...',
-        );
+      log.info(
+        '    [${index + 1}/${resolvedPlaylists.length}] '
+        'Fetching from "${playlist.name}"...',
+      );
 
       try {
         final playlistTracks = await requestPool.request(
@@ -206,8 +198,7 @@ class CollectCommand extends Command<int> {
             id: SpotifyTrackId(track.id!),
             uri: track.uri!,
             name: track.name!,
-            artistNames:
-                track.artists?.map((a) => a.name ?? '').toList() ?? [],
+            artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
             addedAt: playlistTrack.addedAt ?? DateTime.now(),
             source: CollectedTrackSourcePlaylist(
               id: playlist.id!,
@@ -299,22 +290,24 @@ class CollectCommand extends Command<int> {
       // Convert all tracks to URIs
       trackUris = dedupedTracks.map((t) => t.uri).toList();
     } else {
-      log.info(
-        '  📤 Appending ${dedupedTracks.length} track(s) to existing '
-        'playlist...',
-      );
-
-      // Fetch existing tracks from target playlist
-      log.info('  🔍 Checking existing tracks in playlist...');
-      final existingPlaylistTracksPages = await requestPool.request<List<PlaylistTrack>>(
-        () async {
-          final pages = await api.playlists.getPlaylistTracks(targetPlaylist.id!).all(50);
-          return pages.toList();
-        },
-        identifier: SpotifyCacheIdentifier.playlistTracks(
-          SpotifyPlaylistId(targetPlaylist.id!),
-        ),
-      );
+      log
+        ..info(
+          '  📤 Appending ${dedupedTracks.length} track(s) to existing '
+          'playlist...',
+        )
+        ..info('  🔍 Checking existing tracks in playlist...');
+      final existingPlaylistTracksPages = await requestPool
+          .request<List<PlaylistTrack>>(
+            () async {
+              final pages = await api.playlists
+                  .getPlaylistTracks(targetPlaylist.id!)
+                  .all(50);
+              return pages.toList();
+            },
+            identifier: SpotifyCacheIdentifier.playlistTracks(
+              SpotifyPlaylistId(targetPlaylist.id!),
+            ),
+          );
 
       // Extract existing track IDs
       final existingTrackIds = <String>{};
@@ -434,7 +427,9 @@ class CollectCommand extends Command<int> {
         if (matches.isEmpty) {
           log.warning('    ⚠️  Glob "$source" matched 0 playlists');
         } else {
-          log.info('    ✅ Glob "$source" matched ${matches.length} playlist(s)');
+          log.info(
+            '    ✅ Glob "$source" matched ${matches.length} playlist(s)',
+          );
           for (final match in matches) {
             if (match.id != null) {
               resolvedPlaylists[match.id!] = match;
@@ -445,13 +440,11 @@ class CollectCommand extends Command<int> {
       }
 
       // Otherwise, treat as exact name match
-      final matches = userPlaylists
-          .where((p) => p.name == source)
-          .toList();
+      final matches = userPlaylists.where((p) => p.name == source).toList();
 
       if (matches.isEmpty) {
         log.warning('    ⚠️  Exact name "$source" matched 0 playlists');
-      } else       if (matches.length > 1) {
+      } else if (matches.length > 1) {
         log.warning(
           '    ⚠️  Exact name "$source" matched ${matches.length} '
           'playlists, using first match',
@@ -485,16 +478,19 @@ class CollectCommand extends Command<int> {
     if (playlistId != null) {
       try {
         final playlist = await api.playlists.get(playlistId);
-        log.debug('    ✅ Resolved target by ID: "$target" → "${playlist.name}"');
+        log.debug(
+          '    ✅ Resolved target by ID: "$target" → "${playlist.name}"',
+        );
         return playlist;
       } catch (e) {
-        log.error(
-          '    ❌ Could not fetch target playlist by ID "$target": $e',
-        );
-        log.error(
-          '    💡 Make sure the playlist ID is correct and you have access '
-          'to it (you own it or have collaborative edit access).',
-        );
+        log
+          ..error(
+            '    ❌ Could not fetch target playlist by ID "$target": $e',
+          )
+          ..error(
+            '    💡 Make sure the playlist ID is correct and you have access '
+            'to it (you own it or have collaborative edit access).',
+          );
         return null;
       }
     }

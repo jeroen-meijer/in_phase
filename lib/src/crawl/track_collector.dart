@@ -182,7 +182,7 @@ class TrackCollector {
     final snapshotId = playlist.snapshotId ?? '';
     final playlistName = playlist.name ?? 'Unknown Playlist';
     tag = playlistName;
-    progress?.setDisplayName(playlistName);
+    progress?.call(playlistName);
 
     if (progress == null) {
       log.info(tag: tag, '    Playlist: $playlistName (snapshot: $snapshotId)');
@@ -312,7 +312,8 @@ class TrackCollector {
           } else {
             log.warning(
               tag: tag,
-              '    ⚠️  Could not get album ${track.album!.id!} for release date',
+              '    ⚠️  Could not get album ${track.album!.id!} '
+              'for release date',
             );
           }
         }
@@ -419,7 +420,7 @@ class TrackCollector {
     if (cachedArtist != null && !cachedArtist.isStale) {
       tag = cachedArtist.name;
       artistName = cachedArtist.name;
-      progress?.setDisplayName(artistName);
+      progress?.call(artistName);
       if (progress == null) {
         log.info(tag: tag, '    💾 Using cached artist metadata');
       }
@@ -432,7 +433,7 @@ class TrackCollector {
 
       artistName = artist.name ?? 'Unknown Artist';
       tag = artistName;
-      progress?.setDisplayName(artistName);
+      progress?.call(artistName);
 
       // Cache artist metadata
       await cacheAdapter.cacheArtist(
@@ -794,7 +795,7 @@ class TrackCollector {
     CrawlProgressReporter? progress,
   }) async {
     final tag = labelName;
-    progress?.setDisplayName(labelName);
+    progress?.call(labelName);
     if (progress == null) {
       log.info(tag: tag, '  🏷️  Collecting from label: $labelName');
     }
@@ -805,14 +806,15 @@ class TrackCollector {
 
     if (cachedLabelSearch != null && cachedLabelSearch.isFreshToday) {
       if (progress == null) {
-        log.info(
-          tag: tag,
-          '    💾 Using cached label search results (fresh today)',
-        );
-        log.info(
-          tag: tag,
-          '    Cached ${cachedLabelSearch.tracks.length} tracks',
-        );
+        log
+          ..info(
+            tag: tag,
+            '    💾 Using cached label search results (fresh today)',
+          )
+          ..info(
+            tag: tag,
+            '    Cached ${cachedLabelSearch.tracks.length} tracks',
+          );
       }
 
       // Reconstruct Track objects from cached data
@@ -1082,7 +1084,7 @@ class TrackCollector {
       final channelName = channel.title;
       final channelId = channel.id.toString();
       tag = channelName;
-      progress?.setDisplayName(channelName);
+      progress?.call(channelName);
 
       if (progress == null) {
         log.info(tag: tag, '    Channel: $channelName');

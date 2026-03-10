@@ -502,7 +502,7 @@ class SyncCommand extends Command<int> {
     SyncConfig syncConfig,
   ) async {
     log.info('Fetching all user playlists');
-    final allPlaylists = await spotifyApi.playlists.me.all(50);
+    final allPlaylists = await spotifyApi.me.playlists.saved().all(50);
 
     log.info('Filtering ${allPlaylists.length} playlists by sync config');
     final filteredPlaylists = allPlaylists

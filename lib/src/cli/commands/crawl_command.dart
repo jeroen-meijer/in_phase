@@ -274,7 +274,8 @@ class CrawlCommand extends Command<int> {
       cacheAdapter: getCacheAdapter(),
     );
 
-    // Collect tracks from all sources (all started immediately for max pool use)
+    // Collect tracks from all sources (all started immediately for max pool
+    // use)
     final allTracks = <CollectedTrack>[];
     final dateMode =
         job.options?.addPlaylistTracksBasedOn ??
@@ -292,10 +293,9 @@ class CrawlCommand extends Command<int> {
       ...youtubeChannelIds,
     ];
 
-    final display =
-        identifiers.isNotEmpty
-            ? CrawlProgressDisplay(identifiers: identifiers)
-            : null;
+    final display = identifiers.isNotEmpty
+        ? CrawlProgressDisplay(identifiers: identifiers)
+        : null;
 
     if (display != null) {
       display.start();
@@ -324,7 +324,9 @@ class CrawlCommand extends Command<int> {
               if (display != null) {
                 display.setError(idx);
               } else {
-                log.error('    ❌ Error collecting from playlist $playlistId: $e');
+                log.error(
+                  '    ❌ Error collecting from playlist $playlistId: $e',
+                );
               }
               return <CollectedTrack>[];
             }),
@@ -435,9 +437,7 @@ class CrawlCommand extends Command<int> {
     final collectionResults = await Future.wait(collectionFutures);
 
     display?.stop();
-    for (final tracks in collectionResults) {
-      allTracks.addAll(tracks);
-    }
+    collectionResults.forEach(allTracks.addAll);
 
     log.info('  📊 Collected ${allTracks.length} total tracks');
 

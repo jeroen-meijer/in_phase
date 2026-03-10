@@ -26,7 +26,10 @@ Future<void> ensureDefaultConfigs() async {
   await _ensureConfig(Constants.syncConfigFile, DefaultConfigs.syncConfig);
   await _ensureConfig(Constants.crawlConfigFile, DefaultConfigs.crawlConfig);
   await _ensureConfig(Constants.curateConfigFile, DefaultConfigs.curateConfig);
-  await _ensureConfig(Constants.collectConfigFile, DefaultConfigs.collectConfig);
+  await _ensureConfig(
+    Constants.collectConfigFile,
+    DefaultConfigs.collectConfig,
+  );
 }
 
 Future<void> _ensureConfig(File file, String defaultContent) async {

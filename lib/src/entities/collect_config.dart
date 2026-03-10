@@ -78,7 +78,8 @@ class CollectCollection {
   /// Must exist and be writable.
   final String target;
 
-  /// List of source playlist identifiers (IDs, URIs, URLs, exact names, glob patterns).
+  /// List of source playlist identifiers (IDs, URIs, URLs, exact names, glob
+  /// patterns).
   final List<String> sources;
 
   /// Template string for playlist description (supports template variables).
