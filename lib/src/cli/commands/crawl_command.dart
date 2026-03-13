@@ -590,9 +590,76 @@ class CrawlCommand extends Command<int> {
       }
     }
 
-    if (isDryRun) {
+    // Warn if append mode is set but no target_playlist is specified
+    final updateMode = job.options?.updateMode ?? CrawlUpdateMode.replace;
+    if (updateMode == CrawlUpdateMode.append && job.targetPlaylist == null) {
+      log.warning(
+        '  ⚠️  update_mode is set to "append" but no target_playlist is '
+        'specified. A new playlist will be created, so append mode has no '
+        'effect.',
+      );
+    }
+
+    // Resolve target playlist if specified, otherwise create new
+    PlaylistSimple playlist;
+    final targetPlaylistId = job.targetPlaylist;
+
+    if (targetPlaylistId != null) {
+      log.info('  🎯 Resolving target playlist: $targetPlaylistId');
+      final resolved = await _resolveTargetPlaylist(
+        api: api,
+        target: targetPlaylistId,
+        jobName: job.name,
+      );
+
+      if (resolved == null) {
+        throw Exception(
+          'Failed to resolve target playlist "$targetPlaylistId" for job '
+          '"${job.name}". See errors above.',
+        );
+      }
+
+      playlist = resolved;
+      log.info('  ✅ Target playlist: "${playlist.name}" (${playlist.id})');
+    } else {
+      if (isDryRun) {
+        log.info(
+          '  🔍 DRY RUN: Would create playlist with '
+          '${dedupedTracks.length} tracks',
+        );
+        if (generatedCoverPath != null) {
+          log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
+        }
+        final jobEndTime = DateTime.now();
+        final trackEntries = _buildTrackEntries(dedupedTracks, job);
+        return CrawlJobReport(
+          jobName: job.name,
+          startTime: jobStartTime,
+          endTime: jobEndTime,
+          trackEntries: trackEntries,
+        );
+      }
+
+      // Create the playlist
+      log.info('  📝 Creating playlist on Spotify...');
+      final isPublic = job.outputPlaylist.public;
+      log.info('  🔒 Playlist visibility: ${isPublic ? "public" : "private"}');
+      playlist = await api.playlists.createPlaylist(
+        user.id!,
+        playlistName,
+        public: isPublic,
+        description: playlistDescription,
+      );
+
+      log.info('  ✅ Created playlist: ${playlist.id}');
+    }
+
+    if (isDryRun && targetPlaylistId != null) {
+      final modeDescription = updateMode == CrawlUpdateMode.append
+          ? 'append to'
+          : 'replace tracks in';
       log.info(
-        '  🔍 DRY RUN: Would create playlist with '
+        '  🔍 DRY RUN: Would $modeDescription target playlist with '
         '${dedupedTracks.length} tracks',
       );
       if (generatedCoverPath != null) {
@@ -608,22 +675,13 @@ class CrawlCommand extends Command<int> {
       );
     }
 
-    // Create the playlist
-    log.info('  📝 Creating playlist on Spotify...');
-    final isPublic = job.outputPlaylist.public;
-    log.info('  🔒 Playlist visibility: ${isPublic ? "public" : "private"}');
-    final playlist = await api.playlists.createPlaylist(
-      user.id!,
-      playlistName,
-      public: isPublic,
-      description: playlistDescription,
-    );
-
-    log.info('  ✅ Created playlist: ${playlist.id}');
-
-    // Add tracks in batches of 100
+    // Update playlist tracks
     if (dedupedTracks.isNotEmpty) {
-      log.info('  📤 Adding ${dedupedTracks.length} tracks to playlist...');
+      final isReplaceMode = updateMode == CrawlUpdateMode.replace;
+      final modeDescription = isReplaceMode ? 'replacing' : 'appending to';
+      log.info(
+        '  📤 $modeDescription playlist with ${dedupedTracks.length} tracks...',
+      );
 
       // Log each track with its source and inclusion reason
       for (final track in dedupedTracks) {
@@ -634,13 +692,80 @@ class CrawlCommand extends Command<int> {
           ..info('      📅 Date: ${formatDate(track.addedAt)}');
       }
 
-      final trackUris = dedupedTracks.map((t) => t.uri).toList();
-      for (var i = 0; i < trackUris.length; i += 100) {
-        final batch = trackUris.skip(i).take(100).toList();
-        await api.playlists.addTracks(batch, playlist.id!);
+      List<String> trackUris;
+
+      if (isReplaceMode) {
+        // Clear existing tracks first
+        log.info('  🗑️  Clearing existing tracks...');
+        await api.playlists.clear(playlist.id!);
+        trackUris = dedupedTracks.map((t) => t.uri).toList();
+      } else {
+        // Append mode: check existing tracks and filter duplicates
+        log.info('  🔍 Checking existing tracks in playlist...');
+        final existingPlaylistTracks = await api.playlists
+            .getPlaylistTracks(playlist.id!)
+            .all(50);
+
+        // Extract existing track IDs
+        final existingTrackIds = <String>{};
+        for (final playlistTrack in existingPlaylistTracks) {
+          if (playlistTrack.track?.id != null) {
+            existingTrackIds.add(playlistTrack.track!.id!);
+          }
+        }
+
+        log.info('  📊 Found ${existingTrackIds.length} existing track(s)');
+
+        // Filter out tracks that are already in the playlist
+        final newTracks = dedupedTracks
+            .where((track) => !existingTrackIds.contains(track.id.toString()))
+            .toList();
+
+        final skippedCount = dedupedTracks.length - newTracks.length;
+        if (skippedCount > 0) {
+          log.info(
+            '  ⏭️  Skipping $skippedCount track(s) already in playlist',
+          );
+        }
+
+        if (newTracks.isEmpty) {
+          log.info('  ✅ All tracks already in playlist, nothing to add');
+          trackUris = [];
+        } else {
+          log.info(
+            '  ➕ Adding ${newTracks.length} new track(s) to playlist',
+          );
+          trackUris = newTracks.map((t) => t.uri).toList();
+        }
       }
 
-      log.info('  ✅ Added all tracks to playlist');
+      // Add tracks in batches of 100
+      if (trackUris.isNotEmpty) {
+        for (var i = 0; i < trackUris.length; i += 100) {
+          final batch = trackUris.skip(i).take(100).toList();
+          await api.playlists.addTracks(batch, playlist.id!);
+        }
+        log.info('  ✅ Updated playlist tracks');
+      }
+    } else {
+      // Even if no tracks, clear the playlist if replacing existing
+      if (targetPlaylistId != null && updateMode == CrawlUpdateMode.replace) {
+        log.info('  🗑️  Clearing playlist (no tracks to add)...');
+        await api.playlists.clear(playlist.id!);
+      }
+    }
+
+    // Update playlist name and description
+    log.info('  📝 Updating playlist name and description...');
+    try {
+      await api.playlists.updatePlaylist(
+        playlist.id!,
+        playlistName,
+        description: playlistDescription,
+      );
+      log.info('  ✅ Updated playlist name and description');
+    } catch (e) {
+      log.warning('  ⚠️  Failed to update playlist name/description: $e');
     }
 
     // Upload cover image if it was generated
@@ -760,6 +885,79 @@ class CrawlCommand extends Command<int> {
         return 'Label "$name" (released within timeframe)';
       case CollectedTrackSourceYoutubeChannel(:final name):
         return 'YouTube channel "$name" (uploaded within timeframe)';
+    }
+  }
+
+  /// Resolves target playlist from identifier (ID, URI, URL, or exact name).
+  ///
+  /// Returns null if the playlist cannot be resolved, with appropriate error
+  /// messages logged.
+  Future<PlaylistSimple?> _resolveTargetPlaylist({
+    required SpotifyApi api,
+    required String target,
+    required String jobName,
+  }) async {
+    // Try ID/URI/URL first
+    final playlistId = SpotifyPlaylistId.tryExtract(target);
+    if (playlistId != null) {
+      try {
+        final playlist = await api.playlists.get(playlistId);
+        log.debug(
+          '    ✅ Resolved target playlist by ID: "$target" → '
+          '"${playlist.name}"',
+        );
+        return playlist;
+      } catch (e) {
+        log
+          ..error(
+            '    ❌ Could not fetch target playlist by ID "$target": $e',
+          )
+          ..error(
+            '    💡 Make sure the playlist ID is correct and you have access '
+            'to it (you own it or have collaborative edit access).',
+          );
+        return null;
+      }
+    }
+
+    // Otherwise, fetch user playlists and try exact name match
+    log.info('    🔍 Fetching user playlists to resolve by name...');
+    try {
+      final userPlaylists = [...await api.me.playlists.saved().all(50)];
+      final matches = userPlaylists.where((p) => p.name == target).toList();
+
+      if (matches.isEmpty) {
+        log
+          ..error(
+            '    ❌ Target playlist "$target" not found in your playlists.',
+          )
+          ..error(
+            '    💡 Make sure the playlist name matches exactly, or use a '
+            'playlist ID, URI, or share URL instead.',
+          );
+        return null;
+      }
+
+      if (matches.length > 1) {
+        log.error(
+          '    ❌ Target playlist "$target" matched ${matches.length} '
+          'playlists:',
+        );
+        for (final match in matches) {
+          log.error('      - "${match.name}" (ID: ${match.id})');
+        }
+        log.error(
+          '    💡 Please use a playlist ID, URI, or share URL instead to '
+          'uniquely identify the target playlist.',
+        );
+        return null;
+      }
+
+      log.debug('    ✅ Resolved target playlist by name: "$target"');
+      return matches.first;
+    } catch (e) {
+      log.error('    ❌ Error fetching user playlists: $e');
+      return null;
     }
   }
 

@@ -65,6 +65,7 @@ class CrawlJob {
     required this.inputs,
     this.cover,
     this.options,
+    this.targetPlaylist,
   });
 
   factory CrawlJob.fromJson(Map<String, dynamic> json) =>
@@ -82,6 +83,12 @@ class CrawlJob {
 
   @JsonKey(includeIfNull: false)
   final CrawlOptions? options;
+
+  /// Target playlist ID, URI, or share URL to update instead of creating new.
+  /// If provided, the existing playlist will be updated with new tracks, name,
+  /// description, and cover image.
+  @JsonKey(includeIfNull: false)
+  final String? targetPlaylist;
 }
 
 /// Output playlist configuration.
@@ -105,7 +112,8 @@ class CrawlOutputPlaylist {
   @JsonKey(includeIfNull: false)
   final String? description;
 
-  /// Whether the playlist should be public.
+  /// Whether the playlist should be public (only used when creating new
+  /// playlist).
   @JsonKey(defaultValue: false)
   final bool public;
 }
@@ -245,8 +253,8 @@ class CrawlFilters {
 class CrawlOptions {
   const CrawlOptions({
     this.deduplicate,
-    this.appendToExisting = false,
     this.addPlaylistTracksBasedOn = PlaylistTrackDateMode.releaseDate,
+    this.updateMode = CrawlUpdateMode.replace,
   });
 
   factory CrawlOptions.fromJson(Map<String, dynamic> json) =>
@@ -258,15 +266,18 @@ class CrawlOptions {
   @JsonKey(includeIfNull: false)
   final DeduplicateMode? deduplicate;
 
-  /// Whether to append to existing playlist or create new.
-  @JsonKey(defaultValue: false)
-  final bool appendToExisting;
-
   /// Determines which date to use for filtering playlist tracks.
   /// - `added_date`: Use when track was added to playlist
   /// - `release_date`: Use track's album release date (default)
   @JsonKey(defaultValue: PlaylistTrackDateMode.releaseDate)
   final PlaylistTrackDateMode addPlaylistTracksBasedOn;
+
+  /// How to update the target playlist (only applies when target_playlist is
+  /// specified).
+  /// - `replace`: Clear and replace all tracks (default)
+  /// - `append`: Add new tracks without clearing existing ones
+  @JsonKey(defaultValue: CrawlUpdateMode.replace)
+  final CrawlUpdateMode updateMode;
 }
 
 /// Input sources for the job.
@@ -313,6 +324,18 @@ enum DeduplicateMode {
   /// Remove tracks with matching artist names and track titles.
   @JsonValue('on_match')
   onMatch,
+}
+
+/// Update modes for target playlists.
+@JsonEnum()
+enum CrawlUpdateMode {
+  /// Clear and replace all tracks in the playlist.
+  @JsonValue('replace')
+  replace,
+
+  /// Add new tracks without clearing existing ones.
+  @JsonValue('append')
+  append,
 }
 
 /// Playlist track date mode - determines which date to use for filtering

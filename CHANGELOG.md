@@ -4,6 +4,9 @@
 - feat(crawl): deprecate `added_between_days` in favor of `date_range` (backward compatible)
 - feat(crawl): add `date_range: "today"` shortcut for single-day filtering
 - refactor(crawl): use barrel imports for crawl module
+- feat(crawl): add `target_playlist` option to update existing playlists instead of creating new ones
+- feat(crawl): add `update_mode` option (`replace` or `append`) for controlling how target playlists are updated
+- refactor(crawl): remove deprecated `append_to_existing` option in favor of `target_playlist` + `update_mode`
 
 ## 1.2.0
 

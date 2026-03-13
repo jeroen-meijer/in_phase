@@ -28,6 +28,7 @@ CrawlJob _$CrawlJobFromJson(Map<String, dynamic> json) => CrawlJob(
   options: json['options'] == null
       ? null
       : CrawlOptions.fromJson(json['options'] as Map<String, dynamic>),
+  targetPlaylist: json['target_playlist'] as String?,
 );
 
 Map<String, dynamic> _$CrawlJobToJson(CrawlJob instance) => <String, dynamic>{
@@ -37,6 +38,7 @@ Map<String, dynamic> _$CrawlJobToJson(CrawlJob instance) => <String, dynamic>{
   'inputs': instance.inputs,
   'cover': ?instance.cover,
   'options': ?instance.options,
+  'target_playlist': ?instance.targetPlaylist,
 };
 
 CrawlOutputPlaylist _$CrawlOutputPlaylistFromJson(Map<String, dynamic> json) =>
@@ -67,21 +69,23 @@ CrawlOptions _$CrawlOptionsFromJson(Map<String, dynamic> json) => CrawlOptions(
     _$DeduplicateModeEnumMap,
     json['deduplicate'],
   ),
-  appendToExisting: json['append_to_existing'] as bool? ?? false,
   addPlaylistTracksBasedOn:
       $enumDecodeNullable(
         _$PlaylistTrackDateModeEnumMap,
         json['add_playlist_tracks_based_on'],
       ) ??
       PlaylistTrackDateMode.releaseDate,
+  updateMode:
+      $enumDecodeNullable(_$CrawlUpdateModeEnumMap, json['update_mode']) ??
+      CrawlUpdateMode.replace,
 );
 
 Map<String, dynamic> _$CrawlOptionsToJson(CrawlOptions instance) =>
     <String, dynamic>{
       'deduplicate': ?_$DeduplicateModeEnumMap[instance.deduplicate],
-      'append_to_existing': instance.appendToExisting,
       'add_playlist_tracks_based_on':
           _$PlaylistTrackDateModeEnumMap[instance.addPlaylistTracksBasedOn]!,
+      'update_mode': _$CrawlUpdateModeEnumMap[instance.updateMode]!,
     };
 
 const _$DeduplicateModeEnumMap = {
@@ -92,6 +96,11 @@ const _$DeduplicateModeEnumMap = {
 const _$PlaylistTrackDateModeEnumMap = {
   PlaylistTrackDateMode.addedDate: 'added_date',
   PlaylistTrackDateMode.releaseDate: 'release_date',
+};
+
+const _$CrawlUpdateModeEnumMap = {
+  CrawlUpdateMode.replace: 'replace',
+  CrawlUpdateMode.append: 'append',
 };
 
 CrawlInputs _$CrawlInputsFromJson(Map<String, dynamic> json) => CrawlInputs(

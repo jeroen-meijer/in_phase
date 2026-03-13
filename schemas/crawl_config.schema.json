@@ -15,7 +15,7 @@
           },
           "output_playlist": {
             "type": "object",
-            "required": ["name", "description", "public"],
+            "required": ["name"],
             "properties": {
               "name": {
                 "type": "string",
@@ -27,9 +27,13 @@
               },
               "public": {
                 "type": "boolean",
-                "description": "Whether the playlist is public"
+                "description": "Whether the playlist is public (only used when creating new playlist)"
               }
             }
+          },
+          "target_playlist": {
+            "type": "string",
+            "description": "Playlist ID, URI, or share URL to update instead of creating new"
           },
           "cover": {
             "type": "object",
@@ -103,16 +107,21 @@
           },
           "options": {
             "type": "object",
-            "required": ["deduplicate", "append_to_existing"],
             "properties": {
               "deduplicate": {
                 "type": "string",
-                "enum": ["on_match", "never"],
+                "enum": ["on_id", "on_match"],
                 "description": "Deduplication strategy"
               },
-              "append_to_existing": {
-                "type": "boolean",
-                "description": "Whether to append to existing playlist or replace"
+              "add_playlist_tracks_based_on": {
+                "type": "string",
+                "enum": ["added_date", "release_date"],
+                "description": "Which date to use for filtering playlist tracks"
+              },
+              "update_mode": {
+                "type": "string",
+                "enum": ["replace", "append"],
+                "description": "How to update target playlist (only applies when target_playlist is specified)"
               }
             }
           },

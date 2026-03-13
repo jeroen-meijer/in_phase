@@ -114,8 +114,10 @@ custom_tracks: {}
 #     # date_range: { start: "2024-07-20", end: "2024-07-28" }  # Specific dates
 #   options:
 #     deduplicate: on_match  # Remove duplicate tracks by artist/title match
-#     append_to_existing: false  # Create new playlist each time
 #     add_playlist_tracks_based_on: release_date  # Use release date for filtering
+#     update_mode: replace  # How to update target playlist: 'replace' or 'append'
+#   # Optional: Update existing playlist instead of creating new
+#   # target_playlist: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   inputs:
 #     playlists:
 #       - *playlist_new_releases  # Reference anchor from _notes
@@ -144,7 +146,8 @@ custom_tracks: {}
 #     # Or: date_range: 30  # Last 30 days
 #   options:
 #     deduplicate: on_id  # Remove duplicate tracks by Spotify ID
-#     append_to_existing: false
+#   # Optional: Update existing playlist instead of creating new
+#   # target_playlist: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   inputs:
 #     labels:
 #       - "Label Name 1"
