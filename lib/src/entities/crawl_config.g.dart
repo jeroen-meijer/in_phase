@@ -62,12 +62,6 @@ CrawlCover _$CrawlCoverFromJson(Map<String, dynamic> json) => CrawlCover(
 Map<String, dynamic> _$CrawlCoverToJson(CrawlCover instance) =>
     <String, dynamic>{'image': instance.image, 'caption': ?instance.caption};
 
-CrawlFilters _$CrawlFiltersFromJson(Map<String, dynamic> json) =>
-    CrawlFilters(addedBetweenDays: (json['added_between_days'] as num).toInt());
-
-Map<String, dynamic> _$CrawlFiltersToJson(CrawlFilters instance) =>
-    <String, dynamic>{'added_between_days': instance.addedBetweenDays};
-
 CrawlOptions _$CrawlOptionsFromJson(Map<String, dynamic> json) => CrawlOptions(
   deduplicate: $enumDecodeNullable(
     _$DeduplicateModeEnumMap,

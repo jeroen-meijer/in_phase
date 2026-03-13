@@ -1,5 +1,10 @@
 ## Upcoming
 
+- feat(crawl): add flexible `date_range` filter supporting current month/week/year, time units (days/weeks/months), and absolute date ranges
+- feat(crawl): deprecate `added_between_days` in favor of `date_range` (backward compatible)
+- feat(crawl): add `date_range: "today"` shortcut for single-day filtering
+- refactor(crawl): use barrel imports for crawl module
+
 ## 1.2.0
 
 - feat(collect): add `collect` command to aggregate tracks from multiple Spotify playlists into a single target playlist

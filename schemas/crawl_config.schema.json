@@ -51,7 +51,53 @@
               "added_between_days": {
                 "type": "integer",
                 "minimum": 1,
-                "description": "Number of days to look back for added tracks"
+                "description": "Deprecated: Use date_range instead. Number of days to look back for added tracks"
+              },
+              "date_range": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Last N days (backward compatible with added_between_days)"
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["today", "current_week", "current_month", "current_year"],
+                    "description": "String shortcut for common date ranges"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Last N days"
+                      },
+                      "weeks": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Last N weeks"
+                      },
+                      "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Last N months"
+                      },
+                      "start": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "Start date (YYYY-MM-DD) for absolute range"
+                      },
+                      "end": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "End date (YYYY-MM-DD) for absolute range"
+                      }
+                    },
+                    "description": "Time unit or absolute date range"
+                  }
+                ],
+                "description": "Flexible date range configuration"
               }
             }
           },

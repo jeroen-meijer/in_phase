@@ -75,6 +75,18 @@ class CrawlCommand extends Command<int> {
         return ExitCode.config.code;
       }
 
+      // Validate all job filters before processing
+      for (final job in config.jobs) {
+        try {
+          DateRangeResolver.validate(job.filters);
+        } catch (e) {
+          log.error(
+            'Invalid date_range configuration in job "${job.name}": $e',
+          );
+          return ExitCode.config.code;
+        }
+      }
+
       // Login to Spotify
       final api = await spotifyLogin();
 
@@ -233,39 +245,43 @@ class CrawlCommand extends Command<int> {
   }) async {
     final jobStartTime = DateTime.now();
 
-    // Calculate date range
-    final daysBack = job.filters.addedBetweenDays;
+    // Resolve date range using DateRangeResolver
+    final resolved = DateRangeResolver.resolve(
+      job.filters,
+      referenceDate: DateTime.now(),
+      cliStartDate: customStartDate,
+      cliEndDate: customEndDate,
+    );
 
-    // Use custom end date if provided, otherwise use current time
-    final endDate = customEndDate ?? DateTime.now();
-
-    // Use custom start date if provided, otherwise calculate from days_back
-    // Note: cutoffDate is exclusive in the filter (added_at > cutoffDate)
-    final DateTime cutoffDate;
-    if (customStartDate != null) {
-      // Subtract 1 day since we use > comparison (exclusive lower bound)
-      cutoffDate = customStartDate.subtract(const Duration(days: 1));
-    } else {
-      cutoffDate = endDate.subtract(Duration(days: daysBack));
-    }
+    // Note: DateRangeResolver returns inclusive dates, but we need exclusive
+    // lower bound for filtering (added_at > cutoffDate)
+    final endDate = resolved.end;
+    final cutoffDate = resolved.start.subtract(const Duration(days: 1));
 
     if (customStartDate != null || customEndDate != null) {
       log.info(
         '  📅 Using custom date range: '
-        '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
+        '${formatDate(resolved.start)} '
         'to ${formatDate(endDate)}',
       );
     } else {
       log.info(
         '  📅 Date range: '
-        '${formatDate(cutoffDate.add(const Duration(days: 1)))} '
+        '${formatDate(resolved.start)} '
         'to ${formatDate(endDate)}',
       );
     }
 
-    log
-      ..info('  📅 Looking back: $daysBack days')
-      ..info('');
+    // Log the date range type for context
+    if (job.filters.dateRange != null) {
+      final rangeType = _describeDateRange(job.filters.dateRange!);
+      log.info('  📅 Range type: $rangeType');
+      // ignore: deprecated_member_use_from_same_package
+    } else if (job.filters.addedBetweenDays != null) {
+      // ignore: deprecated_member_use_from_same_package
+      log.info('  📅 Looking back: ${job.filters.addedBetweenDays} days');
+    }
+    log.info('');
 
     // Initialize track collector
     final collector = TrackCollector(
@@ -745,6 +761,24 @@ class CrawlCommand extends Command<int> {
       case CollectedTrackSourceYoutubeChannel(:final name):
         return 'YouTube channel "$name" (uploaded within timeframe)';
     }
+  }
+
+  /// Describes a date range for logging purposes.
+  String _describeDateRange(CrawlDateRange range) {
+    return switch (range) {
+      CrawlDateRangeDays(:final days) => 'Last $days days',
+      CrawlDateRangeShortcut(:final shortcut) => shortcut.replaceAll('_', ' '),
+      CrawlDateRangeTimeUnit(:final days, :final weeks, :final months) =>
+        days != null
+            ? 'Last $days days'
+            : weeks != null
+            ? 'Last $weeks weeks'
+            : months != null
+            ? 'Last $months months'
+            : 'Unknown time unit',
+      CrawlDateRangeAbsolute(:final start, :final end) =>
+        '${formatDate(start)} to ${formatDate(end)}',
+    };
   }
 
   /// Calculates real statistics from collected tracks.

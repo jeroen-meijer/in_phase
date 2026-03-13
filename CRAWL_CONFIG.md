@@ -36,7 +36,7 @@ jobs:
       image: 'cover.jpg'
       caption: "Weekly Discovery\n{year} - #{week_num}"
     filters:
-      added_between_days: 7
+      date_range: 7  # Last 7 days
     options:
       deduplicate: on_match
       append_to_existing: false
@@ -64,7 +64,8 @@ Each job in the `jobs` array defines a single automated playlist creation task.
   - **`description`** - Optional playlist description template
   - **`public`** - Whether the playlist should be public (default: `false`)
 - **`filters`** - Track filtering options
-  - **`added_between_days`** - Number of days to look back for tracks
+  - **`date_range`** - Date range configuration (see [Date Range Formats](#date-range-formats) below)
+  - **`added_between_days`** - Deprecated: Use `date_range` instead. Number of days to look back for tracks
 - **`inputs`** - Sources to collect tracks from
   - **`playlists`** - List of Spotify playlist IDs (optional)
   - **`artists`** - List of Spotify artist IDs (optional)
@@ -178,16 +179,79 @@ jobs:
         - *youtube_skankandbass
 ```
 
-## Date Filtering
+## Date Range Formats
 
-The `added_between_days` filter determines how far back to look for tracks:
+The `date_range` filter determines which date range to use for track filtering. It supports multiple formats:
+
+### Simple Formats
+
+1. **Integer** (backward compatible with `added_between_days`):
+   ```yaml
+   filters:
+     date_range: 7  # Last 7 days
+   ```
+
+2. **String shortcuts**:
+   ```yaml
+   filters:
+     date_range: "today"  # Just today
+     date_range: "current_week"  # Current week (Monday-Sunday)
+     date_range: "current_month"  # Current month (1st to last day)
+     date_range: "current_year"  # Current year (Jan 1 to Dec 31)
+   ```
+
+3. **Time units back** (consistent format):
+   ```yaml
+   filters:
+     date_range:
+       days: 7  # Last 7 days (same as integer format)
+     date_range:
+       weeks: 2  # Last 2 weeks
+     date_range:
+       months: 1  # Last 1 month
+   ```
+
+4. **Absolute date range**:
+   ```yaml
+   filters:
+     date_range:
+       start: "2024-07-20"
+       end: "2024-07-28"
+   ```
+
+### Date Filtering Behavior
+
+The date range determines how far back to look for tracks:
 
 - For **playlists**: Uses either the track's release date or when it was added to the playlist (controlled by `add_playlist_tracks_based_on`)
 - For **artists**: Uses the track's release date
 - For **labels**: Uses the track's release date
 - For **YouTube channels**: Uses the video's publish/upload date
 
-Example: `added_between_days: 7` will include tracks released or added in the last 7 days.
+### CLI Flag Overrides
+
+You can override the date range using CLI flags:
+
+- **`--end-date YYYY-MM-DD`**: Sets the reference date for relative ranges (e.g., `date_range: "current_month"` resolves relative to this date)
+- **`--start-date YYYY-MM-DD`**: Overrides the calculated start date
+
+Examples:
+- `date_range: 7` with `--end-date 2024-07-15` → resolves to July 9-15 (7 days ending on July 15)
+- `date_range: "current_month"` with `--end-date 2024-07-15` → resolves to July 2024
+
+### Migration from `added_between_days`
+
+The `added_between_days` field is deprecated but still works for backward compatibility. To migrate:
+
+```yaml
+# Old format
+filters:
+  added_between_days: 7
+
+# New format (equivalent)
+filters:
+  date_range: 7
+```
 
 ## Deduplication
 
@@ -242,5 +306,5 @@ in_phase crawl --start-date 2024-01-01 --end-date 2024-01-31
 
 Note that the end date is **inclusive**, meaning that the tracks added on the end date **will** be included in the playlist.
 
-This overrides the `added_between_days` setting for all jobs.
+This overrides the `date_range` setting for all jobs. The `--end-date` becomes the reference date for relative ranges (like "current_month"), and `--start-date` overrides the calculated start date.
 

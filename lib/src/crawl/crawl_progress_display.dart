@@ -3,7 +3,7 @@ import 'dart:io' as io;
 
 import 'package:dcli/dcli.dart';
 
-import 'package:in_phase/src/crawl/track_collector.dart';
+import 'package:in_phase/src/crawl/crawl.dart';
 
 /// Margin to leave at bottom of terminal for other output.
 const int _crawlProgressDisplayMargin = 4;

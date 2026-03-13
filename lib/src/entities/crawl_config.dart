@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:yaml/yaml.dart';
@@ -131,20 +132,112 @@ class CrawlCover {
 }
 
 /// Filters for track selection.
-@JsonSerializable(fieldRename: FieldRename.snake)
+@JsonSerializable(
+  fieldRename: FieldRename.snake,
+  createFactory: false,
+  createToJson: false,
+)
 class CrawlFilters {
   const CrawlFilters({
-    required this.addedBetweenDays,
+    @Deprecated('Use dateRange instead') this.addedBetweenDays,
+    this.dateRange,
   });
 
-  factory CrawlFilters.fromJson(Map<String, dynamic> json) =>
-      _$CrawlFiltersFromJson(json);
+  factory CrawlFilters.fromJson(Map<String, dynamic> json) {
+    // Custom parsing for date_range field
+    final dateRangeValue = json['date_range'];
+    CrawlDateRange? dateRange;
 
-  Map<String, dynamic> toJson() => _$CrawlFiltersToJson(this);
+    if (dateRangeValue != null) {
+      dateRange = _parseDateRange(dateRangeValue);
+    }
 
-  /// Number of days to look back for tracks.
-  /// Tracks added/released in the last N days will be included.
-  final int addedBetweenDays;
+    return CrawlFilters(
+      // ignore: deprecated_member_use_from_same_package
+      addedBetweenDays: json['added_between_days'] as int?,
+      dateRange: dateRange,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{};
+    // ignore: deprecated_member_use_from_same_package
+    if (addedBetweenDays != null) {
+      // ignore: deprecated_member_use_from_same_package
+      map['added_between_days'] = addedBetweenDays;
+    }
+    if (dateRange != null) {
+      map['date_range'] = _serializeDateRange(dateRange!);
+    }
+    return map;
+  }
+
+  /// Deprecated: Use dateRange instead.
+  @Deprecated('Use dateRange instead')
+  @JsonKey(includeIfNull: false)
+  final int? addedBetweenDays;
+
+  /// Flexible date range configuration.
+  @JsonKey(includeIfNull: false)
+  final CrawlDateRange? dateRange;
+
+  /// Parses a date_range value from JSON (supports multiple formats).
+  static CrawlDateRange? _parseDateRange(dynamic value) {
+    if (value == null) return null;
+
+    // Integer format: date_range: 7
+    if (value is int) {
+      return CrawlDateRangeDays(value);
+    }
+
+    // String format: date_range: "current_month"
+    if (value is String) {
+      return CrawlDateRangeShortcut(value);
+    }
+
+    // Object format
+    if (value is Map) {
+      // Absolute range: { start: "...", end: "..." }
+      if (value.containsKey('start') && value.containsKey('end')) {
+        final startStr = value['start'] as String;
+        final endStr = value['end'] as String;
+        return CrawlDateRangeAbsolute(
+          start: DateTime.parse(startStr),
+          end: DateTime.parse(endStr),
+        );
+      }
+
+      // Time unit: { days: 7 } or { weeks: 2 } or { months: 1 }
+      if (value.containsKey('days') ||
+          value.containsKey('weeks') ||
+          value.containsKey('months')) {
+        return CrawlDateRangeTimeUnit(
+          days: value['days'] as int?,
+          weeks: value['weeks'] as int?,
+          months: value['months'] as int?,
+        );
+      }
+    }
+
+    throw FormatException('Invalid date_range format: $value');
+  }
+
+  /// Serializes a date_range to JSON.
+  static dynamic _serializeDateRange(CrawlDateRange range) {
+    return switch (range) {
+      CrawlDateRangeDays(:final days) => days,
+      CrawlDateRangeShortcut(:final shortcut) => shortcut,
+      CrawlDateRangeTimeUnit(:final days, :final weeks, :final months) => {
+        'days': days,
+        'weeks': weeks,
+        'months': months,
+      }..removeWhere((key, value) => value == null),
+      CrawlDateRangeAbsolute(:final start, :final end) => {
+        'start': start.toIso8601String().split('T')[0],
+        'end': end.toIso8601String().split('T')[0],
+      },
+    };
+  }
 }
 
 /// Processing options for the job.

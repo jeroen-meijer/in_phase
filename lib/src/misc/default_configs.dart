@@ -103,7 +103,15 @@ custom_tracks: {}
 #     description: 'Fresh tracks from {real_playlist_count} playlists and {real_artist_source_count} artists'
 #     public: false
 #   filters:
-#     added_between_days: 7  # Look back 7 days
+#     date_range: 7  # Last 7 days (backward compatible with added_between_days)
+#     # Or use other formats:
+#     # date_range: "today"  # Just today
+#     # date_range: "current_week"  # Current week (Monday-Sunday)
+#     # date_range: "current_month"  # Current month (1st to last day)
+#     # date_range: "current_year"  # Current year (Jan 1 to Dec 31)
+#     # date_range: { weeks: 2 }  # Last 2 weeks
+#     # date_range: { months: 1 }  # Last 1 month
+#     # date_range: { start: "2024-07-20", end: "2024-07-28" }  # Specific dates
 #   options:
 #     deduplicate: on_match  # Remove duplicate tracks by artist/title match
 #     append_to_existing: false  # Create new playlist each time
@@ -132,7 +140,8 @@ custom_tracks: {}
 #     image: 'cover.jpg'  # Place cover.jpg in the same directory as this config
 #     caption: '{month} {year}\n#{month_num}'
 #   filters:
-#     added_between_days: 30  # Look back 30 days
+#     date_range: { months: 1 }  # Last 1 month
+#     # Or: date_range: 30  # Last 30 days
 #   options:
 #     deduplicate: on_id  # Remove duplicate tracks by Spotify ID
 #     append_to_existing: false
