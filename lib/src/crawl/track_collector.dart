@@ -469,12 +469,21 @@ class TrackCollector {
       for (final albumId in cachedArtistAlbums.albumIds) {
         final cachedAlbum = await cacheAdapter.getAlbum(albumId);
         if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
+          log.debug(
+            tag: tag,
+            '    From cache: "${cachedAlbum.name}" (${cachedAlbum.releaseDate})',
+          );
           // Create minimal Album object from cache
           albums.add(
             Album()
               ..id = albumId.toString()
               ..name = cachedAlbum.name
               ..releaseDate = cachedAlbum.releaseDate,
+          );
+        } else {
+          log.debug(
+            tag: tag,
+            '    ⊘ Cache miss for album $albumId (not in cache or no release date)',
           );
         }
       }
@@ -521,9 +530,29 @@ class TrackCollector {
           ),
         );
 
-        for (final album in page.items ?? <Album>[]) {
-          if (album.id == null) continue;
+        // Throw out albums without release date, parse once,
+        // sort by date (newest first)
+        final rawItems = page.items ?? <Album>[];
+        final dated = <({DateTime releaseDate, Album album})>[];
+        for (final a in rawItems) {
+          if (a.id == null || a.releaseDate == null) continue;
+          try {
+            dated.add((
+              releaseDate: parseSpotifyReleaseDate(a.releaseDate!),
+              album: a,
+            ));
+          } catch (e) {
+            log.warning(
+              tag: tag,
+              '    ⚠️  Could not parse release date: ${a.releaseDate}',
+            );
+          }
+        }
+        dated.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
 
+        for (final entry in dated) {
+          final album = entry.album;
+          final releaseDate = entry.releaseDate;
           final albumId = SpotifyAlbumId(album.id!);
           allAlbumIds.add(albumId);
 
@@ -542,28 +571,18 @@ class TrackCollector {
           }
 
           // Check if this album is too old (beyond our date range)
-          // Since albums come newest-first, we can stop here
-          if (album.releaseDate != null) {
-            try {
-              final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
-              if (releaseDate.isBefore(cutoffDate)) {
-                if (progress == null) {
-                  log.info(
-                    tag: tag,
-                    '    ✓ Found album "${album.name}" from '
-                    '${formatDate(releaseDate)}, before cutoff '
-                    '${formatDate(cutoffDate)}, stopping fetch',
-                  );
-                }
-                hitDateCutoff = true;
-                break;
-              }
-            } catch (e) {
-              log.warning(
+          // Since we sorted newest-first, we can stop here
+          if (releaseDate.isBefore(cutoffDate)) {
+            if (progress == null) {
+              log.info(
                 tag: tag,
-                '    ⚠️  Could not parse release date: ${album.releaseDate}',
+                '    ✓ Found album "${album.name}" from '
+                '${formatDate(releaseDate)}, before cutoff '
+                '${formatDate(cutoffDate)}, stopping fetch',
               );
             }
+            hitDateCutoff = true;
+            break;
           }
 
           albums.add(album);
@@ -667,7 +686,13 @@ class TrackCollector {
         }
       }
 
-      if (releaseDate == null) continue;
+      if (releaseDate == null) {
+        log.debug(
+          tag: tag,
+          '    ⊘ Skipping "${album.name}" (no release date)',
+        );
+        continue;
+      }
 
       if (albumToCache.id != null) {
         final albumId = SpotifyAlbumId(albumToCache.id!);
@@ -692,6 +717,18 @@ class TrackCollector {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
         if (parsedReleaseDate.isInRange(cutoffDate, endDate)) {
           recentAlbums.add(album);
+          log.debug(
+            tag: tag,
+            '    ✓ Including "${album.name}" (released ${formatDate(parsedReleaseDate)})',
+          );
+        } else {
+          final reason = parsedReleaseDate.isBefore(cutoffDate)
+              ? 'before cutoff ${formatDate(cutoffDate)}'
+              : 'after end date ${formatDate(endDate)}';
+          log.debug(
+            tag: tag,
+            '    ⊘ Skipping "${album.name}" (released ${formatDate(parsedReleaseDate)}, $reason)',
+          );
         }
       } catch (e) {
         log.warning(

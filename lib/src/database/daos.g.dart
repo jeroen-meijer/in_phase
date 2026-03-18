@@ -71,6 +71,7 @@ mixin _$ArtistAlbumsDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.cachedArtistAlbumLists;
   $ArtistAlbumRelationshipsTable get artistAlbumRelationships =>
       attachedDatabase.artistAlbumRelationships;
+  $CachedArtistsTable get cachedArtists => attachedDatabase.cachedArtists;
   ArtistAlbumsDaoManager get managers => ArtistAlbumsDaoManager(this);
 }
 
@@ -87,6 +88,8 @@ class ArtistAlbumsDaoManager {
         _db.attachedDatabase,
         _db.artistAlbumRelationships,
       );
+  $$CachedArtistsTableTableManager get cachedArtists =>
+      $$CachedArtistsTableTableManager(_db.attachedDatabase, _db.cachedArtists);
 }
 
 mixin _$LabelSearchesDaoMixin on DatabaseAccessor<AppDatabase> {

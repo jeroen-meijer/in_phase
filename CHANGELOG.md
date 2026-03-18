@@ -1,14 +1,17 @@
 ## Upcoming
 
-- feat(crawl): add flexible `date_range` filter supporting current month/week/year, time units (days/weeks/months), and absolute date ranges
-- feat(crawl): deprecate `added_between_days` in favor of `date_range` (backward compatible)
-- feat(crawl): add `date_range: "today"` shortcut for single-day filtering
-- refactor(crawl): use barrel imports for crawl module
-- feat(crawl): add `target_playlist` option to update existing playlists instead of creating new ones
-- feat(crawl): add `update_mode` option (`replace` or `append`) for controlling how target playlists are updated
-- refactor(crawl): remove deprecated `append_to_existing` option in favor of `target_playlist` + `update_mode`
-- refactor(crawl): move `target_playlist` to `output_playlist.id` (breaking config change)
+- fix(crawl): fix some albums not being found by sorting artist's albums by release date
+- feat(cache): add `cache clear-artists` command to delete cached albums for specific artists
+- fix: decrease album fetch limit to 10 (according to Spotify API docs)
 - fix(crawl): include time in `realDateTime` and `realDateTimeFull` template variables
+- refactor(crawl): move `target_playlist` to `output_playlist.id` (breaking config change)
+- refactor(crawl): remove deprecated `append_to_existing` option in favor of `target_playlist` + `update_mode`
+- feat(crawl): add `update_mode` option (`replace` or `append`) for controlling how target playlists are updated
+- feat(crawl): add `target_playlist` option to update existing playlists instead of creating new ones
+- refactor(crawl): use barrel imports for crawl module
+- feat(crawl): add `date_range: "today"` shortcut for single-day filtering
+- feat(crawl): deprecate `added_between_days` in favor of `date_range` (backward compatible)
+- feat(crawl): add flexible `date_range` filter supporting current month/week/year, time units (days/weeks/months), and absolute date ranges
 
 ## 1.2.0
 
