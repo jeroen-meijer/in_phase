@@ -28,12 +28,12 @@
               "public": {
                 "type": "boolean",
                 "description": "Whether the playlist is public (only used when creating new playlist)"
+              },
+              "id": {
+                "type": "string",
+                "description": "Playlist ID, URI, or share URL to update instead of creating new"
               }
             }
-          },
-          "target_playlist": {
-            "type": "string",
-            "description": "Playlist ID, URI, or share URL to update instead of creating new"
           },
           "cover": {
             "type": "object",
@@ -121,7 +121,7 @@
               "update_mode": {
                 "type": "string",
                 "enum": ["replace", "append"],
-                "description": "How to update target playlist (only applies when target_playlist is specified)"
+                "description": "How to update target playlist (only applies when output_playlist.id is specified)"
               }
             }
           },

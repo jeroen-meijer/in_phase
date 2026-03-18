@@ -28,7 +28,6 @@ CrawlJob _$CrawlJobFromJson(Map<String, dynamic> json) => CrawlJob(
   options: json['options'] == null
       ? null
       : CrawlOptions.fromJson(json['options'] as Map<String, dynamic>),
-  targetPlaylist: json['target_playlist'] as String?,
 );
 
 Map<String, dynamic> _$CrawlJobToJson(CrawlJob instance) => <String, dynamic>{
@@ -38,7 +37,6 @@ Map<String, dynamic> _$CrawlJobToJson(CrawlJob instance) => <String, dynamic>{
   'inputs': instance.inputs,
   'cover': ?instance.cover,
   'options': ?instance.options,
-  'target_playlist': ?instance.targetPlaylist,
 };
 
 CrawlOutputPlaylist _$CrawlOutputPlaylistFromJson(Map<String, dynamic> json) =>
@@ -46,6 +44,7 @@ CrawlOutputPlaylist _$CrawlOutputPlaylistFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       description: json['description'] as String?,
       public: json['public'] as bool? ?? false,
+      id: json['id'] as String?,
     );
 
 Map<String, dynamic> _$CrawlOutputPlaylistToJson(
@@ -54,6 +53,7 @@ Map<String, dynamic> _$CrawlOutputPlaylistToJson(
   'name': instance.name,
   'description': ?instance.description,
   'public': instance.public,
+  'id': ?instance.id,
 };
 
 CrawlCover _$CrawlCoverFromJson(Map<String, dynamic> json) => CrawlCover(

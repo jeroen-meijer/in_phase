@@ -256,9 +256,16 @@ class TemplateEngine {
         final second = ctx.now.second.toString().padLeft(2, '0');
         return '$hour:$minute:$second';
       case TemplateVariable.realDateTime:
-        return formatDate(ctx.now);
+        final date = formatDate(ctx.now);
+        final hour = ctx.now.hour.toString().padLeft(2, '0');
+        final minute = ctx.now.minute.toString().padLeft(2, '0');
+        return '$date $hour:$minute';
       case TemplateVariable.realDateTimeFull:
-        return formatDate(ctx.now);
+        final date = formatDate(ctx.now);
+        final hour = ctx.now.hour.toString().padLeft(2, '0');
+        final minute = ctx.now.minute.toString().padLeft(2, '0');
+        final second = ctx.now.second.toString().padLeft(2, '0');
+        return '$date $hour:$minute:$second';
 
       // Content statistics
       case TemplateVariable.trackCount:

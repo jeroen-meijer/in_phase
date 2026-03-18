@@ -65,7 +65,6 @@ class CrawlJob {
     required this.inputs,
     this.cover,
     this.options,
-    this.targetPlaylist,
   });
 
   factory CrawlJob.fromJson(Map<String, dynamic> json) =>
@@ -83,12 +82,6 @@ class CrawlJob {
 
   @JsonKey(includeIfNull: false)
   final CrawlOptions? options;
-
-  /// Target playlist ID, URI, or share URL to update instead of creating new.
-  /// If provided, the existing playlist will be updated with new tracks, name,
-  /// description, and cover image.
-  @JsonKey(includeIfNull: false)
-  final String? targetPlaylist;
 }
 
 /// Output playlist configuration.
@@ -98,6 +91,7 @@ class CrawlOutputPlaylist {
     required this.name,
     this.description,
     this.public = false,
+    this.id,
   });
 
   factory CrawlOutputPlaylist.fromJson(Map<String, dynamic> json) =>
@@ -116,6 +110,12 @@ class CrawlOutputPlaylist {
   /// playlist).
   @JsonKey(defaultValue: false)
   final bool public;
+
+  /// Playlist ID, URI, or share URL to update instead of creating new.
+  /// If provided, the existing playlist will be updated with new tracks, name,
+  /// description, and cover image.
+  @JsonKey(includeIfNull: false)
+  final String? id;
 }
 
 /// Playlist cover configuration.
@@ -272,7 +272,7 @@ class CrawlOptions {
   @JsonKey(defaultValue: PlaylistTrackDateMode.releaseDate)
   final PlaylistTrackDateMode addPlaylistTracksBasedOn;
 
-  /// How to update the target playlist (only applies when target_playlist is
+  /// How to update the target playlist (only applies when output_playlist.id is
   /// specified).
   /// - `replace`: Clear and replace all tracks (default)
   /// - `append`: Add new tracks without clearing existing ones

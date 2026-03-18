@@ -590,11 +590,11 @@ class CrawlCommand extends Command<int> {
       }
     }
 
-    // Warn if append mode is set but no target_playlist is specified
+    // Warn if append mode is set but no output_playlist.id is specified
     final updateMode = job.options?.updateMode ?? CrawlUpdateMode.replace;
-    if (updateMode == CrawlUpdateMode.append && job.targetPlaylist == null) {
+    if (updateMode == CrawlUpdateMode.append && job.outputPlaylist.id == null) {
       log.warning(
-        '  ⚠️  update_mode is set to "append" but no target_playlist is '
+        '  ⚠️  update_mode is set to "append" but no output_playlist.id is '
         'specified. A new playlist will be created, so append mode has no '
         'effect.',
       );
@@ -602,7 +602,7 @@ class CrawlCommand extends Command<int> {
 
     // Resolve target playlist if specified, otherwise create new
     PlaylistSimple playlist;
-    final targetPlaylistId = job.targetPlaylist;
+    final targetPlaylistId = job.outputPlaylist.id;
 
     if (targetPlaylistId != null) {
       log.info('  🎯 Resolving target playlist: $targetPlaylistId');

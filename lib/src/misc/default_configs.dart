@@ -102,6 +102,8 @@ custom_tracks: {}
 #     name: 'Weekly Discovery - Week {week_num} {year}'
 #     description: 'Fresh tracks from {real_playlist_count} playlists and {real_artist_source_count} artists'
 #     public: false
+#     # Optional: Update existing playlist instead of creating new
+#     # id: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   filters:
 #     date_range: 7  # Last 7 days (backward compatible with added_between_days)
 #     # Or use other formats:
@@ -116,8 +118,6 @@ custom_tracks: {}
 #     deduplicate: on_match  # Remove duplicate tracks by artist/title match
 #     add_playlist_tracks_based_on: release_date  # Use release date for filtering
 #     update_mode: replace  # How to update target playlist: 'replace' or 'append'
-#   # Optional: Update existing playlist instead of creating new
-#   # target_playlist: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   inputs:
 #     playlists:
 #       - *playlist_new_releases  # Reference anchor from _notes
@@ -138,6 +138,8 @@ custom_tracks: {}
 #     name: '{month} {year} Releases'
 #     description: 'New releases from {real_label_source_count} labels'
 #     public: false
+#     # Optional: Update existing playlist instead of creating new
+#     # id: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   cover:
 #     image: 'cover.jpg'  # Place cover.jpg in the same directory as this config
 #     caption: '{month} {year}\n#{month_num}'
@@ -146,8 +148,6 @@ custom_tracks: {}
 #     # Or: date_range: 30  # Last 30 days
 #   options:
 #     deduplicate: on_id  # Remove duplicate tracks by Spotify ID
-#   # Optional: Update existing playlist instead of creating new
-#   # target_playlist: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
 #   inputs:
 #     labels:
 #       - "Label Name 1"

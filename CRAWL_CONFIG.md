@@ -32,6 +32,8 @@ jobs:
       name: 'Weekly Discovery - Week {week_num} {year}'
       description: 'Fresh tracks from {real_playlist_count} playlists and {real_artist_source_count} artists'
       public: false
+      # Optional: Update existing playlist instead of creating new
+      # id: '37i9dQZF1DXcBWIGoYBM5M'
     cover:
       image: 'cover.jpg'
       caption: "Weekly Discovery\n{year} - #{week_num}"
@@ -40,8 +42,6 @@ jobs:
     options:
       deduplicate: on_match
       add_playlist_tracks_based_on: release_date
-    # Optional: Update existing playlist instead of creating new
-    # target_playlist: '37i9dQZF1DXcBWIGoYBM5M'
     inputs:
       playlists:
         - *playlist_my_playlist
@@ -64,7 +64,7 @@ Each job in the `jobs` array defines a single automated playlist creation task.
   - **`name`** - Playlist name template (supports template variables)
   - **`description`** - Optional playlist description template
   - **`public`** - Whether the playlist should be public (default: `false`, only used when creating new playlist)
-- **`target_playlist`** - Optional playlist ID, URI, or share URL to update instead of creating new. If provided, the existing playlist will be updated with new tracks, name, description, and cover image.
+  - **`id`** - Optional playlist ID, URI, or share URL to update instead of creating new. If provided, the existing playlist will be updated with new tracks, name, description, and cover image.
 - **`filters`** - Track filtering options
   - **`date_range`** - Date range configuration (see [Date Range Formats](#date-range-formats) below)
   - **`added_between_days`** - *Deprecated: Use `date_range` instead.* Number of days to look back for tracks
@@ -82,7 +82,7 @@ Each job in the `jobs` array defines a single automated playlist creation task.
 - **`options`** - Processing options
   - **`deduplicate`** - Deduplication mode: `on_id` or `on_match` (optional)
   - **`add_playlist_tracks_based_on`** - Which date to use for filtering playlist tracks: `added_date` or `release_date` (default: `release_date`)
-  - **`update_mode`** - How to update target playlist: `replace` or `append` (default: `replace`, only applies when `target_playlist` is specified)
+  - **`update_mode`** - How to update target playlist: `replace` or `append` (default: `replace`, only applies when `output_playlist.id` is specified)
 
 ## Template Variables
 
@@ -274,26 +274,26 @@ This is useful if you want to include tracks that were recently added to a playl
 
 ## Target Playlist
 
-By default, each crawl job creates a new playlist. However, you can update an existing playlist instead by specifying `target_playlist` at the job level:
+By default, each crawl job creates a new playlist. However, you can update an existing playlist instead by specifying `id` in the `output_playlist` section:
 
 ```yaml
 - name: weekly_discovery
   output_playlist:
     name: 'Weekly Discovery - Week {week_num} {year}'
     description: 'Fresh tracks from {real_playlist_count} playlists'
-  target_playlist: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
+    id: '37i9dQZF1DXcBWIGoYBM5M'  # Playlist ID, URI, or share URL
   filters:
     date_range: 7
   options:
     update_mode: replace  # or 'append' to add tracks without clearing
 ```
 
-The `target_playlist` field accepts:
+The `output_playlist.id` field accepts:
 - **Playlist ID**: `37i9dQZF1DXcBWIGoYBM5M`
 - **Spotify URI**: `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`
 - **Share URL**: `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`
 
-When `target_playlist` is specified:
+When `output_playlist.id` is specified:
 - The playlist's name and description are updated (using templates)
 - The playlist's cover image is updated (if configured)
 - The playlist must exist and you must have edit access (you own it or have collaborative edit access)
@@ -306,9 +306,9 @@ The `update_mode` option in `options` controls how tracks are updated:
 - **`replace`** (default): Clear all existing tracks and replace with new tracks
 - **`append`**: Add new tracks without clearing existing ones. Tracks that are already in the playlist are skipped.
 
-**Note:** If `update_mode` is set to `append` but no `target_playlist` is specified, a warning will be shown (since a new playlist is created anyway, append mode has no effect).
+**Note:** If `update_mode` is set to `append` but no `output_playlist.id` is specified, a warning will be shown (since a new playlist is created anyway, append mode has no effect).
 
-If `target_playlist` is not specified, a new playlist is created with the configured name, description, and visibility.
+If `output_playlist.id` is not specified, a new playlist is created with the configured name, description, and visibility.
 
 ## Cover Images
 

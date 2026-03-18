@@ -7,6 +7,8 @@
 - feat(crawl): add `target_playlist` option to update existing playlists instead of creating new ones
 - feat(crawl): add `update_mode` option (`replace` or `append`) for controlling how target playlists are updated
 - refactor(crawl): remove deprecated `append_to_existing` option in favor of `target_playlist` + `update_mode`
+- refactor(crawl): move `target_playlist` to `output_playlist.id` (breaking config change)
+- fix(crawl): include time in `realDateTime` and `realDateTimeFull` template variables
 
 ## 1.2.0
 
