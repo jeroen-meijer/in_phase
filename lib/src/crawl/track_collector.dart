@@ -887,7 +887,7 @@ class TrackCollector {
       // Search for tracks by label
       final searchQuery = 'label:"$labelName"';
       final searchResults = await requestPool.request(
-        () => api.search.get(searchQuery, types: [SearchType.track]).first(50),
+        () => api.search.get(searchQuery, types: [SearchType.track]).first(10),
         identifier: SpotifyCacheIdentifier.labelSearch(labelName),
       );
 

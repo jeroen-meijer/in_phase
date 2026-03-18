@@ -1,5 +1,6 @@
 ## Upcoming
 
+- fix(crawl): use `api.me.playlists.create` instead of `api.playlists.createPlaylist`
 - fix(crawl): fix some albums not being found by sorting artist's albums by release date
 - feat(cache): add `cache clear-artists` command to delete cached albums for specific artists
 - fix: decrease album fetch limit to 10 (according to Spotify API docs)

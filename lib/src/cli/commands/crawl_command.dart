@@ -644,8 +644,7 @@ class CrawlCommand extends Command<int> {
       log.info('  📝 Creating playlist on Spotify...');
       final isPublic = job.outputPlaylist.public;
       log.info('  🔒 Playlist visibility: ${isPublic ? "public" : "private"}');
-      playlist = await api.playlists.createPlaylist(
-        user.id!,
+      playlist = await api.me.playlists.create(
         playlistName,
         public: isPublic,
         description: playlistDescription,
