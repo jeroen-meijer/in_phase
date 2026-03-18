@@ -498,7 +498,7 @@ class TrackCollector {
       final allAlbumIds = <SpotifyAlbumId>[];
       albums = [];
 
-      const limit = 50;
+      const limit = 10;
       var offset = 0;
       var pagesFetched = 0;
       var hitCache = false;
@@ -508,7 +508,8 @@ class TrackCollector {
         pagesFetched++;
         log.debug(
           tag: tag,
-          '    Fetching page $pagesFetched of artist albums (offset: $offset)',
+          '    Fetching page $pagesFetched of artist albums '
+          '(limit: $limit, offset: $offset)',
         );
 
         // Fetch page with RequestPool for deduplication and retry
