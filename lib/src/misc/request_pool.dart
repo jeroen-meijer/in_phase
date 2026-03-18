@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/logger/logger.dart';
+import 'package:spotify/spotify.dart' hide Queue;
 import 'package:uuid/uuid.dart';
 
 void Function(String message, {Object? id, bool? isReturning}) _createLogger(
@@ -212,6 +213,18 @@ final class RequestPool {
     return _activeRequests[identifier]! as Future<T>;
   }
 
+  /// Returns the appropriate retry delay for the given error.
+  /// Uses Spotify's Retry-After header (via [ApiRateException]) when rate
+  /// limited (429). Otherwise returns null.
+  Duration? _tryGetRetryDelayForError(Object error) {
+    return switch (error) {
+      ApiRateException(:final retryAfter) => Duration(
+        seconds: retryAfter.ceil().clamp(1, 300),
+      ),
+      _ => null,
+    };
+  }
+
   /// Processes the queue of pending requests, respecting concurrency limits.
   void _processQueue() {
     while (_runningCount < maxConcurrent && _pendingQueue.isNotEmpty) {
@@ -286,11 +299,29 @@ final class RequestPool {
             );
 
             if (pendingRequest.attemptsLeft > 0) {
+              final delayFromError = _tryGetRetryDelayForError(error);
+
+              final Duration delay;
+              if (delayFromError != null) {
+                log(
+                  'using Retry-After from Spotify: $delayFromError',
+                  id: pendingRequest.identifier,
+                );
+                delay = delayFromError;
+              } else {
+                log(
+                  'using default retry delay: $retryDelay',
+                  id: pendingRequest.identifier,
+                );
+                delay = retryDelay;
+              }
+
               log(
-                'scheduling retry in $retryDelay',
+                'scheduling retry in $delay'
+                '${delay != retryDelay ? ' (Retry-After from Spotify)' : ''}',
                 id: pendingRequest.identifier,
               );
-              Timer(retryDelay, () {
+              Timer(delay, () {
                 final vr = _states[pendingRequest.identifier]?.version;
                 if (vr == pendingRequest.version) {
                   log(
