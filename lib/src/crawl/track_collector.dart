@@ -787,6 +787,9 @@ class TrackCollector {
         // Check if this is an "appears on" album (artist is not in the
         // album's main artists). For these albums, we only include tracks
         // where the target artist is credited.
+        // When album.artists is null (unusual), assume the artist owns
+        // the album to safely include all tracks rather than risk
+        // dropping relevant ones.
         final isAppearsOnAlbum = !(album.artists?.any(
               (a) => a.id == artistId,
             ) ??
@@ -829,10 +832,11 @@ class TrackCollector {
             final artistNames =
                 track.artists?.map((a) => a.name ?? '').join(', ') ??
                 'Unknown Artist';
+            final releasedOn =
+                'released on ${formatDate(releaseDate)}';
             final reason = isAppearsOnAlbum
-                ? 'appears on "${album.name}", '
-                    'released on ${formatDate(releaseDate)}'
-                : 'released on ${formatDate(releaseDate)}';
+                ? 'appears on "${album.name}", $releasedOn'
+                : releasedOn;
             log.debug(
               tag: tag,
               '    ✓ $artistNames - ${track.name} '
