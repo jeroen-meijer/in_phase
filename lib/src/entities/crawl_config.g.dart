@@ -78,6 +78,7 @@ CrawlOptions _$CrawlOptionsFromJson(Map<String, dynamic> json) => CrawlOptions(
   updateMode:
       $enumDecodeNullable(_$CrawlUpdateModeEnumMap, json['update_mode']) ??
       CrawlUpdateMode.replace,
+  includeArtistAppearances: json['include_artist_appearances'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$CrawlOptionsToJson(CrawlOptions instance) =>
@@ -86,6 +87,7 @@ Map<String, dynamic> _$CrawlOptionsToJson(CrawlOptions instance) =>
       'add_playlist_tracks_based_on':
           _$PlaylistTrackDateModeEnumMap[instance.addPlaylistTracksBasedOn]!,
       'update_mode': _$CrawlUpdateModeEnumMap[instance.updateMode]!,
+      'include_artist_appearances': instance.includeArtistAppearances,
     };
 
 const _$DeduplicateModeEnumMap = {

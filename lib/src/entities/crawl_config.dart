@@ -255,6 +255,7 @@ class CrawlOptions {
     this.deduplicate,
     this.addPlaylistTracksBasedOn = PlaylistTrackDateMode.releaseDate,
     this.updateMode = CrawlUpdateMode.replace,
+    this.includeArtistAppearances = true,
   });
 
   factory CrawlOptions.fromJson(Map<String, dynamic> json) =>
@@ -278,6 +279,14 @@ class CrawlOptions {
   /// - `append`: Add new tracks without clearing existing ones
   @JsonKey(defaultValue: CrawlUpdateMode.replace)
   final CrawlUpdateMode updateMode;
+
+  /// Whether to include tracks from releases where the artist appears as a
+  /// featured artist (e.g., remixes, features, collaborations on other
+  /// artists' albums). When enabled, the crawl fetches albums in the
+  /// `appears_on` group and filters tracks to only include those where the
+  /// artist is credited.
+  @JsonKey(defaultValue: true)
+  final bool includeArtistAppearances;
 }
 
 /// Input sources for the job.

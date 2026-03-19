@@ -122,6 +122,11 @@
                 "type": "string",
                 "enum": ["replace", "append"],
                 "description": "How to update target playlist (only applies when output_playlist.id is specified)"
+              },
+              "include_artist_appearances": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether to include tracks from releases where the artist is a featured artist (e.g., remixes, collaborations)"
               }
             }
           },
