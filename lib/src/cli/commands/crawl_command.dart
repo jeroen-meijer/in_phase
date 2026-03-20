@@ -296,6 +296,7 @@ class CrawlCommand extends Command<int> {
     final dateMode =
         job.options?.addPlaylistTracksBasedOn ??
         PlaylistTrackDateMode.releaseDate;
+    final includeAppearances = job.options?.includeArtistAppearances ?? true;
 
     final playlistIds = job.inputs.playlists ?? [];
     final artistIds = job.inputs.artists ?? [];
@@ -358,6 +359,7 @@ class CrawlCommand extends Command<int> {
               artistId,
               cutoffDate,
               endDate,
+              includeAppearances: includeAppearances,
               progress: progress,
             )
             .then((tracks) {

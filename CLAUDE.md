@@ -49,6 +49,43 @@ dart test
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.
 
+## Git Conventions
+
+### Branch Naming
+
+- Feature branches: `feat/<description>` (e.g., `feat/api-refactor-for-app`)
+- Bug fixes: `fix/<description>` (e.g., `fix/spotify-api-compliance`)
+- Copilot branches: `copilot/<description>` (e.g., `copilot/featinclude-tracks-in-crawl`)
+
+### Commit Messages
+
+Follow conventional commits format: `<type>[optional scope]: <description>`
+
+**Types:**
+- `feat`: New feature (e.g., `feat(crawl): add flexible date_range filter`)
+- `fix`: Bug fix (e.g., `fix(request-pool): respect Retry-After from Spotify 429 responses`)
+- `refactor`: Code refactoring (e.g., `refactor(crawl): move target_playlist to output_playlist.id`)
+- `chore`: Maintenance tasks (e.g., `chore: prepare release v1.2.0`)
+- `docs`: Documentation changes (e.g., `docs: update docs and/or version file`)
+- `style`: Formatting changes (e.g., `style: format all files`)
+- `ci`: CI/CD changes (e.g., `ci: add publish script`)
+
+**Scopes:** Use when relevant (e.g., `crawl`, `cache`, `curate`, `request-pool`, `collect`)
+
+## Changelog Workflow
+
+- All new features and changes go in `docs/CHANGELOG.md` under `## Upcoming`.
+- New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
+- When releasing a new version:
+  - Replace `## Upcoming` with `## <version>`
+  - Add a new `## Upcoming` section above it with an empty newline in between
+  - Do not modify the actual change lines, only the headings
+- Before committing:
+  - Run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .`
+  - If there are errors, fix them and rerun both commands
+  - Repeat in a loop until all errors are fixed
+  - If you encounter errors you cannot fix, HALT and report them
+
 ## Project-Specific Warnings
 
 - **Never run `sync`, `crawl`, etc. yourself** — always ask for permission. These are expensive API calls; avoid rate limits.
@@ -60,7 +97,7 @@ dart test
 ## Documentation
 
 - [README.md](README.md) — install, setup, usage
-- [SYNC_CONFIG.md](SYNC_CONFIG.md) — sync config format
-- [CRAWL_CONFIG.md](CRAWL_CONFIG.md) — crawl config format
-- [COLLECT_CONFIG.md](COLLECT_CONFIG.md) — collect config format
-- [CURATE_CONFIG.md](CURATE_CONFIG.md) — curate config and keyboard controls
+- [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
+- [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
+- [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) — collect config format
+- [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config and keyboard controls

@@ -400,10 +400,16 @@ class TrackCollector {
   }
 
   /// Collects tracks from an artist's recent releases within the date range.
+  ///
+  /// When [includeAppearances] is `true` (default), also fetches albums where
+  /// the artist appears as a featured artist (e.g., remixes, features,
+  /// collaborations). For these albums, only tracks where the artist is
+  /// credited are included.
   Future<List<CollectedTrack>> collectFromArtist(
     String artistId,
     DateTime cutoffDate,
     DateTime endDate, {
+    bool includeAppearances = true,
     CrawlProgressReporter? progress,
   }) async {
     var tag = _shortId(artistId);
@@ -521,9 +527,17 @@ class TrackCollector {
           '(limit: $limit, offset: $offset)',
         );
 
+        final includeGroups = [
+          'album',
+          'single',
+          if (includeAppearances) ...['appears_on', 'compilation'],
+        ];
+
         // Fetch page with RequestPool for deduplication and retry
         final page = await requestPool.request(
-          () => api.artists.albums(artistId).getPage(limit, offset),
+          () => api.artists
+              .albums(artistId, includeGroups: includeGroups)
+              .getPage(limit, offset),
           identifier: SpotifyCacheIdentifier.artistAlbumsPage(
             spotifyArtistId,
             offset,
@@ -771,8 +785,32 @@ class TrackCollector {
       try {
         final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
 
+        // Check if this is an "appears on" album (artist is not in the
+        // album's main artists). For these albums, we only include tracks
+        // where the target artist is credited.
+        // When album.artists is null (unusual), assume the artist owns
+        // the album to safely include all tracks rather than risk
+        // dropping relevant ones.
+        final isAppearsOnAlbum =
+            album.artists?.any((a) => a.id == artistId) != true;
+
         for (final track in albumFull.tracks ?? <TrackSimple>[]) {
           if (track.id != null) {
+            // For appears_on albums, only include tracks where the artist
+            // is credited as a track artist.
+            if (isAppearsOnAlbum) {
+              final artistOnTrack =
+                  track.artists?.any((a) => a.id == artistId) ?? false;
+              if (!artistOnTrack) {
+                log.debug(
+                  tag: tag,
+                  '    ⊘ Skipping "${track.name}" from "${album.name}" '
+                  '(appears_on album, artist not credited on track)',
+                );
+                continue;
+              }
+            }
+
             final collectedTrack = CollectedTrack(
               id: SpotifyTrackId(track.id!),
               uri: track.uri!,
@@ -793,10 +831,14 @@ class TrackCollector {
             final artistNames =
                 track.artists?.map((a) => a.name ?? '').join(', ') ??
                 'Unknown Artist';
+            final releasedOn = 'released on ${formatDate(releaseDate)}';
+            final reason = isAppearsOnAlbum
+                ? 'appears on "${album.name}", $releasedOn'
+                : releasedOn;
             log.debug(
               tag: tag,
               '    ✓ $artistNames - ${track.name} '
-              '(included because released on ${formatDate(releaseDate)})',
+              '(included because $reason)',
             );
           }
         }

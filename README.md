@@ -246,7 +246,7 @@ in_phase sync
 in_phase sync <playlist_id1> <playlist_id2>
 ```
 
-Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](SYNC_CONFIG.md) for configuration details.
+Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) for configuration details.
 
 ### Crawl for new tracks
 
@@ -255,7 +255,7 @@ Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](SYNC_CO
 in_phase crawl
 ```
 
-Automatically discovers new tracks from configured sources (playlists, artists, labels, or YouTube channels) and creates Spotify playlists. See [CRAWL_CONFIG.md](CRAWL_CONFIG.md) for configuration details.
+Automatically discovers new tracks from configured sources (playlists, artists, labels, or YouTube channels) and creates Spotify playlists. See [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) for configuration details.
 
 ### Collect playlists
 
@@ -267,7 +267,7 @@ in_phase collect
 in_phase collect --collection drum_and_bass
 ```
 
-Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](COLLECT_CONFIG.md) for configuration details.
+Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) for configuration details.
 
 ### Curate playlists
 
@@ -276,7 +276,7 @@ Aggregates tracks from multiple source playlists into a single target playlist. 
 in_phase curate <playlist>
 ```
 
-Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](CURATE_CONFIG.md) for configuration details.
+Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) for configuration details.
 
 ### Open config directory
 
