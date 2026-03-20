@@ -49,6 +49,29 @@ dart test
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.
 
+## Git Conventions
+
+### Branch Naming
+
+- Feature branches: `feat/<description>` (e.g., `feat/api-refactor-for-app`)
+- Bug fixes: `fix/<description>` (e.g., `fix/spotify-api-compliance`)
+- Copilot branches: `copilot/<description>` (e.g., `copilot/featinclude-tracks-in-crawl`)
+
+### Commit Messages
+
+Follow conventional commits format: `<type>[optional scope]: <description>`
+
+**Types:**
+- `feat`: New feature (e.g., `feat(crawl): add flexible date_range filter`)
+- `fix`: Bug fix (e.g., `fix(request-pool): respect Retry-After from Spotify 429 responses`)
+- `refactor`: Code refactoring (e.g., `refactor(crawl): move target_playlist to output_playlist.id`)
+- `chore`: Maintenance tasks (e.g., `chore: prepare release v1.2.0`)
+- `docs`: Documentation changes (e.g., `docs: update docs and/or version file`)
+- `style`: Formatting changes (e.g., `style: format all files`)
+- `ci`: CI/CD changes (e.g., `ci: add publish script`)
+
+**Scopes:** Use when relevant (e.g., `crawl`, `cache`, `curate`, `request-pool`, `collect`)
+
 ## Changelog Workflow
 
 - All new features and changes go in CHANGELOG.md under `## Upcoming`.
