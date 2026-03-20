@@ -527,12 +527,13 @@ class TrackCollector {
           '(limit: $limit, offset: $offset)',
         );
 
-        // Fetch page with RequestPool for deduplication and retry
         final includeGroups = [
           'album',
           'single',
-          if (includeAppearances) 'appears_on',
+          if (includeAppearances) ...['appears_on', 'compilation'],
         ];
+
+        // Fetch page with RequestPool for deduplication and retry
         final page = await requestPool.request(
           () => api.artists
               .albums(artistId, includeGroups: includeGroups)
@@ -790,10 +791,8 @@ class TrackCollector {
         // When album.artists is null (unusual), assume the artist owns
         // the album to safely include all tracks rather than risk
         // dropping relevant ones.
-        final isAppearsOnAlbum = !(album.artists?.any(
-              (a) => a.id == artistId,
-            ) ??
-            true);
+        final isAppearsOnAlbum =
+            album.artists?.any((a) => a.id == artistId) != true;
 
         for (final track in albumFull.tracks ?? <TrackSimple>[]) {
           if (track.id != null) {
@@ -832,8 +831,7 @@ class TrackCollector {
             final artistNames =
                 track.artists?.map((a) => a.name ?? '').join(', ') ??
                 'Unknown Artist';
-            final releasedOn =
-                'released on ${formatDate(releaseDate)}';
+            final releasedOn = 'released on ${formatDate(releaseDate)}';
             final reason = isAppearsOnAlbum
                 ? 'appears on "${album.name}", $releasedOn'
                 : releasedOn;
