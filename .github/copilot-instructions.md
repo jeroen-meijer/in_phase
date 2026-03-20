@@ -7,7 +7,7 @@ Before making any suggestions or changes to this codebase, please read the follo
 
 ## Additional Documentation
 
-- [SYNC_CONFIG.md](../SYNC_CONFIG.md) — Sync configuration format
-- [CRAWL_CONFIG.md](../CRAWL_CONFIG.md) — Crawl configuration format  
-- [COLLECT_CONFIG.md](../COLLECT_CONFIG.md) — Collect configuration format
-- [CURATE_CONFIG.md](../CURATE_CONFIG.md) — Curate configuration and keyboard controls
+- [SYNC_CONFIG.md](../docs/SYNC_CONFIG.md) — Sync configuration format
+- [CRAWL_CONFIG.md](../docs/CRAWL_CONFIG.md) — Crawl configuration format  
+- [COLLECT_CONFIG.md](../docs/COLLECT_CONFIG.md) — Collect configuration format
+- [CURATE_CONFIG.md](../docs/CURATE_CONFIG.md) — Curate configuration and keyboard controls

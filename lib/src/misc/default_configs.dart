@@ -7,7 +7,7 @@ class DefaultConfigs {
   static const String syncConfig = '''
 # Sync Configuration
 # This file configures which Spotify playlists to sync to Rekordbox
-# and how to organize them. See SYNC_CONFIG.md for full documentation.
+# and how to organize them. See docs/SYNC_CONFIG.md for full documentation.
 
 # List of glob patterns to match playlist names you want to sync
 # Use * for wildcards, ? for single characters, [abc] for character sets
@@ -72,7 +72,7 @@ custom_tracks: {}
   static const String crawlConfig = '''
 # Crawl Configuration
 # This file configures automated playlist creation from Spotify sources.
-# See CRAWL_CONFIG.md for full documentation.
+# See docs/CRAWL_CONFIG.md for full documentation.
 
 # Optional section for defining YAML anchors (reusable IDs)
 # This makes it easier to reference the same playlist/artist/label in multiple jobs
@@ -160,7 +160,7 @@ jobs: []
 # Curate Configuration
 # Usage: in_phase curate <playlist> [--skip=N]
 # Playlist: ID, URI (spotify:playlist:...), or share URL (https://open.spotify.com/playlist/...)
-# See CURATE_CONFIG.md for full documentation.
+# See docs/CURATE_CONFIG.md for full documentation.
 
 # Start each track at this position (default 1:15)
 start_position: "1:15"
@@ -185,7 +185,7 @@ targets:
   static const String collectConfig = '''
 # Collect Configuration
 # This file configures playlist aggregation: combine tracks from multiple
-# Spotify playlists into a single target playlist. See COLLECT_CONFIG.md for full documentation.
+# Spotify playlists into a single target playlist. See docs/COLLECT_CONFIG.md for full documentation.
 
 # Optional section for defining YAML anchors (reusable playlist IDs)
 # Example:

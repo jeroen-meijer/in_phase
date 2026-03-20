@@ -74,7 +74,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Changelog Workflow
 
-- All new features and changes go in CHANGELOG.md under `## Upcoming`.
+- All new features and changes go in `docs/CHANGELOG.md` under `## Upcoming`.
 - New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
 - When releasing a new version:
   - Replace `## Upcoming` with `## <version>`
@@ -97,7 +97,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 ## Documentation
 
 - [README.md](README.md) — install, setup, usage
-- [SYNC_CONFIG.md](SYNC_CONFIG.md) — sync config format
-- [CRAWL_CONFIG.md](CRAWL_CONFIG.md) — crawl config format
-- [COLLECT_CONFIG.md](COLLECT_CONFIG.md) — collect config format
-- [CURATE_CONFIG.md](CURATE_CONFIG.md) — curate config and keyboard controls
+- [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
+- [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
+- [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) — collect config format
+- [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config and keyboard controls
