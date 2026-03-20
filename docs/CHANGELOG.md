@@ -1,5 +1,6 @@
 ## Upcoming
 
+- feat(crawl): include artist appearances on albums and compilations in crawl
 - fix(request-pool): respect Retry-After from Spotify 429 responses
 - fix(crawl): use `api.me.playlists.create` instead of `api.playlists.createPlaylist`
 - fix(crawl): fix some albums not being found by sorting artist's albums by release date
