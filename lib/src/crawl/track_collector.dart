@@ -477,7 +477,8 @@ class TrackCollector {
         if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
           log.debug(
             tag: tag,
-            '    From cache: "${cachedAlbum.name}" (${cachedAlbum.releaseDate})',
+            '    From cache: "${cachedAlbum.name}" '
+            '(${cachedAlbum.releaseDate})',
           );
           // Create minimal Album object from cache
           albums.add(
@@ -489,7 +490,8 @@ class TrackCollector {
         } else {
           log.debug(
             tag: tag,
-            '    ⊘ Cache miss for album $albumId (not in cache or no release date)',
+            '    ⊘ Cache miss for album $albumId '
+            '(not in cache or no release date)',
           );
         }
       }
@@ -733,7 +735,8 @@ class TrackCollector {
           recentAlbums.add(album);
           log.debug(
             tag: tag,
-            '    ✓ Including "${album.name}" (released ${formatDate(parsedReleaseDate)})',
+            '    ✓ Including "${album.name}" '
+            '(released ${formatDate(parsedReleaseDate)})',
           );
         } else {
           final reason = parsedReleaseDate.isBefore(cutoffDate)
@@ -741,7 +744,8 @@ class TrackCollector {
               : 'after end date ${formatDate(endDate)}';
           log.debug(
             tag: tag,
-            '    ⊘ Skipping "${album.name}" (released ${formatDate(parsedReleaseDate)}, $reason)',
+            '    ⊘ Skipping "${album.name}" '
+            '(released ${formatDate(parsedReleaseDate)}, $reason)',
           );
         }
       } catch (e) {

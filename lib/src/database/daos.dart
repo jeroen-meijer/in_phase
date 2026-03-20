@@ -209,22 +209,21 @@ class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
         cacheDate.isAfter(today.subtract(const Duration(days: 1)));
   }
 
-  /// Removes all cached data for an artist (metadata, album list, relationships).
+  /// Removes all cached data for an artist.
+  ///
+  /// Deletes metadata, album list, and relationships.
   /// Use when the artist's releases have changed and a fresh fetch is needed.
   Future<void> deleteArtistCache(String artistId) async {
     await transaction(() async {
       await (delete(
         artistAlbumRelationships,
-      )..where((r) => r.artistId.equals(artistId)))
-          .go();
+      )..where((r) => r.artistId.equals(artistId))).go();
       await (delete(
         cachedArtistAlbumLists,
-      )..where((l) => l.artistId.equals(artistId)))
-          .go();
+      )..where((l) => l.artistId.equals(artistId))).go();
       await (delete(
         cachedArtists,
-      )..where((a) => a.id.equals(artistId)))
-          .go();
+      )..where((a) => a.id.equals(artistId))).go();
     });
   }
 

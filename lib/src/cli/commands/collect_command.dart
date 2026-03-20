@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
 import 'package:glob/glob.dart';
 import 'package:in_phase/src/crawl/crawl.dart';
@@ -48,13 +46,18 @@ class CollectCommand extends Command<int> {
 
     try {
       // Load configuration
-      final configPath = argResults!['config'] as String?;
-      final configFile = configPath != null
-          ? File(configPath)
+      final customConfigPath = argResults!['config'] as String?;
+      final usesCustomConfigPath = customConfigPath != null;
+
+      final configFile = usesCustomConfigPath
+          ? resolveConfigPath(customConfigPath)
           : Constants.collectConfigFile;
 
       log.info('Loading collect config from: ${configFile.path}');
-      final config = await CollectConfig.fromFile(configFile);
+      final config = await CollectConfig.fromFile(
+        configFile,
+        createFileIfNotExists: !usesCustomConfigPath,
+      );
 
       if (config.collections.isEmpty) {
         log.warning('No collections found in configuration');

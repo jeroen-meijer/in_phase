@@ -1,5 +1,7 @@
 ## Upcoming
 
+- fix(cli): resolve `~` and relative paths passed via `-c/--config` to absolute paths
+- fix(cli): stop creating new config files when a custom `-c/--config` path does not exist
 - feat(crawl): include artist appearances on albums and compilations in crawl
 - fix(request-pool): respect Retry-After from Spotify 429 responses
 - fix(crawl): use `api.me.playlists.create` instead of `api.playlists.createPlaylist`

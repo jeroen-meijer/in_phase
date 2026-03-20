@@ -222,34 +222,39 @@ void main() {
       expect(calls, 1);
     });
 
-    test('uses Retry-After from ApiRateException (429) for retry delay', () async {
-      final pool = RequestPool(
-        maxRetries: 2,
-        retryDelay: const Duration(seconds: 5),
-      );
+    test(
+      'uses Retry-After from ApiRateException (429) for retry delay',
+      () async {
+        final pool = RequestPool(
+          maxRetries: 2,
+        );
 
-      var attempts = 0;
-      Future<int> rateLimited() async {
-        attempts++;
-        if (attempts < 2) {
-          final error = SpotifyError()
-            ..status = 429
-            ..message = 'Rate limited';
-          throw ApiRateException.fromSpotify(error, 2); // Retry-After: 2 seconds
+        var attempts = 0;
+        Future<int> rateLimited() async {
+          attempts++;
+          if (attempts < 2) {
+            final error = SpotifyError()
+              ..status = 429
+              ..message = 'Rate limited';
+            throw ApiRateException.fromSpotify(
+              error,
+              2,
+            ); // Retry-After: 2 seconds
+          }
+          return 42;
         }
-        return 42;
-      }
 
-      final stopwatch = Stopwatch()..start();
-      final result = await pool.request(rateLimited, identifier: 'rate');
-      stopwatch.stop();
+        final stopwatch = Stopwatch()..start();
+        final result = await pool.request(rateLimited, identifier: 'rate');
+        stopwatch.stop();
 
-      expect(result, 42);
-      expect(attempts, 2);
-      // Retry should wait ~2s (from Retry-After), not 5s (retryDelay)
-      expect(stopwatch.elapsed.inSeconds, greaterThanOrEqualTo(2));
-      expect(stopwatch.elapsed.inSeconds, lessThan(4));
-    });
+        expect(result, 42);
+        expect(attempts, 2);
+        // Retry should wait ~2s (from Retry-After), not 5s (retryDelay)
+        expect(stopwatch.elapsed.inSeconds, greaterThanOrEqualTo(2));
+        expect(stopwatch.elapsed.inSeconds, lessThan(4));
+      },
+    );
 
     test('does not cache success when ttl is Duration.zero', () async {
       final pool = RequestPool(

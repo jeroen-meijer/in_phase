@@ -1,11 +1,12 @@
 import 'package:args/command_runner.dart';
-import 'package:in_phase/src/database/cache_adapter.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:io/io.dart';
 
-/// Clears crawl cache for specific artists so the next crawl fetches fresh data.
+/// Clears crawl cache for specific artists.
+///
+/// The next crawl fetches fresh data for those artists.
 ///
 /// Use when artists have new releases that aren't showing up, often because
 /// the cache was populated before the release and marked "fresh today".
@@ -31,8 +32,11 @@ class CacheClearArtistsCommand extends Command<int> {
   Future<int> run() async {
     final artistIds = argResults!['artist'] as List<String>;
     if (artistIds.isEmpty) {
-      log.error('Specify at least one artist with --artist <id>');
-      log.info('Example: in_phase cache clear-artists -a 4UJP03mzC9b90Qq1TqavvN');
+      log
+        ..error('Specify at least one artist with --artist <id>')
+        ..info(
+          'Example: in_phase cache clear-artists -a 4UJP03mzC9b90Qq1TqavvN',
+        );
       return ExitCode.usage.code;
     }
 

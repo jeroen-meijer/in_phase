@@ -56,7 +56,12 @@ class CurateCommand extends Command<int> {
   // Argument parsing
   // ---------------------------------------------------------------------------
 
-  ({SpotifyPlaylistId playlistId, int skipCount, File configFile})
+  ({
+    SpotifyPlaylistId playlistId,
+    int skipCount,
+    File configFile,
+    bool usesCustomConfigPath,
+  })
   _parseArgs() {
     final playlistArg = argResults!.rest.isNotEmpty
         ? argResults!.rest.first
@@ -80,15 +85,17 @@ class CurateCommand extends Command<int> {
       usageException('--skip must be >= 0');
     }
 
-    final configPath = argResults!['config'] as String?;
-    final configFile = configPath != null
-        ? File(configPath)
+    final customConfigPath = argResults!['config'] as String?;
+    final usesCustomConfigPath = customConfigPath != null;
+    final configFile = usesCustomConfigPath
+        ? resolveConfigPath(customConfigPath)
         : Constants.curateConfigFile;
 
     return (
       playlistId: playlistId,
       skipCount: skipCount,
       configFile: configFile,
+      usesCustomConfigPath: usesCustomConfigPath,
     );
   }
 
@@ -97,11 +104,20 @@ class CurateCommand extends Command<int> {
   // ---------------------------------------------------------------------------
 
   Future<CurateContext> _setupContext(
-    ({SpotifyPlaylistId playlistId, int skipCount, File configFile}) args,
+    ({
+      SpotifyPlaylistId playlistId,
+      int skipCount,
+      File configFile,
+      bool usesCustomConfigPath,
+    })
+    args,
     void Function(TeardownFn) addTeardown,
   ) async {
     log.info('Loading curate config from: ${args.configFile.path}');
-    final config = await CurateConfig.fromFile(args.configFile);
+    final config = await CurateConfig.fromFile(
+      args.configFile,
+      createFileIfNotExists: !args.usesCustomConfigPath,
+    );
     if (config.targets.isEmpty) {
       log.warning(
         'No target playlists configured. Add targets to your curate '
