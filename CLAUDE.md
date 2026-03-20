@@ -49,6 +49,20 @@ dart test
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.
 
+## Changelog Workflow
+
+- All new features and changes go in CHANGELOG.md under `## Upcoming`.
+- New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
+- When releasing a new version:
+  - Replace `## Upcoming` with `## <version>`
+  - Add a new `## Upcoming` section above it with an empty newline in between
+  - Do not modify the actual change lines, only the headings
+- Before committing:
+  - Run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .`
+  - If there are errors, fix them and rerun both commands
+  - Repeat in a loop until all errors are fixed
+  - If you encounter errors you cannot fix, HALT and report them
+
 ## Project-Specific Warnings
 
 - **Never run `sync`, `crawl`, etc. yourself** — always ask for permission. These are expensive API calls; avoid rate limits.
