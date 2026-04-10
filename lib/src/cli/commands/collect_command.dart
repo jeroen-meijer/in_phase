@@ -231,10 +231,12 @@ class CollectCommand extends Command<int> {
       return;
     }
 
-    // Deduplicate tracks
+    // Deduplicate tracks, keeping the latest addedAt per dedupe key.
     final deduplicateMode =
         collection.options?.deduplicate ?? DeduplicateMode.onId;
-    final dedupedTracks = deduplicate(allTracks, deduplicateMode);
+    // Ensure deterministic timeline order: oldest -> newest.
+    final dedupedTracks = _deduplicateKeepingLatest(allTracks, deduplicateMode)
+      ..sort((a, b) => a.addedAt.compareTo(b.addedAt));
 
     if (dedupedTracks.length < allTracks.length) {
       log.info(
@@ -597,5 +599,38 @@ class CollectCommand extends Command<int> {
         input.contains('?') ||
         input.contains('[') ||
         input.contains(']');
+  }
+
+  /// Deduplicates tracks while keeping the entry with the latest `addedAt`
+  /// timestamp for each dedupe key.
+  List<CollectedTrack> _deduplicateKeepingLatest(
+    List<CollectedTrack> tracks,
+    DeduplicateMode mode,
+  ) {
+    final latestByKey = <String, CollectedTrack>{};
+
+    for (final track in tracks) {
+      final key = switch (mode) {
+        DeduplicateMode.onId => track.id.toString(),
+        DeduplicateMode.onMatch => _normalizeForMatch(
+          '${track.artistNames.join(' ')} ${track.name}',
+        ),
+      };
+
+      final existing = latestByKey[key];
+      if (existing == null || track.addedAt.isAfter(existing.addedAt)) {
+        latestByKey[key] = track;
+      }
+    }
+
+    return latestByKey.values.toList();
+  }
+
+  String _normalizeForMatch(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }

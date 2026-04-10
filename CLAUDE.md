@@ -49,6 +49,23 @@ dart test
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.
 
+## Barrel files (`export` barrels)
+
+- **Package entry** — `lib/in_phase.dart` exports only the public CLI surface (`runner.dart`).
+- **Cross-cutting barrels** — Prefer importing shared types and helpers through the highest-level barrel that fits:
+  - `lib/src/entities/entities.dart` — config models, cache/report entity types
+  - `lib/src/misc/misc.dart` — constants, `resolveConfigPath`, `withTeardown`, `rekordboxAudioPath`, etc.
+  - `lib/src/spotify/spotify.dart` — Spotify API helpers and ID types
+  - `lib/src/database/database.exports.dart` — Drift DB/cache access
+  - `lib/src/reports/reports.dart` — report generators
+  - `lib/src/crawl/crawl.dart` — crawl pipeline (used by `crawl_command` and crawl internals)
+- **CLI** — `lib/src/cli/cli.dart` aggregates CLI wiring. `lib/src/cli/commands/commands.dart` exports **one** library per primary command (e.g. `sync_command.dart`, `curate_command.dart`), not nested subcommand implementation files.
+- **Nested command folders** — Subcommands live under `commands/<name>/` (e.g. `cache/`, `curate/`, `sync/`). When a folder exposes multiple modules, add **`commands/<name>/<name>.dart`** as a barrel and import that from the parent command file (e.g. `sync/sync.dart`, `curate/curate.dart`). Keep nested files out of `commands/commands.dart` unless they become a top-level command.
+
+### `package:args` gotcha
+
+A `Command` that registers **subcommands** becomes a **branch command**: the parent’s `run()` is never invoked; the runner requires a subcommand name (e.g. `sync` alone errors with “Missing subcommand”). To support both **`in_phase sync`** (leaf) and **`in_phase sync validate`**, use **rest-argument dispatch** on the parent (e.g. if `argResults.rest.first == 'validate'`) or register `validate` as a separate top-level command.
+
 ## Git Conventions
 
 ### Branch Naming

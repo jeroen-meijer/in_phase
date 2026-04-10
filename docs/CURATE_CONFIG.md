@@ -21,6 +21,11 @@ seek_step: 15
 # When false, stay so you can add to multiple playlists before continuing.
 next_after_add: false
 
+# When true, also save the track to Liked Songs when you add it to a target
+# playlist (keys 1–9). The "Liked" status line only appears when the track was
+# not already in Liked Songs (so pressing multiple keys does not spam it).
+# auto_add_to_likes: false
+
 # Target playlists to add to (key 1 = first, key 2 = second, etc.)
 targets:
   - id: "37i9dQZF1DXcBWIGoYBM5M"  # Playlist ID, URI, or share URL
@@ -42,6 +47,10 @@ targets:
 **`next_after_add`** - Whether to advance after adding to a playlist
 - `false` (default): Stay on the current track so you can add to multiple playlists
 - `true`: Automatically advance to the next track after adding to one playlist
+
+**`auto_add_to_likes`** - Also save to Liked Songs when adding to a target playlist
+- `false` (default): Only the target playlist is updated
+- `true`: After a successful add to a target playlist, the track is saved to Liked Songs if it was not already there; the UI only prints "Liked" when it was newly saved (not on every key press)
 
 **`targets`** - List of playlists you can add tracks to
 - List order determines the key: first item = key 1, second = key 2, etc. (max 9)

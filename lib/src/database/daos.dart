@@ -489,6 +489,13 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     return select(syncMissingTracks).get();
   }
 
+  /// Gets all missing tracks ordered by most recently inserted first.
+  Future<List<SyncMissingTrack>> getAllMissingTracksNewestFirst() {
+    return (select(
+      syncMissingTracks,
+    )..orderBy([(t) => OrderingTerm.desc(t.lastInsertedAt)])).get();
+  }
+
   /// Batch inserts multiple missing tracks.
   Future<void> insertMissingTracksBatch(
     List<({SpotifyTrackId id, String artist, String title, DateTime addedAt})>
@@ -523,6 +530,20 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     await (delete(
       syncMissingTracks,
     )..where((t) => t.spotifyTrackId.isIn(ids))).go();
+  }
+
+  /// Updates iTunes URL for a missing track.
+  Future<void> updateItunesUrl({
+    required SpotifyTrackId spotifyTrackId,
+    required String itunesUrl,
+  }) async {
+    await (update(
+      syncMissingTracks,
+    )..where((t) => t.spotifyTrackId.equals(spotifyTrackId.toString()))).write(
+      SyncMissingTracksCompanion(
+        itunesUrl: Value(itunesUrl),
+      ),
+    );
   }
 }
 

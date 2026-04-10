@@ -1,5 +1,15 @@
 ## Upcoming
 
+- feat(curate): optional `auto_add_to_likes` in curate config — saves to Liked Songs when adding to a target playlist; shows "Liked" only if the track was not already saved
+- fix(sync): route `sync validate` via first rest argument instead of an `args` subcommand so `in_phase sync` and `in_phase sync <playlist>…` work again (`--config` only applies to validate)
+- feat(search): show audio file path in track details when looking up by Rekordbox ID (above Cues)
+- fix(sync): `sync validate` runs Spotify playlist checks concurrently via `RequestPool` and prints grouped, color-balanced issue sections with truncated paths
+- refactor(sync): centralize sync config YAML parsing (`SyncConfig.fromYamlString`)
+- chore: add Rekordbox audio path helper (`rekordboxAudioPath`)
+- docs: document barrel-file conventions in `CLAUDE.md`
+- feat(sync): add `sync validate` to check sync config YAML, Spotify playlist keys in `custom_tracks`, and Rekordbox track IDs with on-disk audio files
+- feat(curate): press `c` to copy the current track's Spotify URL to the clipboard
+- feat(sync): add interactive `buy` command to open iTunes links for missing tracks
 - fix(cli): resolve `~` and relative paths passed via `-c/--config` to absolute paths
 - fix(cli): stop creating new config files when a custom `-c/--config` path does not exist
 - feat(crawl): include artist appearances on albums and compilations in crawl

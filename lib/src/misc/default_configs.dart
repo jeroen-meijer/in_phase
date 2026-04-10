@@ -172,6 +172,10 @@ seek_step: 15
 # When false, stay so you can add to multiple playlists before continuing.
 next_after_add: false
 
+# When true, also add the track to Liked Songs when you add it to a target
+# playlist. "Liked" is only reported if it was not already saved.
+# auto_add_to_likes: false
+
 # Target playlists to add to (key 1 = first, key 2 = second, etc.)
 # Replace with your playlist ID, URI, or share URL
 targets:

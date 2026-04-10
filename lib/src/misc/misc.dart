@@ -1,3 +1,4 @@
+export 'clipboard.dart';
 export 'config_initializer.dart';
 export 'config_path.dart';
 export 'constants.dart';
@@ -6,10 +7,13 @@ export 'default_configs.dart';
 export 'encoders.dart';
 export 'env.dart';
 export 'fuzzy_search.dart';
+export 'itunes_store.dart';
 export 'musical_key.dart';
 export 'nullable_extensions.dart';
+export 'rekordbox_audio_path.dart';
 export 'request_pool.dart';
 export 'string_extensions.dart';
+export 'system_launcher.dart';
 export 'terminal_style.dart';
 export 'time_utils.dart';
 export 'with_teardown.dart';

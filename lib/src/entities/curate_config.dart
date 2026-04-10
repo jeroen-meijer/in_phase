@@ -15,6 +15,7 @@ class CurateConfig {
     required this.seekStep,
     required this.targets,
     this.nextAfterAdd = false,
+    this.autoAddToLikes = false,
   });
 
   const CurateConfig.empty()
@@ -23,6 +24,7 @@ class CurateConfig {
         seekStep: 15,
         targets: const [],
         nextAfterAdd: false,
+        autoAddToLikes: false,
       );
 
   factory CurateConfig.fromJson(Map<String, dynamic> json) =>
@@ -70,6 +72,12 @@ class CurateConfig {
   /// stay so the user can add to multiple playlists before continuing.
   @JsonKey(name: 'next_after_add', defaultValue: false)
   final bool nextAfterAdd;
+
+  /// When true, also save the track to Liked Songs whenever you add it to a
+  /// target playlist (keys 1–9). The "liked" line is only shown when the track
+  /// was not already in Liked Songs before that add.
+  @JsonKey(name: 'auto_add_to_likes', defaultValue: false)
+  final bool autoAddToLikes;
 
   @JsonKey(fromJson: _targetsFromJson, toJson: _targetsToJson)
   final List<CurateTarget> targets;

@@ -248,6 +248,14 @@ in_phase sync <playlist_id1> <playlist_id2>
 
 Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) for configuration details.
 
+### Buy missing tracks
+
+```bash
+in_phase buy
+```
+
+Opens iTunes links for tracks that were previously marked as missing during `sync`, ordered by newest first. If a track has no saved iTunes URL yet, InPhase will look one up first, then open it. The command is interactive and waits between tracks (`[enter]=next`, `[o]=open again`, `[s]=skip`, `[q]=quit`).
+
 ### Crawl for new tracks
 
 ```bash

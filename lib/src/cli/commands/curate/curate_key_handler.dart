@@ -29,6 +29,21 @@ class CurateKeyHandler {
     final char = key.char.isEmpty ? '' : key.char.toLowerCase();
     if (char == 'q') return KeyResultQuit();
 
+    if (char == 'c') {
+      final id = currentTrack.track.id;
+      if (id == null || id.isEmpty) {
+        return KeyResultStay('${red('✗')} No track id for URL', null);
+      }
+      final url = 'https://open.spotify.com/track/$id';
+      final ok = await copyTextToClipboard(url);
+      return KeyResultStay(
+        ok
+            ? '${green('✓')} Copied track URL'
+            : '${red('✗')} Clipboard unavailable',
+        null,
+      );
+    }
+
     if (char == ' ' || char == 's' || char == 'n') return KeyResultNext();
 
     if (char == 'r') {
@@ -116,7 +131,19 @@ class CurateKeyHandler {
       );
       targetTrackIds[target.playlistId] ??= {};
       targetTrackIds[target.playlistId]!.add(currentTrack.track.id!);
-      final status = '${green('✓')} Added to ${bold(target.name)}';
+      var status = '${green('✓')} Added to ${bold(target.name)}';
+      if (config.autoAddToLikes) {
+        final trackId = currentTrack.track.id!;
+        try {
+          final wasInLikes = await _context.api.me.tracks.containsOne(trackId);
+          if (!wasInLikes) {
+            await _context.api.me.tracks.saveOne(trackId);
+            status += '  ${green('✓')} Liked';
+          }
+        } catch (e) {
+          status += '  ${red('✗')} Liked: $e';
+        }
+      }
       if (config.nextAfterAdd &&
           currentTrack.index + 1 < currentTrack.tracksToCurateLength) {
         return KeyResultNextWithStatus(status);
