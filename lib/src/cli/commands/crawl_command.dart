@@ -258,22 +258,23 @@ class CrawlCommand extends Command<int> {
       cliEndDate: customEndDate,
     );
 
-    // Note: DateRangeResolver returns inclusive dates, but we need exclusive
-    // lower bound for filtering (added_at > cutoffDate)
-    final endDate = resolved.end;
-    final cutoffDate = resolved.start.subtract(const Duration(days: 1));
+    // Inclusive calendar range [resolved.start, resolved.end]; templates use
+    // exclusive lower cutoff = day before inclusive start.
+    final inclusiveEnd = resolved.end;
+    final inclusiveStart = resolved.start;
+    final cutoffDate = inclusiveStart.subtract(days: 1);
 
     if (customStartDate != null || customEndDate != null) {
       log.info(
         '  📅 Using custom date range: '
-        '${formatDate(resolved.start)} '
-        'to ${formatDate(endDate)}',
+        '${formatSimpleDate(resolved.start)} '
+        'to ${formatSimpleDate(inclusiveEnd)}',
       );
     } else {
       log.info(
         '  📅 Date range: '
-        '${formatDate(resolved.start)} '
-        'to ${formatDate(endDate)}',
+        '${formatSimpleDate(resolved.start)} '
+        'to ${formatSimpleDate(inclusiveEnd)}',
       );
     }
 
@@ -333,8 +334,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromPlaylist(
               playlistId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               dateMode,
               progress: progress,
             )
@@ -362,8 +363,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromArtist(
               artistId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               includeAppearances: includeAppearances,
               progress: progress,
             )
@@ -389,8 +390,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromLabel(
               labelName,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               progress: progress,
             )
             .then((tracks) {
@@ -415,8 +416,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromYoutubeChannel(
               channelId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               progress: progress,
             )
             .then((tracks) {
@@ -491,8 +492,8 @@ class CrawlCommand extends Command<int> {
         )
         ..debug(
           '  🎯 Filter range: '
-          '${formatDate(cutoffDate.add(const Duration(days: 1)))} to '
-          '${formatDate(endDate)}',
+          '${formatSimpleDate(inclusiveStart)} to '
+          '${formatSimpleDate(inclusiveEnd)}',
         );
     }
 
@@ -516,7 +517,7 @@ class CrawlCommand extends Command<int> {
       job.outputPlaylist.name,
       job: job,
       cutoffDate: cutoffDate,
-      endDate: endDate,
+      endDate: inclusiveEnd,
       trackCount: dedupedTracks.length,
       realArtistCount: realStats.artistCount,
       realAlbumCount: realStats.albumCount,
@@ -531,7 +532,7 @@ class CrawlCommand extends Command<int> {
             job.outputPlaylist.description!,
             job: job,
             cutoffDate: cutoffDate,
-            endDate: endDate,
+            endDate: inclusiveEnd,
             trackCount: dedupedTracks.length,
             realArtistCount: realStats.artistCount,
             realAlbumCount: realStats.albumCount,
@@ -558,7 +559,7 @@ class CrawlCommand extends Command<int> {
         caption,
         job: job,
         cutoffDate: cutoffDate,
-        endDate: endDate,
+        endDate: inclusiveEnd,
         trackCount: dedupedTracks.length,
         realArtistCount: realStats.artistCount,
         realAlbumCount: realStats.albumCount,
@@ -981,7 +982,7 @@ class CrawlCommand extends Command<int> {
             ? 'Last $months months'
             : 'Unknown time unit',
       CrawlDateRangeAbsolute(:final start, :final end) =>
-        '${formatDate(start)} to ${formatDate(end)}',
+        '${formatSimpleDate(start)} to ${formatSimpleDate(end)}',
     };
   }
 

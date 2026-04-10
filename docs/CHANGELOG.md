@@ -1,5 +1,7 @@
 ## Upcoming
 
+- refactor(crawl): remove `{time_format_HH_MM}` template variable (was always `00:00` for date-only crawl end; use `{real_time}` for wall-clock time)
+- refactor(crawl): use `simple_date` (`SimpleDate`) for date-only ranges, parsing, and filters; align playlist release vs added-day checks with calendar-day helpers
 - feat(curate): optional `auto_add_to_likes` in curate config — saves to Liked Songs when adding to a target playlist; shows "Liked" only if the track was not already saved
 - fix(sync): route `sync validate` via first rest argument instead of an `args` subcommand so `in_phase sync` and `in_phase sync <playlist>…` work again (`--config` only applies to validate)
 - feat(search): show audio file path in track details when looking up by Rekordbox ID (above Cues)

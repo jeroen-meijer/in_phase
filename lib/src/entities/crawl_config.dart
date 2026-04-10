@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:simple_date/simple_date.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_codec/yaml_codec.dart';
 
@@ -210,8 +211,8 @@ class CrawlFilters {
         final startStr = value['start'] as String;
         final endStr = value['end'] as String;
         return CrawlDateRangeAbsolute(
-          start: DateTime.parse(startStr),
-          end: DateTime.parse(endStr),
+          start: SimpleDate.parse(startStr),
+          end: SimpleDate.parse(endStr),
         );
       }
 
@@ -241,8 +242,8 @@ class CrawlFilters {
         'months': months,
       }..removeWhere((key, value) => value == null),
       CrawlDateRangeAbsolute(:final start, :final end) => {
-        'start': start.toIso8601String().split('T')[0],
-        'end': end.toIso8601String().split('T')[0],
+        'start': start.toString(),
+        'end': end.toString(),
       },
     };
   }

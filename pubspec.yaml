@@ -27,6 +27,7 @@ dependencies:
   path: ^1.9.1
   pub_updater: ^0.5.0
   rekorddart: ^1.1.1
+  simple_date: ^1.1.2
   # spotify: ^0.16.0
   spotify:
     git:
