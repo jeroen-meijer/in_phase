@@ -7,7 +7,7 @@ class DefaultConfigs {
   static const String syncConfig = '''
 # Sync Configuration
 # This file configures which Spotify playlists to sync to Rekordbox
-# and how to organize them. See SYNC_CONFIG.md for full documentation.
+# and how to organize them. See docs/SYNC_CONFIG.md for full documentation.
 
 # List of glob patterns to match playlist names you want to sync
 # Use * for wildcards, ? for single characters, [abc] for character sets
@@ -72,7 +72,7 @@ custom_tracks: {}
   static const String crawlConfig = '''
 # Crawl Configuration
 # This file configures automated playlist creation from Spotify sources.
-# See CRAWL_CONFIG.md for full documentation.
+# See docs/CRAWL_CONFIG.md for full documentation.
 
 # Optional section for defining YAML anchors (reusable IDs)
 # This makes it easier to reference the same playlist/artist/label in multiple jobs
@@ -160,7 +160,7 @@ jobs: []
 # Curate Configuration
 # Usage: in_phase curate <playlist> [--skip=N]
 # Playlist: ID, URI (spotify:playlist:...), or share URL (https://open.spotify.com/playlist/...)
-# See CURATE_CONFIG.md for full documentation.
+# See docs/CURATE_CONFIG.md for full documentation.
 
 # Start each track at this position (default 1:15)
 start_position: "1:15"
@@ -171,6 +171,10 @@ seek_step: 15
 # When true, advance to next track after adding to one playlist.
 # When false, stay so you can add to multiple playlists before continuing.
 next_after_add: false
+
+# When true, also add the track to Liked Songs when you add it to a target
+# playlist. "Liked" is only reported if it was not already saved.
+# auto_add_to_likes: false
 
 # Target playlists to add to (key 1 = first, key 2 = second, etc.)
 # Replace with your playlist ID, URI, or share URL
@@ -185,7 +189,7 @@ targets:
   static const String collectConfig = '''
 # Collect Configuration
 # This file configures playlist aggregation: combine tracks from multiple
-# Spotify playlists into a single target playlist. See COLLECT_CONFIG.md for full documentation.
+# Spotify playlists into a single target playlist. See docs/COLLECT_CONFIG.md for full documentation.
 
 # Optional section for defining YAML anchors (reusable playlist IDs)
 # Example:
@@ -207,6 +211,7 @@ targets:
 #     options:
 #       deduplicate: on_match            # on_id | on_match (default: on_id)
 #       replace: true                     # Replace all tracks (true) or append (false). Default: true
+#       track_order: oldest_first         # oldest_first | newest_first (default: oldest_first)
 collections: []
 ''';
 }

@@ -1,9 +1,11 @@
 import 'package:args/command_runner.dart';
 import 'package:in_phase/src/cli/commands/cache/cache_clean_command.dart';
+import 'package:in_phase/src/cli/commands/cache/cache_clear_artists_command.dart';
 
 class CacheCommand extends Command<int> {
   CacheCommand() {
     addSubcommand(CacheCleanCommand());
+    addSubcommand(CacheClearArtistsCommand());
   }
 
   @override

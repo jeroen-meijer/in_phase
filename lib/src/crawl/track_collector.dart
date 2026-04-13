@@ -6,6 +6,7 @@ import 'package:in_phase/src/entities/entities.dart' as entities;
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
+import 'package:simple_date/simple_date.dart';
 import 'package:spotify/spotify.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -159,13 +160,16 @@ class TrackCollector {
       id.length > maxLen ? id.substring(0, maxLen) : id;
 
   /// Collects tracks from a playlist within the specified date range.
+  ///
+  /// [rangeStart] and [rangeEnd] are **inclusive** calendar bounds.
   Future<List<CollectedTrack>> collectFromPlaylist(
     String playlistId,
-    DateTime cutoffDate,
-    DateTime endDate,
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd,
     entities.PlaylistTrackDateMode dateMode, {
     CrawlProgressReporter? progress,
   }) async {
+    final exclusiveLower = rangeStart.subtract(days: 1);
     var tag = _shortId(playlistId);
     if (progress == null) {
       log.info(tag: tag, '  📜 Collecting from playlist: $playlistId');
@@ -200,8 +204,8 @@ class TrackCollector {
       }
       return _filterPlaylistTracksByDate(
         cachedPlaylist.tracks,
-        cutoffDate,
-        endDate,
+        rangeStart,
+        rangeEnd,
         playlistId,
         playlistName,
         dateMode,
@@ -293,11 +297,21 @@ class TrackCollector {
       if (playlistTrack.track?.id == null) continue;
 
       final track = playlistTrack.track!;
-      DateTime trackDate;
+      late final DateTime addedAtForCollected;
+      late final String dateLog;
 
       // Determine which date to use based on the mode
       if (dateMode == entities.PlaylistTrackDateMode.addedDate) {
-        trackDate = playlistTrack.addedAt!;
+        final added = playlistTrack.addedAt!;
+        if (!isCalendarDayInInclusiveRange(
+          simpleDateFromLocalDateTime(added),
+          rangeStart,
+          rangeEnd,
+        )) {
+          continue;
+        }
+        addedAtForCollected = added;
+        dateLog = formatDate(added);
       } else {
         // Use release date - from album or pre-fetched map
         var releaseDate = track.album?.releaseDate;
@@ -342,8 +356,9 @@ class TrackCollector {
           }
         }
 
+        final SimpleDate releaseDay;
         try {
-          trackDate = parseSpotifyReleaseDate(releaseDate);
+          releaseDay = parseSpotifyReleaseDate(releaseDate);
         } catch (e) {
           log.warning(
             tag: tag,
@@ -352,17 +367,20 @@ class TrackCollector {
           );
           continue;
         }
-      }
 
-      // Filter by date range
-      if (!trackDate.isInRange(cutoffDate, endDate)) continue;
+        if (!releaseDay.isInExclusiveInclusiveRange(exclusiveLower, rangeEnd)) {
+          continue;
+        }
+        addedAtForCollected = releaseDay.toDateTime();
+        dateLog = formatSimpleDate(releaseDay);
+      }
 
       final collectedTrack = CollectedTrack(
         id: SpotifyTrackId(track.id!),
         uri: track.uri!,
         name: track.name!,
         artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-        addedAt: trackDate,
+        addedAt: addedAtForCollected,
         source: CollectedTrackSourcePlaylist(
           id: playlistId,
           name: playlistName,
@@ -384,14 +402,14 @@ class TrackCollector {
       log.debug(
         tag: tag,
         '    ✓ $artistNames - ${track.name} '
-        '(included because $dateModeText on ${formatDate(trackDate)})',
+        '(included because $dateModeText on $dateLog)',
       );
     }
 
     log.info(
       tag: tag,
       '    📅 ${collectedTracks.length} tracks in date range '
-      '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
+      '(${formatSimpleDate(rangeStart)} - ${formatSimpleDate(rangeEnd)}) '
       // ignore: lines_longer_than_80_chars
       '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
     );
@@ -400,12 +418,19 @@ class TrackCollector {
   }
 
   /// Collects tracks from an artist's recent releases within the date range.
+  ///
+  /// When [includeAppearances] is `true` (default), also fetches albums where
+  /// the artist appears as a featured artist (e.g., remixes, features,
+  /// collaborations). For these albums, only tracks where the artist is
+  /// credited are included.
   Future<List<CollectedTrack>> collectFromArtist(
     String artistId,
-    DateTime cutoffDate,
-    DateTime endDate, {
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd, {
+    bool includeAppearances = true,
     CrawlProgressReporter? progress,
   }) async {
+    final exclusiveLower = rangeStart.subtract(days: 1);
     var tag = _shortId(artistId);
     if (progress == null) {
       log.info(tag: tag, '  🎤 Collecting from artist: $artistId');
@@ -469,12 +494,23 @@ class TrackCollector {
       for (final albumId in cachedArtistAlbums.albumIds) {
         final cachedAlbum = await cacheAdapter.getAlbum(albumId);
         if (cachedAlbum != null && cachedAlbum.releaseDate != null) {
+          log.debug(
+            tag: tag,
+            '    From cache: "${cachedAlbum.name}" '
+            '(${cachedAlbum.releaseDate})',
+          );
           // Create minimal Album object from cache
           albums.add(
             Album()
               ..id = albumId.toString()
               ..name = cachedAlbum.name
               ..releaseDate = cachedAlbum.releaseDate,
+          );
+        } else {
+          log.debug(
+            tag: tag,
+            '    ⊘ Cache miss for album $albumId '
+            '(not in cache or no release date)',
           );
         }
       }
@@ -498,7 +534,7 @@ class TrackCollector {
       final allAlbumIds = <SpotifyAlbumId>[];
       albums = [];
 
-      const limit = 50;
+      const limit = 10;
       var offset = 0;
       var pagesFetched = 0;
       var hitCache = false;
@@ -508,21 +544,54 @@ class TrackCollector {
         pagesFetched++;
         log.debug(
           tag: tag,
-          '    Fetching page $pagesFetched of artist albums (offset: $offset)',
+          '    Fetching page $pagesFetched of artist albums '
+          '(limit: $limit, offset: $offset)',
         );
+
+        final includeGroups = [
+          'album',
+          'single',
+          if (includeAppearances) ...['appears_on', 'compilation'],
+        ];
 
         // Fetch page with RequestPool for deduplication and retry
         final page = await requestPool.request(
-          () => api.artists.albums(artistId).getPage(limit, offset),
+          () => api.artists
+              .albums(artistId, includeGroups: includeGroups)
+              .getPage(limit, offset),
           identifier: SpotifyCacheIdentifier.artistAlbumsPage(
             spotifyArtistId,
             offset,
           ),
         );
 
-        for (final album in page.items ?? <Album>[]) {
-          if (album.id == null) continue;
+        // Throw out albums without release date, parse once,
+        // sort by date (newest first)
+        final rawItems = page.items ?? <Album>[];
+        final dated = <({SimpleDate releaseDate, Album album})>[];
+        for (final a in rawItems) {
+          if (a.id == null || a.releaseDate == null) continue;
+          try {
+            dated.add((
+              releaseDate: parseSpotifyReleaseDate(a.releaseDate!),
+              album: a,
+            ));
+          } catch (e) {
+            log.warning(
+              tag: tag,
+              '    ⚠️  Could not parse release date: ${a.releaseDate}',
+            );
+          }
+        }
+        dated.sort((a, b) {
+          final bt = b.releaseDate.toDateTime();
+          final at = a.releaseDate.toDateTime();
+          return bt.compareTo(at);
+        });
 
+        for (final entry in dated) {
+          final album = entry.album;
+          final releaseDate = entry.releaseDate;
           final albumId = SpotifyAlbumId(album.id!);
           allAlbumIds.add(albumId);
 
@@ -541,28 +610,18 @@ class TrackCollector {
           }
 
           // Check if this album is too old (beyond our date range)
-          // Since albums come newest-first, we can stop here
-          if (album.releaseDate != null) {
-            try {
-              final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
-              if (releaseDate.isBefore(cutoffDate)) {
-                if (progress == null) {
-                  log.info(
-                    tag: tag,
-                    '    ✓ Found album "${album.name}" from '
-                    '${formatDate(releaseDate)}, before cutoff '
-                    '${formatDate(cutoffDate)}, stopping fetch',
-                  );
-                }
-                hitDateCutoff = true;
-                break;
-              }
-            } catch (e) {
-              log.warning(
+          // Since we sorted newest-first, we can stop here
+          if (releaseDate.isBefore(rangeStart)) {
+            if (progress == null) {
+              log.info(
                 tag: tag,
-                '    ⚠️  Could not parse release date: ${album.releaseDate}',
+                '    ✓ Found album "${album.name}" from '
+                '${formatSimpleDate(releaseDate)}, before range start '
+                '${formatSimpleDate(rangeStart)}, stopping fetch',
               );
             }
+            hitDateCutoff = true;
+            break;
           }
 
           albums.add(album);
@@ -666,7 +725,13 @@ class TrackCollector {
         }
       }
 
-      if (releaseDate == null) continue;
+      if (releaseDate == null) {
+        log.debug(
+          tag: tag,
+          '    ⊘ Skipping "${album.name}" (no release date)',
+        );
+        continue;
+      }
 
       if (albumToCache.id != null) {
         final albumId = SpotifyAlbumId(albumToCache.id!);
@@ -689,8 +754,25 @@ class TrackCollector {
 
       try {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
-        if (parsedReleaseDate.isInRange(cutoffDate, endDate)) {
+        if (parsedReleaseDate.isInExclusiveInclusiveRange(
+          exclusiveLower,
+          rangeEnd,
+        )) {
           recentAlbums.add(album);
+          log.debug(
+            tag: tag,
+            '    ✓ Including "${album.name}" '
+            '(released ${formatSimpleDate(parsedReleaseDate)})',
+          );
+        } else {
+          final reason = parsedReleaseDate.isBefore(rangeStart)
+              ? 'before range ${formatSimpleDate(rangeStart)}'
+              : 'after end date ${formatSimpleDate(rangeEnd)}';
+          log.debug(
+            tag: tag,
+            '    ⊘ Skipping "${album.name}" '
+            '(released ${formatSimpleDate(parsedReleaseDate)}, $reason)',
+          );
         }
       } catch (e) {
         log.warning(
@@ -731,17 +813,41 @@ class TrackCollector {
       final albumFull = albumFulls[i];
       if (albumFull == null) continue;
       try {
-        final releaseDate = parseSpotifyReleaseDate(album.releaseDate!);
+        final releaseDay = parseSpotifyReleaseDate(album.releaseDate!);
+
+        // Check if this is an "appears on" album (artist is not in the
+        // album's main artists). For these albums, we only include tracks
+        // where the target artist is credited.
+        // When album.artists is null (unusual), assume the artist owns
+        // the album to safely include all tracks rather than risk
+        // dropping relevant ones.
+        final isAppearsOnAlbum =
+            album.artists?.any((a) => a.id == artistId) != true;
 
         for (final track in albumFull.tracks ?? <TrackSimple>[]) {
           if (track.id != null) {
+            // For appears_on albums, only include tracks where the artist
+            // is credited as a track artist.
+            if (isAppearsOnAlbum) {
+              final artistOnTrack =
+                  track.artists?.any((a) => a.id == artistId) ?? false;
+              if (!artistOnTrack) {
+                log.debug(
+                  tag: tag,
+                  '    ⊘ Skipping "${track.name}" from "${album.name}" '
+                  '(appears_on album, artist not credited on track)',
+                );
+                continue;
+              }
+            }
+
             final collectedTrack = CollectedTrack(
               id: SpotifyTrackId(track.id!),
               uri: track.uri!,
               name: track.name!,
               artistNames:
                   track.artists?.map((a) => a.name ?? '').toList() ?? [],
-              addedAt: releaseDate,
+              addedAt: releaseDay.toDateTime(),
               source: CollectedTrackSourceArtist(
                 id: artistId,
                 name: artistName,
@@ -755,10 +861,14 @@ class TrackCollector {
             final artistNames =
                 track.artists?.map((a) => a.name ?? '').join(', ') ??
                 'Unknown Artist';
+            final releasedOn = 'released on ${formatSimpleDate(releaseDay)}';
+            final reason = isAppearsOnAlbum
+                ? 'appears on "${album.name}", $releasedOn'
+                : releasedOn;
             log.debug(
               tag: tag,
               '    ✓ $artistNames - ${track.name} '
-              '(included because released on ${formatDate(releaseDate)})',
+              '(included because $reason)',
             );
           }
         }
@@ -790,10 +900,11 @@ class TrackCollector {
   /// Collects tracks from a label's releases within the date range.
   Future<List<CollectedTrack>> collectFromLabel(
     String labelName,
-    DateTime cutoffDate,
-    DateTime endDate, {
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd, {
     CrawlProgressReporter? progress,
   }) async {
+    final exclusiveLower = rangeStart.subtract(days: 1);
     final tag = labelName;
     progress?.call(labelName);
     if (progress == null) {
@@ -849,7 +960,7 @@ class TrackCollector {
       // Search for tracks by label
       final searchQuery = 'label:"$labelName"';
       final searchResults = await requestPool.request(
-        () => api.search.get(searchQuery, types: [SearchType.track]).first(50),
+        () => api.search.get(searchQuery, types: [SearchType.track]).first(10),
         identifier: SpotifyCacheIdentifier.labelSearch(labelName),
       );
 
@@ -961,7 +1072,12 @@ class TrackCollector {
 
       try {
         final parsedReleaseDate = parseSpotifyReleaseDate(releaseDate);
-        if (!parsedReleaseDate.isInRange(cutoffDate, endDate)) continue;
+        if (!parsedReleaseDate.isInExclusiveInclusiveRange(
+          exclusiveLower,
+          rangeEnd,
+        )) {
+          continue;
+        }
 
         final trackAlbumId = SpotifyAlbumId(track.album!.id!);
         final cachedAlbum = await cacheAdapter.getAlbum(trackAlbumId);
@@ -995,7 +1111,7 @@ class TrackCollector {
             uri: track.uri!,
             name: track.name!,
             artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-            addedAt: parsedReleaseDate,
+            addedAt: parsedReleaseDate.toDateTime(),
             source: CollectedTrackSourceLabel(name: labelName),
             albumId: track.album?.id != null
                 ? SpotifyAlbumId(track.album!.id!)
@@ -1008,10 +1124,11 @@ class TrackCollector {
           final artistNames =
               track.artists?.map((a) => a.name ?? '').join(', ') ??
               'Unknown Artist';
+          final releaseStr = formatSimpleDate(parsedReleaseDate);
           log.debug(
             tag: tag,
             '    ✓ $artistNames - ${track.name} '
-            '(included because released on ${formatDate(parsedReleaseDate)} '
+            '(included because released on $releaseStr '
             'from label "$labelName")',
           );
 
@@ -1065,8 +1182,8 @@ class TrackCollector {
   /// tracks.
   Future<List<CollectedTrack>> collectFromYoutubeChannel(
     String channelIdentifier,
-    DateTime cutoffDate,
-    DateTime endDate, {
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd, {
     CrawlProgressReporter? progress,
   }) async {
     var tag = _shortId(channelIdentifier);
@@ -1092,8 +1209,8 @@ class TrackCollector {
 
       final videosInRange = await _getVideosInDateRange(
         yt.channels.getUploads(channel.id),
-        cutoffDate,
-        endDate,
+        rangeStart,
+        rangeEnd,
       );
 
       if (progress == null) {
@@ -1173,8 +1290,8 @@ class TrackCollector {
   /// Filters YouTube videos to those within the date range.
   Future<List<Video>> _getVideosInDateRange(
     Stream<Video> uploads,
-    DateTime cutoffDate,
-    DateTime endDate,
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd,
   ) async {
     final videosInRange = <Video>[];
 
@@ -1182,12 +1299,12 @@ class TrackCollector {
       final videoDate = _getVideoDate(video);
       if (videoDate == null) continue;
 
-      // Stop if we've gone past the cutoff date (videos are in reverse
-      // chronological order)
-      if (videoDate.isBefore(cutoffDate)) break;
+      final vd = simpleDateFromLocalDateTime(videoDate);
 
-      // Include videos within the date range
-      if (videoDate.isInRange(cutoffDate, endDate)) {
+      // Uploads are reverse chronological; stop when older than range.
+      if (vd.isBefore(rangeStart)) break;
+
+      if (!vd.isAfter(rangeEnd)) {
         videosInRange.add(video);
       }
     }
@@ -1364,22 +1481,30 @@ class TrackCollector {
 
   Future<List<CollectedTrack>> _filterPlaylistTracksByDate(
     List<entities.CachedPlaylistTrack> cachedTracks,
-    DateTime cutoffDate,
-    DateTime endDate,
+    SimpleDate rangeStart,
+    SimpleDate rangeEnd,
     String playlistId,
     String playlistName,
     entities.PlaylistTrackDateMode dateMode, {
     bool suppressStatusLogs = false,
   }) async {
+    final exclusiveLower = rangeStart.subtract(days: 1);
     final tag = playlistName;
     final filtered = <CollectedTrack>[];
 
     for (final track in cachedTracks) {
-      DateTime trackDate;
+      late final DateTime addedAtForCollected;
+      late final bool include;
 
       // Determine which date to use based on the mode
       if (dateMode == entities.PlaylistTrackDateMode.addedDate) {
-        trackDate = track.addedAt;
+        final added = track.addedAt;
+        include = isCalendarDayInInclusiveRange(
+          simpleDateFromLocalDateTime(added),
+          rangeStart,
+          rangeEnd,
+        );
+        addedAtForCollected = added;
       } else {
         // Use release date - need to look it up from cache or fetch from API
         final albumId = track.albumId;
@@ -1419,8 +1544,9 @@ class TrackCollector {
         }
 
         final releaseDate = cachedAlbum.releaseDate!;
+        final SimpleDate releaseDay;
         try {
-          trackDate = parseSpotifyReleaseDate(releaseDate);
+          releaseDay = parseSpotifyReleaseDate(releaseDate);
         } catch (e) {
           log.warning(
             tag: tag,
@@ -1430,17 +1556,21 @@ class TrackCollector {
           );
           continue;
         }
+        include = releaseDay.isInExclusiveInclusiveRange(
+          exclusiveLower,
+          rangeEnd,
+        );
+        addedAtForCollected = releaseDay.toDateTime();
       }
 
-      // Filter by date range
-      if (!trackDate.isInRange(cutoffDate, endDate)) continue;
+      if (!include) continue;
 
       final collectedTrack = CollectedTrack(
         id: SpotifyTrackId(track.trackId.toString()),
         uri: track.uri,
         name: track.name,
         artistNames: track.artistNames,
-        addedAt: trackDate,
+        addedAt: addedAtForCollected,
         source: CollectedTrackSourcePlaylist(
           id: playlistId,
           name: playlistName,
@@ -1456,10 +1586,14 @@ class TrackCollector {
       final dateModeText = dateMode == entities.PlaylistTrackDateMode.addedDate
           ? 'added to playlist'
           : 'released';
+      final includedDateStr =
+          dateMode == entities.PlaylistTrackDateMode.addedDate
+          ? formatDate(addedAtForCollected)
+          : formatSimpleDate(SimpleDate.fromDateTime(addedAtForCollected));
       log.debug(
         tag: tag,
         '    ✓ ${track.artistNames.join(', ')} - ${track.name} '
-        '(included because $dateModeText on ${formatDate(trackDate)})',
+        '(included because $dateModeText on $includedDateStr)',
       );
     }
 
@@ -1467,7 +1601,7 @@ class TrackCollector {
       log.info(
         tag: tag,
         '    📅 ${filtered.length} cached tracks in date range '
-        '(${formatDate(cutoffDate)} - ${formatDate(endDate)}) '
+        '(${formatSimpleDate(rangeStart)} - ${formatSimpleDate(rangeEnd)}) '
         // ignore: lines_longer_than_80_chars
         '(using ${dateMode == entities.PlaylistTrackDateMode.addedDate ? 'added date' : 'release date'})',
       );

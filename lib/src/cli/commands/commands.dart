@@ -1,3 +1,4 @@
+export 'buy_command.dart';
 export 'cache_command.dart';
 export 'collect_command.dart';
 export 'config_command.dart';

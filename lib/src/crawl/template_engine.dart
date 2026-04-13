@@ -1,5 +1,6 @@
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/entities/entities.dart';
+import 'package:simple_date/simple_date.dart';
 
 /// Valid template variables for playlist names and descriptions.
 enum TemplateVariable {
@@ -34,7 +35,6 @@ enum TemplateVariable {
   dateFormatYYYYMMDD('date_format_YYYY_MM_DD'),
   dateFormatDDMMYYYY('date_format_DD_MM_YYYY'),
   dateFormatMmmDD('date_format_MMM_DD'),
-  timeFormatHHMM('time_format_HH_MM'),
 
   // Real date variables (current date)
   realDate('real_date'),
@@ -113,8 +113,8 @@ class TemplateEngine {
   String render(
     String template, {
     required CrawlJob job,
-    required DateTime cutoffDate,
-    required DateTime endDate,
+    required SimpleDate cutoffDate,
+    required SimpleDate endDate,
     required int trackCount,
     required int realArtistCount,
     required int realAlbumCount,
@@ -161,13 +161,14 @@ class TemplateEngine {
       case TemplateVariable.weekNum:
         return ctx.weekNum.toString();
       case TemplateVariable.date:
-        return formatDate(ctx.endDate);
+        return formatSimpleDate(ctx.endDate);
       case TemplateVariable.month:
         return _monthName(ctx.endDate.month);
       case TemplateVariable.year:
         return ctx.endDate.year.toString();
       case TemplateVariable.timestamp:
-        return (ctx.endDate.millisecondsSinceEpoch ~/ 1000).toString();
+        return (ctx.endDate.toDateTime().millisecondsSinceEpoch ~/ 1000)
+            .toString();
 
       // Enhanced date variables
       case TemplateVariable.monthNum:
@@ -183,21 +184,21 @@ class TemplateEngine {
 
       // Week variables
       case TemplateVariable.weekStartDate:
-        return formatDate(ctx.weekStart);
+        return formatSimpleDate(ctx.weekStart);
       case TemplateVariable.weekEndDate:
-        return formatDate(ctx.weekEnd);
+        return formatSimpleDate(ctx.weekEnd);
 
       // Date range variables
       case TemplateVariable.dateRangeStartDate:
-        return formatDate(ctx.dateRangeStart);
+        return formatSimpleDate(ctx.dateRangeStart);
       case TemplateVariable.dateRangeEndDate:
-        return formatDate(ctx.dateRangeEnd);
+        return formatSimpleDate(ctx.dateRangeEnd);
       case TemplateVariable.dateRangeDays:
         return ctx.dateRangeDays.toString();
       case TemplateVariable.dateRangeStartShort:
-        return _formatDateShort(ctx.dateRangeStart);
+        return _formatSimpleDateShort(ctx.dateRangeStart);
       case TemplateVariable.dateRangeEndShort:
-        return _formatDateShort(ctx.dateRangeEnd);
+        return _formatSimpleDateShort(ctx.dateRangeEnd);
       case TemplateVariable.dateRangeMonth:
         return ctx.dateRangeMonth;
       case TemplateVariable.dateRangeCrossMonth:
@@ -205,7 +206,7 @@ class TemplateEngine {
 
       // Format variables
       case TemplateVariable.dateFormatYYYYMMDD:
-        return formatDate(ctx.endDate);
+        return formatSimpleDate(ctx.endDate);
       case TemplateVariable.dateFormatDDMMYYYY:
         final day = ctx.endDate.day.toString().padLeft(2, '0');
         final month = ctx.endDate.month.toString().padLeft(2, '0');
@@ -214,10 +215,6 @@ class TemplateEngine {
         final monthShort = _monthNameShort(ctx.endDate.month);
         final day = ctx.endDate.day.toString().padLeft(2, '0');
         return '$monthShort $day';
-      case TemplateVariable.timeFormatHHMM:
-        final hour = ctx.endDate.hour.toString().padLeft(2, '0');
-        final minute = ctx.endDate.minute.toString().padLeft(2, '0');
-        return '$hour:$minute';
 
       // Real date variables
       case TemplateVariable.realDate:
@@ -241,9 +238,9 @@ class TemplateEngine {
       case TemplateVariable.realTimestamp:
         return (ctx.now.millisecondsSinceEpoch ~/ 1000).toString();
       case TemplateVariable.realWeekStartDate:
-        return formatDate(ctx.realWeekStart);
+        return formatSimpleDate(ctx.realWeekStart);
       case TemplateVariable.realWeekEndDate:
-        return formatDate(ctx.realWeekEnd);
+        return formatSimpleDate(ctx.realWeekEnd);
 
       // Real time and datetime variables
       case TemplateVariable.realTime:
@@ -381,7 +378,7 @@ class TemplateEngine {
     return names[weekday];
   }
 
-  String _formatDateShort(DateTime date) {
+  String _formatSimpleDateShort(SimpleDate date) {
     final monthShort = _monthNameShort(date.month);
     final day = date.day.toString().padLeft(2, '0');
     return '$monthShort $day';
@@ -403,17 +400,17 @@ class _TemplateContext {
     required this.realYoutubeChannelCount,
   }) : now = DateTime.now(),
        weekNum = getWeekNumber(endDate),
-       dateRangeStart = cutoffDate.add(const Duration(days: 1)),
+       dateRangeStart = cutoffDate.add(days: 1),
        dateRangeEnd = endDate {
-    // Calculate derived values
     dateRangeDays = dateRangeEnd.difference(dateRangeStart).inDays + 1;
 
-    weekStart = endDate.subtract(Duration(days: endDate.weekday - 1));
-    weekEnd = weekStart.add(const Duration(days: 6));
+    weekStart = endDate.subtract(days: endDate.weekday - 1);
+    weekEnd = weekStart.add(days: 6);
 
-    realWeekNum = getWeekNumber(now);
-    realWeekStart = now.subtract(Duration(days: now.weekday - 1));
-    realWeekEnd = realWeekStart.add(const Duration(days: 6));
+    final todaySd = simpleDateFromLocalDateTime(now);
+    realWeekNum = getWeekNumber(todaySd);
+    realWeekStart = todaySd.subtract(days: todaySd.weekday - 1);
+    realWeekEnd = realWeekStart.add(days: 6);
 
     // Count input sources from job configuration
     jobPlaylistCount = job.inputs.playlists?.length ?? 0;
@@ -456,8 +453,8 @@ class _TemplateContext {
       final startMonth = _monthName(dateRangeStart.month);
       final endMonth = _monthName(dateRangeEnd.month);
       dateRangeMonth = '$startMonth - $endMonth ${dateRangeEnd.year}';
-      final startShort = _formatDateShort(dateRangeStart);
-      final endShort = _formatDateShort(dateRangeEnd);
+      final startShort = _formatSimpleDateShort(dateRangeStart);
+      final endShort = _formatSimpleDateShort(dateRangeEnd);
       dateRangeCrossMonth = '$startShort - $endShort';
     }
 
@@ -474,8 +471,8 @@ class _TemplateContext {
   }
 
   final CrawlJob job;
-  final DateTime cutoffDate;
-  final DateTime endDate;
+  final SimpleDate cutoffDate;
+  final SimpleDate endDate;
   final int trackCount;
 
   // Real counts from actual tracks
@@ -488,15 +485,15 @@ class _TemplateContext {
 
   final DateTime now;
   final int weekNum;
-  final DateTime dateRangeStart;
-  final DateTime dateRangeEnd;
+  final SimpleDate dateRangeStart;
+  final SimpleDate dateRangeEnd;
 
   late final int dateRangeDays;
-  late final DateTime weekStart;
-  late final DateTime weekEnd;
+  late final SimpleDate weekStart;
+  late final SimpleDate weekEnd;
   late final int realWeekNum;
-  late final DateTime realWeekStart;
-  late final DateTime realWeekEnd;
+  late final SimpleDate realWeekStart;
+  late final SimpleDate realWeekEnd;
   late final int jobPlaylistCount;
   late final int jobArtistCount;
   late final int jobLabelCount;
@@ -526,7 +523,7 @@ class _TemplateContext {
     return names[month];
   }
 
-  static String _formatDateShort(DateTime date) {
+  static String _formatSimpleDateShort(SimpleDate date) {
     final monthNames = [
       '',
       'Jan',

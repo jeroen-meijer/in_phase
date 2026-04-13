@@ -18,6 +18,7 @@ CommandRunner<int> createInPhaseCommandRunner({
           'A command-line interface for Rekordbox database utilities.',
         )
         ..addCommand(CacheCommand())
+        ..addCommand(BuyCommand())
         ..addCommand(CollectCommand())
         ..addCommand(ConfigCommand())
         ..addCommand(CrawlCommand())

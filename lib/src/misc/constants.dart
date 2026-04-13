@@ -36,6 +36,9 @@ class Constants {
   static final generatedCoversDir = Directory(
     path.join(buildDir.path, 'generated_covers'),
   );
+
+  /// User home directory (for CLI path expansion, e.g. `~/foo`).
+  static String get userHomeDirectory => _getUserDir();
 }
 
 String _getUserDir() {

@@ -167,7 +167,13 @@ class ArtistsDao extends DatabaseAccessor<AppDatabase> with _$ArtistsDaoMixin {
 }
 
 /// DAO for cached artist albums operations.
-@DriftAccessor(tables: [CachedArtistAlbumLists, ArtistAlbumRelationships])
+@DriftAccessor(
+  tables: [
+    CachedArtistAlbumLists,
+    ArtistAlbumRelationships,
+    CachedArtists,
+  ],
+)
 class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
     with _$ArtistAlbumsDaoMixin {
   ArtistAlbumsDao(super.attachedDatabase);
@@ -201,6 +207,24 @@ class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
 
     return cacheDate.isAtSameMomentAs(today) ||
         cacheDate.isAfter(today.subtract(const Duration(days: 1)));
+  }
+
+  /// Removes all cached data for an artist.
+  ///
+  /// Deletes metadata, album list, and relationships.
+  /// Use when the artist's releases have changed and a fresh fetch is needed.
+  Future<void> deleteArtistCache(String artistId) async {
+    await transaction(() async {
+      await (delete(
+        artistAlbumRelationships,
+      )..where((r) => r.artistId.equals(artistId))).go();
+      await (delete(
+        cachedArtistAlbumLists,
+      )..where((l) => l.artistId.equals(artistId))).go();
+      await (delete(
+        cachedArtists,
+      )..where((a) => a.id.equals(artistId))).go();
+    });
   }
 
   /// Inserts or updates an artist's album list.
@@ -465,6 +489,13 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     return select(syncMissingTracks).get();
   }
 
+  /// Gets all missing tracks ordered by most recently inserted first.
+  Future<List<SyncMissingTrack>> getAllMissingTracksNewestFirst() {
+    return (select(
+      syncMissingTracks,
+    )..orderBy([(t) => OrderingTerm.desc(t.lastInsertedAt)])).get();
+  }
+
   /// Batch inserts multiple missing tracks.
   Future<void> insertMissingTracksBatch(
     List<({SpotifyTrackId id, String artist, String title, DateTime addedAt})>
@@ -499,6 +530,20 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     await (delete(
       syncMissingTracks,
     )..where((t) => t.spotifyTrackId.isIn(ids))).go();
+  }
+
+  /// Updates iTunes URL for a missing track.
+  Future<void> updateItunesUrl({
+    required SpotifyTrackId spotifyTrackId,
+    required String itunesUrl,
+  }) async {
+    await (update(
+      syncMissingTracks,
+    )..where((t) => t.spotifyTrackId.equals(spotifyTrackId.toString()))).write(
+      SyncMissingTracksCompanion(
+        itunesUrl: Value(itunesUrl),
+      ),
+    );
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:simple_date/simple_date.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_codec/yaml_codec.dart';
 
@@ -210,8 +211,8 @@ class CrawlFilters {
         final startStr = value['start'] as String;
         final endStr = value['end'] as String;
         return CrawlDateRangeAbsolute(
-          start: DateTime.parse(startStr),
-          end: DateTime.parse(endStr),
+          start: SimpleDate.parse(startStr),
+          end: SimpleDate.parse(endStr),
         );
       }
 
@@ -241,8 +242,8 @@ class CrawlFilters {
         'months': months,
       }..removeWhere((key, value) => value == null),
       CrawlDateRangeAbsolute(:final start, :final end) => {
-        'start': start.toIso8601String().split('T')[0],
-        'end': end.toIso8601String().split('T')[0],
+        'start': start.toString(),
+        'end': end.toString(),
       },
     };
   }
@@ -255,6 +256,7 @@ class CrawlOptions {
     this.deduplicate,
     this.addPlaylistTracksBasedOn = PlaylistTrackDateMode.releaseDate,
     this.updateMode = CrawlUpdateMode.replace,
+    this.includeArtistAppearances = true,
   });
 
   factory CrawlOptions.fromJson(Map<String, dynamic> json) =>
@@ -278,6 +280,14 @@ class CrawlOptions {
   /// - `append`: Add new tracks without clearing existing ones
   @JsonKey(defaultValue: CrawlUpdateMode.replace)
   final CrawlUpdateMode updateMode;
+
+  /// Whether to include tracks from releases where the artist appears as a
+  /// featured artist (e.g., remixes, features, collaborations on other
+  /// artists' albums). When enabled, the crawl fetches albums in the
+  /// `appears_on` group and filters tracks to only include those where the
+  /// artist is credited.
+  @JsonKey(defaultValue: true)
+  final bool includeArtistAppearances;
 }
 
 /// Input sources for the job.

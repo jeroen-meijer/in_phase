@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dart:
+    name: Dart Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Static analysis
+        run: dart analyze --fatal-infos --fatal-warnings .
+
+      - name: Run tests with coverage
+        run: dart test --coverage=coverage
+
+      - name: Convert coverage to lcov
+        run: |
+          dart pub global activate coverage
+          dart pub global run coverage:format_coverage \
+            --packages=.dart_tool/package_config.json \
+            --report-on=lib \
+            --in=coverage \
+            --out=coverage/lcov.info \
+            --lcov
+
+      - name: Summarize coverage (informational)
+        run: |
+          COVERAGE_PERCENT=$(awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{if(lf==0){print "0.00"}else{printf "%.2f", (lh/lf)*100}}' coverage/lcov.info)
+          echo "### Test Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Line coverage: ${COVERAGE_PERCENT}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Report: \`coverage/lcov.info\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          disable_search: true
+          fail_ci_if_error: false

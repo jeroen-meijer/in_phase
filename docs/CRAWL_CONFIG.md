@@ -42,6 +42,7 @@ jobs:
     options:
       deduplicate: on_match
       add_playlist_tracks_based_on: release_date
+      include_artist_appearances: true
     inputs:
       playlists:
         - *playlist_my_playlist
@@ -83,6 +84,7 @@ Each job in the `jobs` array defines a single automated playlist creation task.
   - **`deduplicate`** - Deduplication mode: `on_id` or `on_match` (optional)
   - **`add_playlist_tracks_based_on`** - Which date to use for filtering playlist tracks: `added_date` or `release_date` (default: `release_date`)
   - **`update_mode`** - How to update target playlist: `replace` or `append` (default: `replace`, only applies when `output_playlist.id` is specified)
+  - **`include_artist_appearances`** - Whether to include tracks from releases where the artist is a featured artist, such as remixes or collaborations on other artists' albums: `true` or `false` (default: `true`)
 
 ## Template Variables
 
@@ -226,7 +228,7 @@ The `date_range` filter determines which date range to use for track filtering. 
 The date range determines how far back to look for tracks:
 
 - For **playlists**: Uses either the track's release date or when it was added to the playlist (controlled by `add_playlist_tracks_based_on`)
-- For **artists**: Uses the track's release date
+- For **artists**: Uses the track's release date (includes appearances when `include_artist_appearances` is enabled)
 - For **labels**: Uses the track's release date
 - For **YouTube channels**: Uses the video's publish/upload date
 
@@ -271,6 +273,20 @@ The `add_playlist_tracks_based_on` option determines which date to use when filt
 - **`added_date`** - Use when the track was added to the playlist
 
 This is useful if you want to include tracks that were recently added to a playlist, even if they were released earlier.
+
+## Artist Appearances
+
+The `include_artist_appearances` option controls whether to include tracks from releases where the artist is a featured artist (e.g., remixes, features, collaborations on other artists' albums).
+
+- **`true`** (default) - Include tracks from albums where the artist appears as a guest or featured artist. Only the specific tracks featuring the artist are included, not all tracks from the album.
+- **`false`** - Only include tracks from the artist's own albums and singles.
+
+```yaml
+options:
+  include_artist_appearances: true  # Include remixes, features, etc.
+```
+
+This is useful for discovering new tracks featuring your favorite artists, even when they aren't the primary artist on the release.
 
 ## Target Playlist
 

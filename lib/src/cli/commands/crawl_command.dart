@@ -62,13 +62,18 @@ class CrawlCommand extends Command<int> {
 
     try {
       // Load configuration
-      final configPath = argResults!['config'] as String?;
-      final configFile = configPath != null
-          ? File(configPath)
+      final customConfigPath = argResults!['config'] as String?;
+      final usesCustomConfigPath = customConfigPath != null;
+
+      final configFile = usesCustomConfigPath
+          ? resolveConfigPath(customConfigPath)
           : Constants.crawlConfigFile;
 
       log.info('Loading crawl config from: ${configFile.path}');
-      final config = await CrawlConfig.fromFile(configFile);
+      final config = await CrawlConfig.fromFile(
+        configFile,
+        createFileIfNotExists: !usesCustomConfigPath,
+      );
 
       if (config.jobs.isEmpty) {
         log.warning('No jobs found in configuration');
@@ -253,22 +258,23 @@ class CrawlCommand extends Command<int> {
       cliEndDate: customEndDate,
     );
 
-    // Note: DateRangeResolver returns inclusive dates, but we need exclusive
-    // lower bound for filtering (added_at > cutoffDate)
-    final endDate = resolved.end;
-    final cutoffDate = resolved.start.subtract(const Duration(days: 1));
+    // Inclusive calendar range [resolved.start, resolved.end]; templates use
+    // exclusive lower cutoff = day before inclusive start.
+    final inclusiveEnd = resolved.end;
+    final inclusiveStart = resolved.start;
+    final cutoffDate = inclusiveStart.subtract(days: 1);
 
     if (customStartDate != null || customEndDate != null) {
       log.info(
         '  📅 Using custom date range: '
-        '${formatDate(resolved.start)} '
-        'to ${formatDate(endDate)}',
+        '${formatSimpleDate(resolved.start)} '
+        'to ${formatSimpleDate(inclusiveEnd)}',
       );
     } else {
       log.info(
         '  📅 Date range: '
-        '${formatDate(resolved.start)} '
-        'to ${formatDate(endDate)}',
+        '${formatSimpleDate(resolved.start)} '
+        'to ${formatSimpleDate(inclusiveEnd)}',
       );
     }
 
@@ -296,6 +302,7 @@ class CrawlCommand extends Command<int> {
     final dateMode =
         job.options?.addPlaylistTracksBasedOn ??
         PlaylistTrackDateMode.releaseDate;
+    final includeAppearances = job.options?.includeArtistAppearances ?? true;
 
     final playlistIds = job.inputs.playlists ?? [];
     final artistIds = job.inputs.artists ?? [];
@@ -327,8 +334,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromPlaylist(
               playlistId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               dateMode,
               progress: progress,
             )
@@ -356,8 +363,9 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromArtist(
               artistId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
+              includeAppearances: includeAppearances,
               progress: progress,
             )
             .then((tracks) {
@@ -382,8 +390,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromLabel(
               labelName,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               progress: progress,
             )
             .then((tracks) {
@@ -408,8 +416,8 @@ class CrawlCommand extends Command<int> {
         collector
             .collectFromYoutubeChannel(
               channelId,
-              cutoffDate,
-              endDate,
+              inclusiveStart,
+              inclusiveEnd,
               progress: progress,
             )
             .then((tracks) {
@@ -484,8 +492,8 @@ class CrawlCommand extends Command<int> {
         )
         ..debug(
           '  🎯 Filter range: '
-          '${formatDate(cutoffDate.add(const Duration(days: 1)))} to '
-          '${formatDate(endDate)}',
+          '${formatSimpleDate(inclusiveStart)} to '
+          '${formatSimpleDate(inclusiveEnd)}',
         );
     }
 
@@ -509,7 +517,7 @@ class CrawlCommand extends Command<int> {
       job.outputPlaylist.name,
       job: job,
       cutoffDate: cutoffDate,
-      endDate: endDate,
+      endDate: inclusiveEnd,
       trackCount: dedupedTracks.length,
       realArtistCount: realStats.artistCount,
       realAlbumCount: realStats.albumCount,
@@ -524,7 +532,7 @@ class CrawlCommand extends Command<int> {
             job.outputPlaylist.description!,
             job: job,
             cutoffDate: cutoffDate,
-            endDate: endDate,
+            endDate: inclusiveEnd,
             trackCount: dedupedTracks.length,
             realArtistCount: realStats.artistCount,
             realAlbumCount: realStats.albumCount,
@@ -551,7 +559,7 @@ class CrawlCommand extends Command<int> {
         caption,
         job: job,
         cutoffDate: cutoffDate,
-        endDate: endDate,
+        endDate: inclusiveEnd,
         trackCount: dedupedTracks.length,
         realArtistCount: realStats.artistCount,
         realAlbumCount: realStats.albumCount,
@@ -644,8 +652,7 @@ class CrawlCommand extends Command<int> {
       log.info('  📝 Creating playlist on Spotify...');
       final isPublic = job.outputPlaylist.public;
       log.info('  🔒 Playlist visibility: ${isPublic ? "public" : "private"}');
-      playlist = await api.playlists.createPlaylist(
-        user.id!,
+      playlist = await api.me.playlists.create(
         playlistName,
         public: isPublic,
         description: playlistDescription,
@@ -975,7 +982,7 @@ class CrawlCommand extends Command<int> {
             ? 'Last $months months'
             : 'Unknown time unit',
       CrawlDateRangeAbsolute(:final start, :final end) =>
-        '${formatDate(start)} to ${formatDate(end)}',
+        '${formatSimpleDate(start)} to ${formatSimpleDate(end)}',
     };
   }
 

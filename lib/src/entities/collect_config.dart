@@ -98,6 +98,7 @@ class CollectOptions {
   const CollectOptions({
     this.deduplicate,
     this.replace = true,
+    this.trackOrder,
   });
 
   factory CollectOptions.fromJson(Map<String, dynamic> json) =>
@@ -115,4 +116,21 @@ class CollectOptions {
   /// Defaults to `true` (replace mode).
   @JsonKey(defaultValue: true)
   final bool replace;
+
+  /// Order of tracks in the target playlist by each track's `added_at` time
+  /// in the source playlist(s). Defaults to [CollectTrackOrder.oldestFirst].
+  @JsonKey(includeIfNull: false)
+  final CollectTrackOrder? trackOrder;
+}
+
+/// Order of aggregated tracks in the target playlist by `added_at`.
+@JsonEnum()
+enum CollectTrackOrder {
+  /// Earliest additions first (oldest `added_at` at the top).
+  @JsonValue('oldest_first')
+  oldestFirst,
+
+  /// Latest additions first (newest `added_at` at the top).
+  @JsonValue('newest_first')
+  newestFirst,
 }

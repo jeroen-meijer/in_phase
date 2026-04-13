@@ -4,6 +4,7 @@
 .pub-cache/
 .pub/
 build/
+coverage/
 pubspec.lock
 
 # IDE
@@ -19,3 +20,4 @@ Thumbs.db
 
 # Project specific
 in_phase.code-workspace
+.cursor/**/*.log

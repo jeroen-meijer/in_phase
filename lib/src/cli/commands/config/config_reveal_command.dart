@@ -25,37 +25,15 @@ class ConfigRevealCommand extends Command<int> {
       return ExitCode.noInput.code;
     }
 
-    // Determine platform-specific command
-    final List<String> command;
-    if (Platform.isMacOS) {
-      command = ['open', configDir];
-    } else if (Platform.isLinux) {
-      command = ['xdg-open', configDir];
-    } else if (Platform.isWindows) {
-      command = ['explorer', configDir];
-    } else {
-      log.error(
-        'Unsupported platform: ${Platform.operatingSystem}',
-      );
-      return ExitCode.unavailable.code;
-    }
-
     try {
       log.info('Opening config directory: $configDir');
-      final result = await Process.run(
-        command[0],
-        command.sublist(1),
-      );
-
-      if (result.exitCode != 0) {
-        log.error(
-          'Failed to open directory: ${result.stderr}',
-        );
-        return ExitCode.software.code;
-      }
-
+      await SystemLauncher.openPath(configDir);
       return ExitCode.success.code;
     } catch (e) {
+      if (e is UnsupportedError) {
+        log.error(e.message);
+        return ExitCode.unavailable.code;
+      }
       log.error('Error opening directory: $e');
       return ExitCode.software.code;
     }

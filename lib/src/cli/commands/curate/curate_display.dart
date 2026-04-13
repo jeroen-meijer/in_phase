@@ -11,10 +11,12 @@ void printKeyHints(CurateConfig config) {
       .entries
       .map((e) => '${green("[${e.key + 1}]")} ${e.value.name}')
       .join('  ');
+  final autoLike = config.autoAddToLikes ? '  ${cyan("auto-like")}' : '';
   log.raw(
     '$targetHints  ${cyan("[n/s]")} next  '
     '${cyan("[←][→]")} seek ±${config.seekStep}s  '
-    '${cyan("[r]")} restart  ${cyan("[q]")} quit',
+    '${cyan("[r]")} restart  ${cyan("[c]")} copy URL  '
+    '${cyan("[q]")} quit$autoLike',
   );
 }
 

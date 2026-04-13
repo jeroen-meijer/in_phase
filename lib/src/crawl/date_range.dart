@@ -1,3 +1,6 @@
+import 'package:in_phase/src/crawl/date_utils.dart';
+import 'package:simple_date/simple_date.dart';
+
 /// Simple date range configuration for crawl jobs.
 sealed class CrawlDateRange {
   const CrawlDateRange();
@@ -6,7 +9,7 @@ sealed class CrawlDateRange {
   ///
   /// [referenceDate] is used as the reference point for relative ranges
   /// (e.g., "current_month" resolves relative to this date).
-  ({DateTime start, DateTime end}) resolve(DateTime referenceDate);
+  ({SimpleDate start, SimpleDate end}) resolve(DateTime referenceDate);
 }
 
 /// Integer format: last N days (backward compatibility).
@@ -16,10 +19,10 @@ class CrawlDateRangeDays extends CrawlDateRange {
   final int days;
 
   @override
-  ({DateTime start, DateTime end}) resolve(DateTime referenceDate) {
-    final endDate = referenceDate;
-    final startDate = endDate.subtract(Duration(days: days - 1));
-    return (start: startDate, end: endDate);
+  ({SimpleDate start, SimpleDate end}) resolve(DateTime referenceDate) {
+    final endDay = simpleDateFromLocalDateTime(referenceDate);
+    final startDate = inclusiveCalendarStartForLastNDays(endDay, days);
+    return (start: startDate, end: endDay);
   }
 }
 
@@ -31,36 +34,30 @@ class CrawlDateRangeShortcut extends CrawlDateRange {
   shortcut; // "today" | "current_week" | "current_month" | "current_year"
 
   @override
-  ({DateTime start, DateTime end}) resolve(DateTime referenceDate) {
+  ({SimpleDate start, SimpleDate end}) resolve(DateTime referenceDate) {
     switch (shortcut) {
       case 'today':
-        // Just today - start and end both at start of day
-        final startOfDay = DateTime(
-          referenceDate.year,
-          referenceDate.month,
-          referenceDate.day,
-        );
+        final startOfDay = simpleDateFromLocalDateTime(referenceDate);
         return (start: startOfDay, end: startOfDay);
       case 'current_week':
-        final startOfWeek = referenceDate.subtract(
-          Duration(days: referenceDate.weekday - 1),
-        );
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
+        final d = simpleDateFromLocalDateTime(referenceDate);
+        final startOfWeek = d.subtract(days: d.weekday - 1);
+        final endOfWeek = startOfWeek.add(days: 6);
         return (start: startOfWeek, end: endOfWeek);
       case 'current_month':
-        final startOfMonth = DateTime(
+        final startOfMonth = SimpleDate(
           referenceDate.year,
           referenceDate.month,
         );
-        final endOfMonth = DateTime(
+        final endOfMonth = SimpleDate(
           referenceDate.year,
           referenceDate.month + 1,
           0,
-        ); // Last day of month
+        );
         return (start: startOfMonth, end: endOfMonth);
       case 'current_year':
-        final startOfYear = DateTime(referenceDate.year);
-        final endOfYear = DateTime(referenceDate.year, 12, 31);
+        final startOfYear = SimpleDate(referenceDate.year);
+        final endOfYear = SimpleDate(referenceDate.year, 12, 31);
         return (start: startOfYear, end: endOfYear);
       default:
         throw ArgumentError('Unknown shortcut: $shortcut');
@@ -81,24 +78,21 @@ class CrawlDateRangeTimeUnit extends CrawlDateRange {
   final int? months;
 
   @override
-  ({DateTime start, DateTime end}) resolve(DateTime referenceDate) {
-    final endDate = referenceDate;
-    DateTime startDate;
+  ({SimpleDate start, SimpleDate end}) resolve(DateTime referenceDate) {
+    final endDay = simpleDateFromLocalDateTime(referenceDate);
+    SimpleDate startDate;
 
     if (days != null) {
-      startDate = endDate.subtract(Duration(days: days! - 1));
+      startDate = inclusiveCalendarStartForLastNDays(endDay, days!);
     } else if (weeks != null) {
-      startDate = endDate.subtract(Duration(days: (weeks! * 7) - 1));
+      startDate = inclusiveCalendarStartForLastNDays(endDay, weeks! * 7);
     } else if (months != null) {
-      // Approximate months as 30 days (for simplicity)
-      // More accurate would require handling month boundaries, but this is
-      // acceptable for the use case
-      startDate = endDate.subtract(Duration(days: (months! * 30) - 1));
+      startDate = endDay.subtract(months: months!);
     } else {
       throw StateError('TimeUnit must have one of: days, weeks, months');
     }
 
-    return (start: startDate, end: endDate);
+    return (start: startDate, end: endDay);
   }
 }
 
@@ -109,12 +103,11 @@ class CrawlDateRangeAbsolute extends CrawlDateRange {
     required this.end,
   });
 
-  final DateTime start;
-  final DateTime end;
+  final SimpleDate start;
+  final SimpleDate end;
 
   @override
-  ({DateTime start, DateTime end}) resolve(DateTime referenceDate) {
-    // Ignore referenceDate for absolute ranges
+  ({SimpleDate start, SimpleDate end}) resolve(DateTime referenceDate) {
     return (start: start, end: end);
   }
 }

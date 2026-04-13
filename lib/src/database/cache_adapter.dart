@@ -185,6 +185,12 @@ class CacheAdapter {
     );
   }
 
+  /// Removes all cached data for an artist (metadata, album list).
+  /// Use when the artist's releases have changed and a fresh fetch is needed.
+  Future<void> deleteArtistCache(SpotifyArtistId artistId) async {
+    await artistAlbumsDao.deleteArtistCache(artistId.toString());
+  }
+
   /// Caches artist albums list.
   Future<void> cacheArtistAlbums(
     SpotifyArtistId artistId,

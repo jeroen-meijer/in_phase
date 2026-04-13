@@ -11,6 +11,7 @@ CurateConfig _$CurateConfigFromJson(Map<String, dynamic> json) => CurateConfig(
   seekStep: (json['seek_step'] as num?)?.toInt() ?? 15,
   targets: _targetsFromJson(json['targets']),
   nextAfterAdd: json['next_after_add'] as bool? ?? false,
+  autoAddToLikes: json['auto_add_to_likes'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$CurateConfigToJson(CurateConfig instance) =>
@@ -18,6 +19,7 @@ Map<String, dynamic> _$CurateConfigToJson(CurateConfig instance) =>
       'start_position': instance.startPosition,
       'seek_step': instance.seekStep,
       'next_after_add': instance.nextAfterAdd,
+      'auto_add_to_likes': instance.autoAddToLikes,
       'targets': _targetsToJson(instance.targets),
     };
 

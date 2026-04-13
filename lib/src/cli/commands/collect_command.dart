@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
 import 'package:glob/glob.dart';
 import 'package:in_phase/src/crawl/crawl.dart';
@@ -48,13 +46,18 @@ class CollectCommand extends Command<int> {
 
     try {
       // Load configuration
-      final configPath = argResults!['config'] as String?;
-      final configFile = configPath != null
-          ? File(configPath)
+      final customConfigPath = argResults!['config'] as String?;
+      final usesCustomConfigPath = customConfigPath != null;
+
+      final configFile = usesCustomConfigPath
+          ? resolveConfigPath(customConfigPath)
           : Constants.collectConfigFile;
 
       log.info('Loading collect config from: ${configFile.path}');
-      final config = await CollectConfig.fromFile(configFile);
+      final config = await CollectConfig.fromFile(
+        configFile,
+        createFileIfNotExists: !usesCustomConfigPath,
+      );
 
       if (config.collections.isEmpty) {
         log.warning('No collections found in configuration');
@@ -228,10 +231,20 @@ class CollectCommand extends Command<int> {
       return;
     }
 
-    // Deduplicate tracks
+    // Deduplicate tracks, keeping the latest addedAt per dedupe key.
     final deduplicateMode =
         collection.options?.deduplicate ?? DeduplicateMode.onId;
-    final dedupedTracks = deduplicate(allTracks, deduplicateMode);
+    final trackOrder =
+        collection.options?.trackOrder ?? CollectTrackOrder.oldestFirst;
+    final dedupedTracks = _deduplicateKeepingLatest(allTracks, deduplicateMode)
+      ..sort((a, b) {
+        switch (trackOrder) {
+          case CollectTrackOrder.oldestFirst:
+            return a.addedAt.compareTo(b.addedAt);
+          case CollectTrackOrder.newestFirst:
+            return b.addedAt.compareTo(a.addedAt);
+        }
+      });
 
     if (dedupedTracks.length < allTracks.length) {
       log.info(
@@ -594,5 +607,38 @@ class CollectCommand extends Command<int> {
         input.contains('?') ||
         input.contains('[') ||
         input.contains(']');
+  }
+
+  /// Deduplicates tracks while keeping the entry with the latest `addedAt`
+  /// timestamp for each dedupe key.
+  List<CollectedTrack> _deduplicateKeepingLatest(
+    List<CollectedTrack> tracks,
+    DeduplicateMode mode,
+  ) {
+    final latestByKey = <String, CollectedTrack>{};
+
+    for (final track in tracks) {
+      final key = switch (mode) {
+        DeduplicateMode.onId => track.id.toString(),
+        DeduplicateMode.onMatch => _normalizeForMatch(
+          '${track.artistNames.join(' ')} ${track.name}',
+        ),
+      };
+
+      final existing = latestByKey[key];
+      if (existing == null || track.addedAt.isAfter(existing.addedAt)) {
+        latestByKey[key] = track;
+      }
+    }
+
+    return latestByKey.values.toList();
+  }
+
+  String _normalizeForMatch(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 }

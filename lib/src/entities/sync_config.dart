@@ -30,6 +30,18 @@ class SyncConfig {
   factory SyncConfig.fromJson(Map<String, dynamic> json) =>
       _$SyncConfigFromJson(json);
 
+  /// Parses [content] as YAML and deserializes a [SyncConfig].
+  ///
+  /// Throws if YAML is invalid, if the root value is not a map, or if the data
+  /// does not match the sync config schema (same rules as `fromJson`).
+  factory SyncConfig.fromYamlString(String content) {
+    final decoded = yamlDecode(content);
+    if (decoded is! YamlMap) {
+      throw const FormatException('Expected YAML map at the root');
+    }
+    return SyncConfig.fromJson(decoded.toMap());
+  }
+
   Map<String, dynamic> toJson() => _$SyncConfigToJson(this);
 
   static Future<SyncConfig> fromFile(
@@ -49,8 +61,20 @@ class SyncConfig {
     }
 
     final content = await file.readAsString();
-    final yaml = yamlDecode(content) as YamlMap;
-    return SyncConfig.fromJson(yaml.toMap());
+    return SyncConfig.fromYamlString(content);
+  }
+
+  /// Every [CustomTrack.rekordboxId] and [CustomTrack.target] in
+  /// [customTracks].
+  Set<RekordboxSongId> get referencedCustomTrackRekordboxIds {
+    final ids = <RekordboxSongId>{};
+    for (final t in customTracks.values.expand((list) => list)) {
+      ids.add(t.rekordboxId);
+      if (t.target != null) {
+        ids.add(t.target!);
+      }
+    }
+    return ids;
   }
 
   Future<void> write(File file) async {

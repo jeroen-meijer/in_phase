@@ -45,15 +45,25 @@ CollectOptions _$CollectOptionsFromJson(Map<String, dynamic> json) =>
         json['deduplicate'],
       ),
       replace: json['replace'] as bool? ?? true,
+      trackOrder: $enumDecodeNullable(
+        _$CollectTrackOrderEnumMap,
+        json['track_order'],
+      ),
     );
 
 Map<String, dynamic> _$CollectOptionsToJson(CollectOptions instance) =>
     <String, dynamic>{
       'deduplicate': ?_$DeduplicateModeEnumMap[instance.deduplicate],
       'replace': instance.replace,
+      'track_order': ?_$CollectTrackOrderEnumMap[instance.trackOrder],
     };
 
 const _$DeduplicateModeEnumMap = {
   DeduplicateMode.onId: 'on_id',
   DeduplicateMode.onMatch: 'on_match',
+};
+
+const _$CollectTrackOrderEnumMap = {
+  CollectTrackOrder.oldestFirst: 'oldest_first',
+  CollectTrackOrder.newestFirst: 'newest_first',
 };

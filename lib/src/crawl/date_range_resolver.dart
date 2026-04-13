@@ -1,5 +1,7 @@
-import 'package:in_phase/src/crawl/crawl.dart';
+import 'package:in_phase/src/crawl/date_range.dart';
+import 'package:in_phase/src/crawl/date_utils.dart';
 import 'package:in_phase/src/entities/entities.dart';
+import 'package:simple_date/simple_date.dart';
 
 /// Resolves date range configurations to actual start/end dates.
 class DateRangeResolver {
@@ -13,13 +15,12 @@ class DateRangeResolver {
   /// - If [cliEndDate] is provided, it replaces [referenceDate] for
   ///   relative calculations
   /// - If [cliStartDate] is provided, it overrides the calculated start date
-  static ({DateTime start, DateTime end}) resolve(
+  static ({SimpleDate start, SimpleDate end}) resolve(
     CrawlFilters filters, {
     DateTime? referenceDate,
     DateTime? cliStartDate,
     DateTime? cliEndDate,
   }) {
-    // Validate that both date_range and added_between_days aren't set
     // ignore: deprecated_member_use_from_same_package
     if (filters.dateRange != null && filters.addedBetweenDays != null) {
       throw ArgumentError(
@@ -28,11 +29,8 @@ class DateRangeResolver {
       );
     }
 
-    // Use CLI end date as reference if provided, otherwise use referenceDate
-    // or now
     final effectiveReference = cliEndDate ?? referenceDate ?? DateTime.now();
 
-    // Handle deprecated added_between_days for backward compat
     // ignore: deprecated_member_use_from_same_package
     if (filters.dateRange == null && filters.addedBetweenDays != null) {
       final resolved = _resolveDays(
@@ -40,25 +38,22 @@ class DateRangeResolver {
         filters.addedBetweenDays!,
         effectiveReference,
       );
-      // Apply CLI start date override if provided
       if (cliStartDate != null) {
         return (
-          start: cliStartDate.subtract(const Duration(days: 1)),
+          start: simpleDateFromLocalDateTime(cliStartDate).subtract(days: 1),
           end: resolved.end,
         );
       }
       return resolved;
     }
 
-    // Use new dateRange field
     final resolved =
         filters.dateRange?.resolve(effectiveReference) ??
-        _resolveDays(7, effectiveReference); // default fallback
+        _resolveDays(7, effectiveReference);
 
-    // Apply CLI start date override if provided
     if (cliStartDate != null) {
       return (
-        start: cliStartDate.subtract(const Duration(days: 1)),
+        start: simpleDateFromLocalDateTime(cliStartDate).subtract(days: 1),
         end: resolved.end,
       );
     }
@@ -68,7 +63,6 @@ class DateRangeResolver {
 
   /// Validates a CrawlFilters object and throws descriptive errors.
   static void validate(CrawlFilters filters) {
-    // Check for both fields set
     // ignore: deprecated_member_use_from_same_package
     if (filters.dateRange != null && filters.addedBetweenDays != null) {
       throw ArgumentError(
@@ -77,12 +71,10 @@ class DateRangeResolver {
       );
     }
 
-    // Validate dateRange if present
     if (filters.dateRange != null) {
       _validateDateRange(filters.dateRange!);
     }
 
-    // Validate added_between_days if present (deprecated but still validate)
     // ignore: deprecated_member_use_from_same_package
     if (filters.addedBetweenDays != null) {
       // ignore: deprecated_member_use_from_same_package
@@ -152,20 +144,19 @@ class DateRangeResolver {
       case CrawlDateRangeAbsolute(:final start, :final end):
         if (start.isAfter(end)) {
           throw ArgumentError(
-            'date_range start date (${formatDate(start)}) must be before '
-            'or equal to end date (${formatDate(end)})',
+            'date_range start date (${formatSimpleDate(start)}) must be before '
+            'or equal to end date (${formatSimpleDate(end)})',
           );
         }
     }
   }
 
-  /// Helper to resolve days back (for backward compatibility).
-  static ({DateTime start, DateTime end}) _resolveDays(
+  static ({SimpleDate start, SimpleDate end}) _resolveDays(
     int days,
     DateTime referenceDate,
   ) {
-    final endDate = referenceDate;
-    final startDate = endDate.subtract(Duration(days: days - 1));
-    return (start: startDate, end: endDate);
+    final endDay = simpleDateFromLocalDateTime(referenceDate);
+    final startDate = inclusiveCalendarStartForLastNDays(endDay, days);
+    return (start: startDate, end: endDay);
   }
 }

@@ -49,6 +49,60 @@ dart test
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.
 
+## Barrel files (`export` barrels)
+
+- **Package entry** — `lib/in_phase.dart` exports only the public CLI surface (`runner.dart`).
+- **Cross-cutting barrels** — Prefer importing shared types and helpers through the highest-level barrel that fits:
+  - `lib/src/entities/entities.dart` — config models, cache/report entity types
+  - `lib/src/misc/misc.dart` — constants, `resolveConfigPath`, `withTeardown`, `rekordboxAudioPath`, etc.
+  - `lib/src/spotify/spotify.dart` — Spotify API helpers and ID types
+  - `lib/src/database/database.exports.dart` — Drift DB/cache access
+  - `lib/src/reports/reports.dart` — report generators
+  - `lib/src/crawl/crawl.dart` — crawl pipeline (used by `crawl_command` and crawl internals)
+- **CLI** — `lib/src/cli/cli.dart` aggregates CLI wiring. `lib/src/cli/commands/commands.dart` exports **one** library per primary command (e.g. `sync_command.dart`, `curate_command.dart`), not nested subcommand implementation files.
+- **Nested command folders** — Subcommands live under `commands/<name>/` (e.g. `cache/`, `curate/`, `sync/`). When a folder exposes multiple modules, add **`commands/<name>/<name>.dart`** as a barrel and import that from the parent command file (e.g. `sync/sync.dart`, `curate/curate.dart`). Keep nested files out of `commands/commands.dart` unless they become a top-level command.
+
+### `package:args` gotcha
+
+A `Command` that registers **subcommands** becomes a **branch command**: the parent’s `run()` is never invoked; the runner requires a subcommand name (e.g. `sync` alone errors with “Missing subcommand”). To support both **`in_phase sync`** (leaf) and **`in_phase sync validate`**, use **rest-argument dispatch** on the parent (e.g. if `argResults.rest.first == 'validate'`) or register `validate` as a separate top-level command.
+
+## Git Conventions
+
+### Branch Naming
+
+- Feature branches: `feat/<description>` (e.g., `feat/api-refactor-for-app`)
+- Bug fixes: `fix/<description>` (e.g., `fix/spotify-api-compliance`)
+- Copilot branches: `copilot/<description>` (e.g., `copilot/featinclude-tracks-in-crawl`)
+
+### Commit Messages
+
+Follow conventional commits format: `<type>[optional scope]: <description>`
+
+**Types:**
+- `feat`: New feature (e.g., `feat(crawl): add flexible date_range filter`)
+- `fix`: Bug fix (e.g., `fix(request-pool): respect Retry-After from Spotify 429 responses`)
+- `refactor`: Code refactoring (e.g., `refactor(crawl): move target_playlist to output_playlist.id`)
+- `chore`: Maintenance tasks (e.g., `chore: prepare release v1.2.0`)
+- `docs`: Documentation changes (e.g., `docs: update docs and/or version file`)
+- `style`: Formatting changes (e.g., `style: format all files`)
+- `ci`: CI/CD changes (e.g., `ci: add publish script`)
+
+**Scopes:** Use when relevant (e.g., `crawl`, `cache`, `curate`, `request-pool`, `collect`)
+
+## Changelog Workflow
+
+- All new features and changes go in `docs/CHANGELOG.md` under `## Upcoming`.
+- New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
+- When releasing a new version:
+  - Replace `## Upcoming` with `## <version>`
+  - Add a new `## Upcoming` section above it with an empty newline in between
+  - Do not modify the actual change lines, only the headings
+- Before committing:
+  - Run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .`
+  - If there are errors, fix them and rerun both commands
+  - Repeat in a loop until all errors are fixed
+  - If you encounter errors you cannot fix, HALT and report them
+
 ## Project-Specific Warnings
 
 - **Never run `sync`, `crawl`, etc. yourself** — always ask for permission. These are expensive API calls; avoid rate limits.
@@ -60,7 +114,7 @@ dart test
 ## Documentation
 
 - [README.md](README.md) — install, setup, usage
-- [SYNC_CONFIG.md](SYNC_CONFIG.md) — sync config format
-- [CRAWL_CONFIG.md](CRAWL_CONFIG.md) — crawl config format
-- [COLLECT_CONFIG.md](COLLECT_CONFIG.md) — collect config format
-- [CURATE_CONFIG.md](CURATE_CONFIG.md) — curate config and keyboard controls
+- [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
+- [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
+- [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) — collect config format
+- [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config and keyboard controls

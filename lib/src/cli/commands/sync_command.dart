@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:dcli/dcli.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:in_phase/src/cli/commands/sync/sync_validate_command.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/logger/logger.dart';
@@ -16,7 +17,16 @@ import 'package:rekorddart/rekorddart.dart';
 import 'package:spotify/spotify.dart';
 
 class SyncCommand extends Command<int> {
-  SyncCommand();
+  SyncCommand() {
+    argParser.addOption(
+      'config',
+      abbr: 'c',
+      help:
+          'Path to sync config file. Only used with `sync validate` '
+          '(not when running a normal sync).',
+      valueHelp: 'path',
+    );
+  }
 
   @override
   final String name = 'sync';
@@ -24,7 +34,9 @@ class SyncCommand extends Command<int> {
   @override
   final String description =
       'Syncs playlists on Spotify with Rekordbox. '
-      'Place  a list of playlist IDs to sync.';
+      'Run `sync validate` to check the sync config (YAML, Spotify playlists, '
+      'Rekordbox custom tracks). '
+      'Pass playlist IDs to sync only those playlists.';
 
   /// Regex for Camelot keys (4A, 12B, etc.)
   ///
@@ -48,6 +60,27 @@ class SyncCommand extends Command<int> {
 
   @override
   Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isNotEmpty && rest.first.toLowerCase() == 'validate') {
+      if (rest.length > 1) {
+        usageException(
+          'Unexpected arguments after "validate". '
+          'Use: in_phase sync validate [--config path]',
+        );
+      }
+      return runSyncValidate(
+        customConfigPath: argResults!['config'] as String?,
+      );
+    }
+
+    final configOnly = argResults!['config'] as String?;
+    if (configOnly != null) {
+      usageException(
+        'Option --config is only for `in_phase sync validate`, '
+        'not a normal sync.',
+      );
+    }
+
     final commandStartTime = DateTime.now();
     final playlistReports = <SyncPlaylistReport>[];
 

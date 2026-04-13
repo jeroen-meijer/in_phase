@@ -292,6 +292,10 @@ class SearchCommand extends Command<int> {
       if (key?.scaleName case final scaleName?)
         ['Key', mapKeyToCamelot(scaleName) ?? scaleName],
       [
+        'Path',
+        rekordboxAudioPath(track) ?? grey('(no file path)', level: 0),
+      ],
+      [
         'Cues',
         if (allCues.isNotEmpty) _formatCues(allCues) else 'None',
       ],
