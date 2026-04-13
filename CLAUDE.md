@@ -7,7 +7,7 @@ A music library management CLI for creating and syncing playlists between Spotif
 - **Dart 3.10+** — primary language
 - **Drift** — SQLite/Database (rekordbox cache)
 - **rekorddart** — Rekordbox database access (SQLCipher-encrypted)
-- **spotify-dart** — Spotify Web API client
+- **spotify** ([pub.dev](https://pub.dev/packages/spotify)) — Spotify Web API client
 - **doos** — local storage (credentials, config)
 - **args** — CLI argument parsing
 - **dcli** — terminal colors, utilities
@@ -41,6 +41,10 @@ dart run build_runner build --delete-conflicting-outputs
 dart test
 ```
 
+Release PRs (changelog + bump `pubspec.yaml` and `Constants.version`, then open a PR): `./tool/prepare_release.sh <x.y.z>` (requires `git`, `gh`, `awk`, clean working tree). Changelog heading logic lives in `tool/rewrite_changelog_for_release.sh`.
+
+Pull requests run GitHub Actions (format, `dart analyze`, tests, coverage upload to Codecov; semantic PR titles; pana). See `.github/workflows/`.
+
 ## Code Standards
 
 - Use `dart` (not `fvm dart`) for all Dart commands.
@@ -60,11 +64,11 @@ dart test
   - `lib/src/reports/reports.dart` — report generators
   - `lib/src/crawl/crawl.dart` — crawl pipeline (used by `crawl_command` and crawl internals)
 - **CLI** — `lib/src/cli/cli.dart` aggregates CLI wiring. `lib/src/cli/commands/commands.dart` exports **one** library per primary command (e.g. `sync_command.dart`, `curate_command.dart`), not nested subcommand implementation files.
-- **Nested command folders** — Subcommands live under `commands/<name>/` (e.g. `cache/`, `curate/`, `sync/`). When a folder exposes multiple modules, add **`commands/<name>/<name>.dart`** as a barrel and import that from the parent command file (e.g. `sync/sync.dart`, `curate/curate.dart`). Keep nested files out of `commands/commands.dart` unless they become a top-level command.
+- **Nested command folders** — Subcommands live under `commands/<name>/` (e.g. `cache/`, `curate/`, `sync/`). When a folder exposes multiple modules, add `**commands/<name>/<name>.dart`** as a barrel and import that from the parent command file (e.g. `sync/sync.dart`, `curate/curate.dart`). Keep nested files out of `commands/commands.dart` unless they become a top-level command.
 
 ### `package:args` gotcha
 
-A `Command` that registers **subcommands** becomes a **branch command**: the parent’s `run()` is never invoked; the runner requires a subcommand name (e.g. `sync` alone errors with “Missing subcommand”). To support both **`in_phase sync`** (leaf) and **`in_phase sync validate`**, use **rest-argument dispatch** on the parent (e.g. if `argResults.rest.first == 'validate'`) or register `validate` as a separate top-level command.
+A `Command` that registers **subcommands** becomes a **branch command**: the parent’s `run()` is never invoked; the runner requires a subcommand name (e.g. `sync` alone errors with “Missing subcommand”). To support both `**in_phase sync`** (leaf) and `**in_phase sync validate`**, use **rest-argument dispatch** on the parent (e.g. if `argResults.rest.first == 'validate'`) or register `validate` as a separate top-level command.
 
 ## Git Conventions
 
@@ -79,6 +83,7 @@ A `Command` that registers **subcommands** becomes a **branch command**: the par
 Follow conventional commits format: `<type>[optional scope]: <description>`
 
 **Types:**
+
 - `feat`: New feature (e.g., `feat(crawl): add flexible date_range filter`)
 - `fix`: Bug fix (e.g., `fix(request-pool): respect Retry-After from Spotify 429 responses`)
 - `refactor`: Code refactoring (e.g., `refactor(crawl): move target_playlist to output_playlist.id`)
@@ -93,10 +98,8 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 - All new features and changes go in `docs/CHANGELOG.md` under `## Upcoming`.
 - New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
-- When releasing a new version:
-  - Replace `## Upcoming` with `## <version>`
-  - Add a new `## Upcoming` section above it with an empty newline in between
-  - Do not modify the actual change lines, only the headings
+- When releasing a new version, the section at the top becomes:
+  - `## Upcoming` — then a blank line — then `## <version>` — then a blank line — then the **same** bullet list as before (only headings change; see `tool/rewrite_changelog_for_release.sh`).
 - Before committing:
   - Run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .`
   - If there are errors, fix them and rerun both commands
@@ -113,8 +116,12 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Documentation
 
+- [tool/prepare_release.sh](tool/prepare_release.sh) — open a release PR (calls `rewrite_changelog_for_release.sh`, bumps versions, `gh pr create`)
+- [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `docs/CHANGELOG.md` headings for a release
+- [.github/workflows/](.github/workflows/) — CI workflows (and `publish.yml` for tagged releases)
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
 - [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) — collect config format
 - [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config and keyboard controls
+
