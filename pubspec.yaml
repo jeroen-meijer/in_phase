@@ -28,11 +28,7 @@ dependencies:
   pub_updater: ^0.5.0
   rekorddart: ^1.1.1
   simple_date: ^1.1.2
-  # spotify: ^0.16.0
-  spotify:
-    git:
-      url: https://github.com/jeroen-meijer/spotify-dart.git
-      ref: 0bea05d9180961600336dc3a85df0190cd73325a
+  spotify: ^0.16.1
   sqlite3: ^2.9.4
   tilde_expansion: ^1.1.0
   uuid: ^4.5.2

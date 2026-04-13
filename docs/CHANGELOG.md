@@ -1,5 +1,7 @@
 ## Upcoming
 
+- chore(deps): use `spotify: ^0.16.1` from pub instead of a git dependency
+- ci: upload coverage to Codecov (OSS); analyze full repository; ignore `coverage/`
 - feat(collect): per-collection `track_order` (`oldest_first` | `newest_first`, default `oldest_first`) to sort the target playlist by `added_at`
 - refactor(crawl): remove `{time_format_HH_MM}` template variable (was always `00:00` for date-only crawl end; use `{real_time}` for wall-clock time)
 - refactor(crawl): use `simple_date` (`SimpleDate`) for date-only ranges, parsing, and filters; align playlist release vs added-day checks with calendar-day helpers
