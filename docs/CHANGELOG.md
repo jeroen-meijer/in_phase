@@ -1,5 +1,7 @@
 ## Upcoming
 
+- chore(tool): `prepare_release.sh` and `rewrite_changelog_for_release.sh` (`awk`/`sed`); add Pana CI workflow
+- docs: README contributing/CI; CLAUDE tech stack `spotify` pub package; Copilot instructions link workflows
 - fix(cli): resolve relative config paths to absolute after tilde expansion; clarify config path test name
 - chore(deps): use `spotify: ^0.16.1` from pub instead of a git dependency
 - ci: upload coverage to Codecov (OSS); analyze full repository; ignore `coverage/`

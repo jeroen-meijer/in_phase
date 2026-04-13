@@ -4,6 +4,8 @@ Before making any suggestions or changes to this codebase, please read the follo
 
 - **[README.md](../README.md)** — Installation instructions, setup guide, usage examples, and requirements
 - **[CLAUDE.md](../CLAUDE.md)** — Technical documentation including tech stack, key directories, common commands, code standards, changelog workflow, and project-specific warnings
+- **[.github/workflows/](../.github/workflows/)** — CI (format, analyze, tests, Codecov, pana) and semantic PR title checks
+- **[tool/prepare_release.sh](../tool/prepare_release.sh)** — release PR helper; **[tool/rewrite_changelog_for_release.sh](../tool/rewrite_changelog_for_release.sh)** — changelog headings (`awk`/`sed`)
 
 ## Additional Documentation
 

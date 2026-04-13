@@ -294,8 +294,12 @@ in_phase config reveal
 
 Opens the config directory (`~/.in_phase`) in your file manager. This directory contains all configuration files, cache files, and other data used by InPhase. This command is especially helpful for non-technical users who want to edit configuration files or see where everything is stored.
 
+## Contributing
+
+From a clone: `dart pub get`, then `dart format .`, `dart analyze --fatal-infos --fatal-warnings .`, and `dart test`. Pull requests should use [conventional commit](https://www.conventionalcommits.org/) **titles**; CI runs on GitHub Actions (see `.github/workflows/`).
+
 ## Requirements
 
 - Rekordbox database access
 - Spotify API credentials
-- Dart/Flutter development environment
+- Dart SDK (for development from source)
