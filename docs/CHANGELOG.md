@@ -1,5 +1,6 @@
 ## Upcoming
 
+- fix(cli): resolve relative config paths to absolute after tilde expansion; clarify config path test name
 - chore(deps): use `spotify: ^0.16.1` from pub instead of a git dependency
 - ci: upload coverage to Codecov (OSS); analyze full repository; ignore `coverage/`
 - feat(collect): per-collection `track_order` (`oldest_first` | `newest_first`, default `oldest_first`) to sort the target playlist by `added_at`

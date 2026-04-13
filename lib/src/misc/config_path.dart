@@ -7,6 +7,8 @@ import 'package:tilde_expansion/tilde_expansion.dart';
 ///
 /// - Trims surrounding whitespace.
 /// - Correctly expands a leading `~` or `~/`.
+/// - Resolves relative paths against the current working directory
+///   (absolute path).
 File resolveConfigPath(String rawPath) {
   final trimmedPath = rawPath.trim();
   if (trimmedPath.isEmpty) {
@@ -14,5 +16,6 @@ File resolveConfigPath(String rawPath) {
   }
 
   final expandedPath = trimmedPath.expandUser();
-  return File(path.normalize(expandedPath));
+  final normalized = path.normalize(expandedPath);
+  return File(path.absolute(normalized));
 }

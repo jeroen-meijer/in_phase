@@ -20,13 +20,16 @@ void main() {
       );
     });
 
-    test('does not expand ~ if it the name of a directory', () {
-      final file = resolveConfigPath('some/dir/~/config.yaml');
+    test(
+      'middle ~ stays literal; relative paths resolve to absolute',
+      () {
+        final file = resolveConfigPath('some/dir/~/config.yaml');
 
-      expect(
-        file.path,
-        path.normalize(path.absolute('some/dir/~/config.yaml')),
-      );
-    });
+        expect(
+          file.path,
+          path.normalize(path.absolute('some/dir/~/config.yaml')),
+        );
+      },
+    );
   });
 }
