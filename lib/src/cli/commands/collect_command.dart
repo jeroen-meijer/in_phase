@@ -234,9 +234,17 @@ class CollectCommand extends Command<int> {
     // Deduplicate tracks, keeping the latest addedAt per dedupe key.
     final deduplicateMode =
         collection.options?.deduplicate ?? DeduplicateMode.onId;
-    // Ensure deterministic timeline order: oldest -> newest.
+    final trackOrder =
+        collection.options?.trackOrder ?? CollectTrackOrder.oldestFirst;
     final dedupedTracks = _deduplicateKeepingLatest(allTracks, deduplicateMode)
-      ..sort((a, b) => a.addedAt.compareTo(b.addedAt));
+      ..sort((a, b) {
+        switch (trackOrder) {
+          case CollectTrackOrder.oldestFirst:
+            return a.addedAt.compareTo(b.addedAt);
+          case CollectTrackOrder.newestFirst:
+            return b.addedAt.compareTo(a.addedAt);
+        }
+      });
 
     if (dedupedTracks.length < allTracks.length) {
       log.info(

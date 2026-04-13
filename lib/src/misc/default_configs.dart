@@ -211,6 +211,7 @@ targets:
 #     options:
 #       deduplicate: on_match            # on_id | on_match (default: on_id)
 #       replace: true                     # Replace all tracks (true) or append (false). Default: true
+#       track_order: oldest_first         # oldest_first | newest_first (default: oldest_first)
 collections: []
 ''';
 }

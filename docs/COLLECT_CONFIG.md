@@ -17,10 +17,12 @@ This is useful for maintaining aggregated playlists that combine tracks from mul
 
 ## Configuration Structure
 
+Collect YAML uses **snake_case** (underscores) for option keys and string enum values, for example `deduplicate: on_match`, `track_order: newest_first`. This matches the other InPhase config files.
+
 The config file has two main sections:
 
-1. **`_notes`** - Optional section for defining YAML anchors (reusable IDs). Is **not** used by the tool but is useful for referencing playlist IDs in the collections section.
-2. **`collections`** - List of collection configurations. Each collection aggregates multiple source playlists into one target.
+1. `**_notes`** - Optional section for defining YAML anchors (reusable IDs). Is **not** used by the tool but is useful for referencing playlist IDs in the collections section.
+2. `**collections`** - List of collection configurations. Each collection aggregates multiple source playlists into one target.
 
 ### Example Configuration
 
@@ -44,7 +46,8 @@ collections:
       - "Liquid Drum & Bass"           # Exact playlist name
     options:
       deduplicate: on_match            # on_id | on_match (default: on_id)
-      replace: true                    # Replace all tracks (true) or append (false). Default: true
+      replace: true                    # true = replace, false = append (default: true)
+      track_order: oldest_first        # oldest_first | newest_first (default: oldest_first)
 ```
 
 ## Collection Configuration
@@ -53,38 +56,39 @@ Each collection in the `collections` array defines a single aggregation task.
 
 ### Required Fields
 
-- **`name`** - Unique identifier for the collection (used in logs and `--collection` filter)
-- **`target`** - Target playlist identifier. Must exist and be writable. Can be:
+- `**name**` - Unique identifier for the collection (used in logs and `--collection` filter)
+- `**target**` - Target playlist identifier. Must exist and be writable. Can be:
   - Playlist ID (e.g., `37i9dQZF1DXcBWIGoYBM5M`)
   - URI (e.g., `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`)
   - Share URL (e.g., `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`)
   - Exact playlist name from your playlists (e.g., `"My DnB Collection"`)
-- **`sources`** - List of source playlist identifiers. Each can be:
+- `**sources**` - List of source playlist identifiers. Each can be:
   - Playlist ID, URI, or share URL (works for any accessible playlist)
   - Glob pattern (e.g., `"DnB Releases*"` matches playlist names)
   - Exact playlist name (e.g., `"Liquid Drum & Bass"`)
 
 ### Optional Fields
 
-- **`description`** - Template string for playlist description (supports template variables). Updated every time the command runs. See [Template Variables](#template-variables) below.
-- **`options`** - Processing options
-  - **`deduplicate`** - Deduplication mode: `on_id` or `on_match` (default: `on_id`)
+- `**description**` - Template string for playlist description (supports template variables). Updated every time the command runs. See [Template Variables](#template-variables) below.
+- `**options**` - Processing options
+  - `**deduplicate**` - Deduplication mode: `on_id` or `on_match` (default: `on_id`)
     - `on_id` - Remove tracks with duplicate Spotify track IDs
     - `on_match` - Remove tracks with matching artist names and track titles (fuzzy matching)
-  - **`replace`** - Whether to replace all tracks in the target playlist or append to existing tracks (default: `true`)
+  - `**replace**` - Whether to replace all tracks in the target playlist or append to existing tracks (default: `true`)
     - `true` (default) - Clear the playlist and replace with new tracks
     - `false` - Append new tracks to the end of the existing playlist
+  - `**track_order**` - Order tracks in the target playlist by each track's `added_at` time from the source playlist(s) (default: `oldest_first`)
+    - `oldest_first` - Earliest `added_at` first in the target playlist
+    - `newest_first` - Latest `added_at` first in the target playlist
 
 ## Source Resolution
 
 The collect command resolves source playlists in the following order:
 
 1. **ID/URI/URL**: If the source can be parsed as a playlist ID (via `SpotifyPlaylistId.tryExtract()`), it fetches the playlist directly by ID. This works for playlists you own, follow, or have collaborative access to.
-
 2. **Glob Pattern**: If the source contains glob characters (`*`, `?`, `[`, `]`), it's treated as a glob pattern. The command fetches all your playlists and filters them by name using the glob pattern.
-   - Example: `"DnB Releases*"` matches "DnB Releases 2024", "DnB Releases Weekly", etc.
-   - Example: `"*House*"` matches any playlist with "House" in the name
-
+  - Example: `"DnB Releases*"` matches "DnB Releases 2024", "DnB Releases Weekly", etc.
+  - Example: `"*House*"` matches any playlist with "House" in the name
 3. **Exact Name**: Otherwise, the source is treated as an exact playlist name match from your playlists.
 
 **Deduplication**: After resolution, the command deduplicates resolved playlists by ID, so if the same playlist is specified multiple ways (e.g., by ID and by name), it's only processed once.
@@ -105,11 +109,10 @@ The target playlist **must already exist** before running the collect command. Y
 The command resolves the target playlist as follows:
 
 1. **ID/URI/URL**: If the target can be parsed as a playlist ID (via `SpotifyPlaylistId.tryExtract()`), it fetches the playlist directly by ID. If the playlist is not found or you don't have access, the command fails with a clear error message.
-
 2. **Exact Name**: Otherwise, the target is treated as an exact playlist name match from your playlists:
-   - **0 matches**: Command fails with an error suggesting to check the name or use a playlist ID
-   - **1 match**: Uses that playlist
-   - **Multiple matches**: Command fails with an error listing all matches and suggesting to use a playlist ID instead
+  - **0 matches**: Command fails with an error suggesting to check the name or use a playlist ID
+  - **1 match**: Uses that playlist
+  - **Multiple matches**: Command fails with an error listing all matches and suggesting to use a playlist ID instead
 
 **Error Handling**: If the target playlist cannot be resolved, the command stops processing that collection and logs clear error messages with suggestions on how to fix the issue.
 
@@ -137,6 +140,7 @@ collections:
 The `description` field supports template variables enclosed in curly braces `{}`. Available variables:
 
 ### Date and Time Variables
+
 - `{real_date}` - Current date (YYYY-MM-DD format, e.g., `2024-01-15`)
 - `{real_datetime}` - Current date and time (YYYY-MM-DD HH:MM format, e.g., `2024-01-15 14:30`)
 - `{real_datetime_full}` - Current date and time with seconds (YYYY-MM-DD HH:MM:SS format, e.g., `2024-01-15 14:30:45`)
@@ -144,6 +148,7 @@ The `description` field supports template variables enclosed in curly braces `{}
 - `{real_time_with_seconds}` - Current time with seconds (HH:MM:SS format, e.g., `14:30:45`)
 
 ### Content Statistics
+
 - `{track_count}` - Number of tracks in the aggregated playlist
 - `{source_count}` - Number of source playlists used
 
@@ -164,16 +169,16 @@ description: "Updated {real_datetime_full}"
 
 The `deduplicate` option controls how duplicate tracks are handled:
 
-- **`on_id`** (default) - Remove tracks with duplicate Spotify track IDs. Keeps the first occurrence based on source order.
-- **`on_match`** - Remove tracks with matching artist names and track titles using fuzzy matching. Useful when the same track appears in multiple playlists with slightly different metadata.
+- `**on_id**` (default) - Remove tracks with duplicate Spotify track IDs. Keeps the first occurrence based on source order.
+- `**on_match**` - Remove tracks with matching artist names and track titles using fuzzy matching. Useful when the same track appears in multiple playlists with slightly different metadata.
 - Not specified - No deduplication (all tracks from all sources are included)
 
 ## Replace vs Append Mode
 
 The `replace` option controls how tracks are added to the target playlist:
 
-- **`replace: true`** (default) - Clears the target playlist and replaces all tracks with the aggregated tracks. This ensures the playlist only contains tracks from the configured sources.
-- **`replace: false`** - Appends the aggregated tracks to the end of the existing playlist. Existing tracks remain, and new tracks are added after them. **Duplicate tracks are automatically skipped** - if a track is already in the playlist (by Spotify track ID), it won't be added again.
+- `**replace: true**` (default) - Clears the target playlist and replaces all tracks with the aggregated tracks. This ensures the playlist only contains tracks from the configured sources.
+- `**replace: false**` - Appends the aggregated tracks to the end of the existing playlist. Existing tracks remain, and new tracks are added after them. **Duplicate tracks are automatically skipped** - if a track is already in the playlist (by Spotify track ID), it won't be added again.
 
 **Important**: When using `replace: true` (the default), any tracks you manually added to the target playlist will be removed on the next collect run. If you want to preserve manually added tracks, set `replace: false`.
 
@@ -181,11 +186,14 @@ The `replace` option controls how tracks are added to the target playlist:
 
 ## Track Ordering
 
-Tracks are ordered as follows:
+After fetching all source tracks, the command **deduplicates** (if configured), then sorts the result by each track's `**added_at`** timestamp (when it was added to its source playlist).
 
-1. Source order: Tracks appear in the order sources are listed in the config
-2. Within each source: Tracks appear in the order they appear in the source playlist
-3. Deduplication: When duplicates are found, the first occurrence is kept (maintaining stable ordering)
+The `**track_order`** option controls that sort:
+
+- `**oldest_first**` (default) — Sort ascending by `added_at` (earliest additions first in the target playlist).
+- `**newest_first**` — Sort descending by `added_at` (latest additions first).
+
+Source list order and within-playlist order are used while collecting; the final target order is this `**added_at**` sort (after deduplication). When duplicates are removed, the kept entry is the one with the **latest** `added_at` for that dedupe key.
 
 When `replace: false` (append mode), new tracks are added after existing tracks in the playlist.
 
@@ -276,3 +284,4 @@ collections:
       deduplicate: on_id
       replace: false              # Append to existing tracks
 ```
+
