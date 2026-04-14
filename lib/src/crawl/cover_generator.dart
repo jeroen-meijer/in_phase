@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -94,8 +95,6 @@ img.Image cropToSquare(img.Image image) {
 ///
 /// Note: This is a simplified version that wraps by character count
 /// since we don't have font rendering capabilities in pure Dart.
-/// For production, consider using a more sophisticated text measurement
-/// approach.
 List<String> _wrapText(String text, int maxCharsPerLine) {
   final words = text.split(' ');
   final lines = <String>[];
@@ -153,6 +152,238 @@ img.Image _createGradientOverlay(int size) {
   return gradient;
 }
 
+/// Structured result from attempting an ImageMagick render.
+class _ImageMagickResult {
+  const _ImageMagickResult({
+    required this.image,
+    required this.errorKind,
+  });
+
+  const _ImageMagickResult.success(this.image) : errorKind = null;
+
+  final img.Image? image;
+  final _ImageMagickErrorKind? errorKind;
+}
+
+enum _ImageMagickErrorKind { missingCommand, commandFailed, invalidFontPath }
+
+/// Resolve a local path (absolute or relative to assets dir).
+String _resolveLocalPath(String inputPath, String assetsDir) {
+  if (_isUrl(inputPath)) {
+    return inputPath;
+  }
+
+  if (path.isAbsolute(inputPath)) {
+    return inputPath;
+  }
+
+  return path.join(assetsDir, inputPath);
+}
+
+Future<img.Image?> _prepareBaseCover({
+  required String imagePath,
+  required int size,
+  required String assetsDir,
+}) async {
+  var background = await loadImage(imagePath, assetsDir: assetsDir);
+  if (background == null) {
+    log.warning("Could not load image '$imagePath'");
+    return null;
+  }
+
+  background = cropToSquare(background);
+
+  background = img.copyResize(
+    background,
+    width: size,
+    height: size,
+    interpolation: img.Interpolation.cubic,
+  );
+
+  final gradient = _createGradientOverlay(size);
+  return img.compositeImage(background, gradient);
+}
+
+Future<void> _saveAsJpeg({
+  required img.Image image,
+  required String outputPath,
+}) async {
+  var jpegPath = outputPath;
+  if (outputPath.toLowerCase().endsWith('.png')) {
+    jpegPath = outputPath.replaceAll('.png', '.jpg');
+  }
+
+  final jpegBytes = img.encodeJpg(image, quality: 95);
+  await File(jpegPath).writeAsBytes(jpegBytes);
+  log.info('✅ Generated playlist cover: $jpegPath');
+}
+
+img.Image _renderWithDartNative({
+  required img.Image baseImage,
+  required String caption,
+  required int size,
+}) {
+  final rendered = img.Image.from(baseImage);
+  final padding = size ~/ 12;
+  final maxCharsPerLine = math.max(8, ((size - (2 * padding)) / 28).floor());
+
+  final originalLines = caption.split('\n');
+  final lines = <String>[];
+  for (final line in originalLines) {
+    lines.addAll(_wrapText(line, maxCharsPerLine));
+  }
+
+  final fontSize = size ~/ 8;
+  final lineHeight = fontSize + 4;
+  final totalTextHeight = lines.length * lineHeight;
+  final startY = size - padding - totalTextHeight;
+
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final y = startY + i * lineHeight;
+
+    img.drawString(
+      rendered,
+      line,
+      font: img.arial48,
+      x: padding,
+      y: y,
+      color: img.ColorRgb8(255, 255, 255),
+    );
+  }
+
+  return rendered;
+}
+
+Future<_ImageMagickResult> _renderWithImageMagick({
+  required img.Image baseImage,
+  required String caption,
+  required String fontPath,
+  required String outputPath,
+  required int size,
+  required String assetsDir,
+}) async {
+  final resolvedFontPath = _resolveLocalPath(fontPath, assetsDir);
+  final fontFile = File(resolvedFontPath);
+  if (!await fontFile.exists()) {
+    log.warning(
+      "ImageMagick font file not found at '$resolvedFontPath' "
+      '(from cover.font: "$fontPath")',
+    );
+    return const _ImageMagickResult(
+      image: null,
+      errorKind: _ImageMagickErrorKind.invalidFontPath,
+    );
+  }
+
+  final tempDir = await Directory.systemTemp.createTemp('in_phase_cover_');
+  try {
+    final basePath = path.join(tempDir.path, 'base.png');
+    final basePng = img.encodePng(baseImage);
+    await File(basePath).writeAsBytes(basePng);
+
+    final padding = size ~/ 12;
+    final textWidth = size - (2 * padding);
+    // Keep enough caption canvas height so the first line isn't clipped.
+    final textHeight = (size * 0.51).round();
+    // Match the tuned visual from manual magick debug output.
+    final pointSize = (size * 0.102).round();
+
+    final args = <String>[
+      basePath,
+      '(',
+      '-size',
+      '${size}x$size',
+      'gradient:none-black',
+      '-alpha',
+      'set',
+      '-channel',
+      'A',
+      '-evaluate',
+      'multiply',
+      '0.70',
+      '+channel',
+      ')',
+      '-compose',
+      'over',
+      '-composite',
+      '(',
+      '-size',
+      '${textWidth}x$textHeight',
+      '-background',
+      'none',
+      '-fill',
+      'white',
+      '-font',
+      resolvedFontPath,
+      '-pointsize',
+      '$pointSize',
+      '-gravity',
+      'southwest',
+      'caption:$caption',
+      ')',
+      '-gravity',
+      'southwest',
+      '-geometry',
+      '+$padding+$padding',
+      '-composite',
+      '-quality',
+      '95',
+      outputPath,
+    ];
+
+    try {
+      final result = await Process.run('magick', args);
+      if (result.exitCode != 0) {
+        log.warning(
+          'ImageMagick cover rendering failed (exit ${result.exitCode}).',
+        );
+        if (result.stderr.toString().trim().isNotEmpty) {
+          log.debug('ImageMagick stderr: ${result.stderr}');
+        }
+        return const _ImageMagickResult(
+          image: null,
+          errorKind: _ImageMagickErrorKind.commandFailed,
+        );
+      }
+    } on ProcessException {
+      return const _ImageMagickResult(
+        image: null,
+        errorKind: _ImageMagickErrorKind.missingCommand,
+      );
+    }
+
+    final outputBytes = await File(outputPath).readAsBytes();
+    final decoded = img.decodeImage(outputBytes);
+    if (decoded == null) {
+      log.warning('ImageMagick produced output, but decoding failed.');
+      return const _ImageMagickResult(
+        image: null,
+        errorKind: _ImageMagickErrorKind.commandFailed,
+      );
+    }
+
+    return _ImageMagickResult.success(decoded);
+  } finally {
+    await tempDir.delete(recursive: true);
+  }
+}
+
+void _logImageMagickInstallInstructions() {
+  log
+    ..warning(
+      'ImageMagick was requested via cover.font but `magick` was not found. '
+      'Falling back to Dart-native cover rendering.',
+    )
+    ..warning('Install ImageMagick to enable custom fonts with cover.font:')
+    ..warning('- macOS: brew install imagemagick')
+    ..warning('- Ubuntu/Debian: sudo apt install imagemagick')
+    ..warning('- Fedora: sudo dnf install ImageMagick')
+    ..warning(
+      '- Windows: install from https://imagemagick.org and add `magick` to PATH',
+    );
+}
+
 /// Generate a playlist cover image with text overlay.
 ///
 /// Returns the generated image or null if generation fails.
@@ -162,79 +393,52 @@ Future<img.Image?> generatePlaylistCover({
   required int size,
   required String assetsDir,
   String? outputPath,
+  String? fontPath,
 }) async {
   try {
-    // Load background image
-    var background = await loadImage(imagePath, assetsDir: assetsDir);
-    if (background == null) {
-      log.warning("Could not load image '$imagePath'");
+    final baseImage = await _prepareBaseCover(
+      imagePath: imagePath,
+      size: size,
+      assetsDir: assetsDir,
+    );
+    if (baseImage == null) {
       return null;
     }
 
-    // Crop to square
-    background = cropToSquare(background);
-
-    // Resize to target size
-    background = img.copyResize(
-      background,
-      width: size,
-      height: size,
-      interpolation: img.Interpolation.cubic,
-    );
-
-    // Add gradient overlay for better text visibility
-    final gradient = _createGradientOverlay(size);
-    background = img.compositeImage(background, gradient);
-
-    // Add text overlay using default font
-    final padding = size ~/ 12;
-    const maxCharsPerLine = 15; // Approximate chars that fit in the width
-
-    // Split caption into lines and wrap long lines
-    final originalLines = caption.split('\n');
-    final lines = <String>[];
-    for (final line in originalLines) {
-      final wrappedLines = _wrapText(line, maxCharsPerLine);
-      lines.addAll(wrappedLines);
-    }
-
-    // Calculate text positioning
-    final fontSize = size ~/ 8;
-    final lineHeight = fontSize + 4;
-    final totalTextHeight = lines.length * lineHeight;
-    final bottomPadding = padding;
-    final startY = size - bottomPadding - totalTextHeight;
-
-    // Draw each line using built-in Arial 48 font
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final y = startY + i * lineHeight;
-
-      // Draw text with white color
-      img.drawString(
-        background,
-        line,
-        font: img.arial48,
-        x: padding,
-        y: y,
-        color: img.ColorRgb8(255, 255, 255),
+    if (fontPath != null && fontPath.trim().isNotEmpty && outputPath != null) {
+      final magickResult = await _renderWithImageMagick(
+        baseImage: baseImage,
+        caption: caption,
+        fontPath: fontPath,
+        outputPath: outputPath,
+        size: size,
+        assetsDir: assetsDir,
       );
-    }
 
-    // Save if output path is provided
-    if (outputPath != null) {
-      // Spotify requires JPEG format for playlist covers
-      var jpegPath = outputPath;
-      if (outputPath.toLowerCase().endsWith('.png')) {
-        jpegPath = outputPath.replaceAll('.png', '.jpg');
+      if (magickResult.image != null) {
+        log.info('✅ Generated playlist cover with ImageMagick: $outputPath');
+        return magickResult.image;
       }
 
-      final jpegBytes = img.encodeJpg(background, quality: 95);
-      await File(jpegPath).writeAsBytes(jpegBytes);
-      log.info('✅ Generated playlist cover: $jpegPath');
+      if (magickResult.errorKind == _ImageMagickErrorKind.missingCommand) {
+        _logImageMagickInstallInstructions();
+      } else {
+        log.warning(
+          'Falling back to Dart-native cover rendering because '
+          'ImageMagick generation failed.',
+        );
+      }
     }
 
-    return background;
+    final rendered = _renderWithDartNative(
+      baseImage: baseImage,
+      caption: caption,
+      size: size,
+    );
+    if (outputPath != null) {
+      await _saveAsJpeg(image: rendered, outputPath: outputPath);
+    }
+    return rendered;
   } catch (e) {
     log.error('❌ Error generating playlist cover: $e');
     return null;

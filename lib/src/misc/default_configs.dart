@@ -143,6 +143,8 @@ custom_tracks: {}
 #   cover:
 #     image: 'cover.jpg'  # Place cover.jpg in the same directory as this config
 #     caption: '{month} {year}\n#{month_num}'
+#     # Optional: custom TTF/OTF font rendered via ImageMagick
+#     # font: 'fonts/Manrope-ExtraBold.ttf'
 #   filters:
 #     date_range: { months: 1 }  # Last 1 month
 #     # Or: date_range: 30  # Last 30 days
