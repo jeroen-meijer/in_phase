@@ -1,5 +1,9 @@
 ## Upcoming
 
+## 1.3.0
+
+## 1.3.0
+
 - chore(tool): `prepare_release.sh` and `rewrite_changelog_for_release.sh` (`awk`/`sed`); add Pana CI workflow
 - docs: README contributing/CI; CLAUDE tech stack `spotify` pub package; Copilot instructions link workflows
 - fix(cli): resolve relative config paths to absolute after tilde expansion; clarify config path test name

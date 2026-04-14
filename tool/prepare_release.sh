@@ -5,9 +5,17 @@
 
 set -eu
 
+# Resolve repository root and run from it.
 ROOT="$(CDPATH='' cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Release-managed file paths
+CHANGELOG_PATH="CHANGELOG.md"
+PUBSPEC_PATH="pubspec.yaml"
+CONSTANTS_PATH="lib/src/misc/constants.dart"
+CHANGELOG_REWRITE_SCRIPT="$ROOT/tool/rewrite_changelog_for_release.sh"
+
+# Read and validate the required release version argument.
 if [ "$#" -ne 1 ]; then
   echo "usage: $0 <x.y.z>" >&2
   exit 2
@@ -19,16 +27,16 @@ echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
   exit 2
 }
 
-if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-  echo "error: working tree is not clean; commit or stash first." >&2
+# Block when release-managed files already have local edits.
+if [ -n "$(git status --porcelain -- "$CHANGELOG_PATH" "$PUBSPEC_PATH" "$CONSTANTS_PATH" 2>/dev/null)" ]; then
+  echo "error: release-managed files have local changes; commit or stash:" >&2
+  echo "  - $CHANGELOG_PATH" >&2
+  echo "  - $PUBSPEC_PATH" >&2
+  echo "  - $CONSTANTS_PATH" >&2
   exit 1
 fi
 
-if ! head -1 docs/CHANGELOG.md | grep -q '^## Upcoming$'; then
-  echo "error: docs/CHANGELOG.md must start with ## Upcoming" >&2
-  exit 1
-fi
-
+# Create a dedicated release branch.
 BRANCH="chore/release-${VERSION}"
 if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
   echo "error: branch ${BRANCH} already exists." >&2
@@ -37,26 +45,33 @@ fi
 
 git checkout -b "$BRANCH"
 
-"$ROOT/tool/rewrite_changelog_for_release.sh" "$VERSION" \
-  "$ROOT/docs/CHANGELOG.md" "$ROOT/docs/CHANGELOG.md"
+# Rewrite changelog headings for the new release section.
+"$CHANGELOG_REWRITE_SCRIPT" "$VERSION" \
+  "$ROOT/$CHANGELOG_PATH" "$ROOT/$CHANGELOG_PATH"
 
-sed "s/^version: .*/version: ${VERSION}/" pubspec.yaml > pubspec.yaml.tmp
-mv pubspec.yaml.tmp pubspec.yaml
+# Update package version in pubspec.
+sed "s/^version: .*/version: ${VERSION}/" "$PUBSPEC_PATH" > "${PUBSPEC_PATH}.tmp"
+mv "${PUBSPEC_PATH}.tmp" "$PUBSPEC_PATH"
 
+# Update runtime version constant.
 sed -E "s/(static const version = ')[^']+(')/\\1${VERSION}\\2/" \
-  lib/src/misc/constants.dart > lib/src/misc/constants.dart.tmp
-mv lib/src/misc/constants.dart.tmp lib/src/misc/constants.dart
+  "$CONSTANTS_PATH" > "${CONSTANTS_PATH}.tmp"
+mv "${CONSTANTS_PATH}.tmp" "$CONSTANTS_PATH"
 
-dart format docs/CHANGELOG.md pubspec.yaml lib/src/misc/constants.dart
+# Format touched Dart files.
+dart format "$CONSTANTS_PATH"
 
+# Run analyzer as a final release-prep gate.
 if ! dart analyze --fatal-infos --fatal-warnings . >/dev/null; then
   echo "error: dart analyze failed; fix issues and retry." >&2
   exit 1
 fi
 
-git add docs/CHANGELOG.md pubspec.yaml lib/src/misc/constants.dart
+# Commit release-prep file updates.
+git add "$CHANGELOG_PATH" "$PUBSPEC_PATH" "$CONSTANTS_PATH"
 git commit -m "chore: prepare release ${VERSION}"
 
+# Push branch and open a release PR.
 git push -u origin "$BRANCH"
 
 gh pr create \
