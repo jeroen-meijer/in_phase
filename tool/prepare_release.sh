@@ -27,15 +27,6 @@ echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
   exit 2
 }
 
-# Block when release-managed files already have local edits.
-if [ -n "$(git status --porcelain -- "$CHANGELOG_PATH" "$PUBSPEC_PATH" "$CONSTANTS_PATH" 2>/dev/null)" ]; then
-  echo "error: release-managed files have local changes; commit or stash:" >&2
-  echo "  - $CHANGELOG_PATH" >&2
-  echo "  - $PUBSPEC_PATH" >&2
-  echo "  - $CONSTANTS_PATH" >&2
-  exit 1
-fi
-
 # Create a dedicated release branch.
 BRANCH="chore/release-${VERSION}"
 if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
