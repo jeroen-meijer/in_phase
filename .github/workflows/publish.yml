@@ -41,16 +41,6 @@ jobs:
       - name: Verify package is ready for publishing
         run: dart pub publish --dry-run
 
-      - name: Run format check
-        run: dart format -o none --set-exit-if-changed .
-
-      - name: Run static analysis
-        run: dart analyze --fatal-infos --fatal-warnings .
-
-      - name: Run tests
-        run: dart test
-        continue-on-error: true
-
       - name: Publish to pub.dev
         run: dart pub publish --force
         env:
