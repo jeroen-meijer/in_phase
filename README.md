@@ -42,65 +42,37 @@ in_phase sync
 If you want to build from source or contribute to the project:
 
 1. **Clone the Repository**
-
-   ```bash
+  ```bash
    git clone https://github.com/jeroen-meijer/in_phase.git
    cd in_phase
-   ```
-
+  ```
 2. **Install Dependencies**
-
-   ```bash
+  ```bash
    dart pub get
-   ```
-
+  ```
 3. **Activate the Tool**
-
-   ```bash
+  ```bash
    dart pub global activate --source path .
-   ```
-
+  ```
    Or use the run script directly:
-
-   ```bash
-   ./run.sh login
-   ./run.sh sync
-   ```
-
    **Note for Windows users**: You'll need to use Git Bash or WSL (Windows Subsystem for Linux) to run `.sh` scripts, or use `dart pub global activate` instead.
 
 ### Set Up Rekordbox (Optional)
 
-**If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to complete the setup steps below. **If you only want to use Spotify features** (like the `crawl` command), you can skip this entire section.
+**If you want to use the Rekordbox-specific features of InPhase** (such as syncing playlists to your Rekordbox database), you need to complete the setup steps below. **If you only want to use Spotify features** (like the `crawl` and `collect` commands), you can skip this entire section.
 
 #### Prerequisites
 
 1. **Install Rekordbox 6.0.0+**
-   - Download from [rekordbox.com/en/download](https://rekordbox.com/en/download/)
-   - Make sure Rekordbox is installed and you have a library set up
-
+  - Download from [rekordbox.com/en/download](https://rekordbox.com/en/download/)
+  - Make sure Rekordbox is installed and you have a library set up
 2. **Install SQLCipher 4.0.0+**
-   
-   SQLCipher is required to access the encrypted Rekordbox database. Install it for your platform:
-
+  SQLCipher is required to access the encrypted Rekordbox database. Install it for your platform:
    **macOS (Homebrew):**
-   ```bash
-   brew install sqlcipher
-   ```
-
    **Windows:**
-   - Download pre-compiled binaries from [zetetic.net/sqlcipher/downloads](https://www.zetetic.net/sqlcipher/downloads/)
-   - Extract and add to your system PATH
-
+  - Download pre-compiled binaries from [zetetic.net/sqlcipher/downloads](https://www.zetetic.net/sqlcipher/downloads/)
+  - Extract and add to your system PATH
    **Linux:**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install sqlcipher
-
-   # Fedora
-   sudo dnf install sqlcipher
-   ```
-
    The library will automatically detect SQLCipher in common installation locations. If you have a custom installation, you can set the path manually (see below).
 
 #### Environment Variables (Optional)
@@ -108,6 +80,7 @@ If you want to build from source or contribute to the project:
 InPhase uses the `rekorddart` package to access your Rekordbox database. Most users won't need to set these, but they're available if needed:
 
 **SQLCIPHER_DYLIB** (Optional - only needed for custom SQLCipher installations):
+
 ```bash
 # macOS/Linux
 export SQLCIPHER_DYLIB=/path/to/your/libsqlcipher.dylib
@@ -117,6 +90,7 @@ export SQLCIPHER_DYLIB=/path/to/your/libsqlcipher.dylib
 ```
 
 **REKORDBOX_DB_KEY** (Optional - defaults to a standard key):
+
 ```bash
 # macOS/Linux - add to your shell config file (~/.zshrc, ~/.bashrc, etc.)
 export REKORDBOX_DB_KEY=your_key_here
@@ -130,21 +104,19 @@ export REKORDBOX_DB_KEY=your_key_here
 The database key is used to decrypt your Rekordbox database. You have three options:
 
 1. **Use the default key** (Recommended for most users):
-   - No action needed! InPhase will automatically use a default key if `REKORDBOX_DB_KEY` is not set.
-   - This works for most standard Rekordbox installations.
-
+  - No action needed! InPhase will automatically use a default key if `REKORDBOX_DB_KEY` is not set.
+  - This works for most standard Rekordbox installations.
 2. **Download using the rekorddart tool**:
-   ```bash
+  ```bash
    # Install the rekorddart executable
    dart pub global activate rekorddart
-   
+
    # Download and display the encryption key
    download_key
-   ```
+  ```
    Then copy the displayed key and set it as the `REKORDBOX_DB_KEY` environment variable (see above).
-
 3. **Set manually** (if you already know your key):
-   - Set the `REKORDBOX_DB_KEY` environment variable with your key (see above).
+  - Set the `REKORDBOX_DB_KEY` environment variable with your key (see above).
 
 #### Additional Resources
 
@@ -157,68 +129,30 @@ For more detailed information, troubleshooting, or advanced configuration option
 Before you can use InPhase, you need to create a Spotify app and get API credentials. This is free and only takes a few minutes:
 
 1. **Go to the Spotify Developer Dashboard**
-
-   - Visit [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-   - Log in with your Spotify account (or create one if you don't have one)
-
+  - Visit [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+  - Log in with your Spotify account (or create one if you don't have one)
 2. **Create a New App**
-
-   - Click the "Create app" button
-   - Fill in the app details:
-     - **App name**: Choose any name (e.g., "InPhase" or "My Music Tool")
-     - **App description**: Optional description
-     - **Redirect URI**: This is important! Use `http://localhost:8080/callback` (or any URL you prefer, but you'll need to use the same one in the environment variable)
-     - **Which API/SDKs are you planning to use?**: Select "Web API"
-   - Check the agreement box and click "Save"
-
+  - Click the "Create app" button
+  - Fill in the app details:
+    - **App name**: Choose any name (e.g., "InPhase" or "My Music Tool")
+    - **App description**: Optional description
+    - **Redirect URI**: This is important! Use `http://localhost:8080/callback` (or any URL you prefer, but you'll need to use the same one in the environment variable)
+    - **Which API/SDKs are you planning to use?**: Select "Web API"
+  - Check the agreement box and click "Save"
 3. **Get Your Credentials**
-
-   - After creating the app, you'll see your app's dashboard
-   - You'll see two important values:
-     - **Client ID**: A long string of letters and numbers
-     - **Client Secret**: Click "View client secret" to reveal it (you'll only see this once, so save it!)
-
+  - After creating the app, you'll see your app's dashboard
+  - You'll see two important values:
+    - **Client ID**: A long string of letters and numbers
+    - **Client Secret**: Click "View client secret" to reveal it (you'll only see this once, so save it!)
 4. **Set Environment Variables**
-
-   You need to set three environment variables with your credentials. Choose the method for your operating system:
-
+  You need to set three environment variables with your credentials. Choose the method for your operating system:
    **macOS/Linux:**
-
    Add these lines to your shell configuration file (`~/.zshrc`, `~/.bashrc`, or `~/.bash_profile`):
-
-   ```bash
-   export SPOTIFY_CLIENT_ID="your_client_id_here"
-   export SPOTIFY_CLIENT_SECRET="your_client_secret_here"
-   export SPOTIFY_REDIRECT_URI="http://localhost:8080/callback"
-   ```
-
    Then reload your shell configuration:
-
-   ```bash
-   source ~/.zshrc  # or ~/.bashrc, depending on your shell
-   ```
-
    **Windows:**
-
    Open PowerShell as Administrator and run:
-
-   ```powershell
-   [System.Environment]::SetEnvironmentVariable('SPOTIFY_CLIENT_ID', 'your_client_id_here', 'User')
-   [System.Environment]::SetEnvironmentVariable('SPOTIFY_CLIENT_SECRET', 'your_client_secret_here', 'User')
-   [System.Environment]::SetEnvironmentVariable('SPOTIFY_REDIRECT_URI', 'http://localhost:8080/callback', 'User')
-   ```
-
    Then restart your terminal/PowerShell window.
-
    **Verify the variables are set:**
-
-   ```bash
-   # macOS/Linux
-   echo $SPOTIFY_CLIENT_ID
-
-   # Windows PowerShell
-   $env:SPOTIFY_CLIENT_ID
-   ```
 
 **Important Notes:**
 
@@ -303,3 +237,4 @@ From a clone: `dart pub get`, then `dart format .`, `dart analyze --fatal-infos 
 - Rekordbox database access
 - Spotify API credentials
 - Dart SDK (for development from source)
+
