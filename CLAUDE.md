@@ -96,7 +96,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Changelog Workflow
 
-- All new features and changes go in `docs/CHANGELOG.md` under `## Upcoming`.
+- All new features and changes go in `CHANGELOG.md` under `## Upcoming`.
 - New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
 - When releasing a new version, the section at the top becomes:
   - `## Upcoming` — then a blank line — then `## <version>` — then a blank line — then the **same** bullet list as before (only headings change; see `tool/rewrite_changelog_for_release.sh`).
@@ -117,7 +117,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 ## Documentation
 
 - [tool/prepare_release.sh](tool/prepare_release.sh) — open a release PR (calls `rewrite_changelog_for_release.sh`, bumps versions, `gh pr create`)
-- [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `docs/CHANGELOG.md` headings for a release
+- [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `CHANGELOG.md` headings for a release
 - [.github/workflows/](.github/workflows/) — CI workflows (and `publish.yml` for tagged releases)
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format

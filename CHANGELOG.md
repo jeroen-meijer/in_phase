@@ -1,6 +1,8 @@
 ## Upcoming
 
-## 1.3.0
+- chore: rename 'docs' directory to 'doc'
+- feat(crawl): add optional `cover.font` to render covers with ImageMagick using custom TTF/OTF fonts, with automatic fallback to Dart-native rendering when ImageMagick is unavailable or fails
+- docs(crawl): document custom cover font usage and update crawl config/default schema examples
 
 ## 1.3.0
 
