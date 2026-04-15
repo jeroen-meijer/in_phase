@@ -59,10 +59,15 @@ Map<String, dynamic> _$CrawlOutputPlaylistToJson(
 CrawlCover _$CrawlCoverFromJson(Map<String, dynamic> json) => CrawlCover(
   image: json['image'] as String,
   caption: json['caption'] as String?,
+  font: json['font'] as String?,
 );
 
 Map<String, dynamic> _$CrawlCoverToJson(CrawlCover instance) =>
-    <String, dynamic>{'image': instance.image, 'caption': ?instance.caption};
+    <String, dynamic>{
+      'image': instance.image,
+      'caption': ?instance.caption,
+      'font': ?instance.font,
+    };
 
 CrawlOptions _$CrawlOptionsFromJson(Map<String, dynamic> json) => CrawlOptions(
   deduplicate: $enumDecodeNullable(

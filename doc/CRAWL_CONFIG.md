@@ -37,6 +37,8 @@ jobs:
     cover:
       image: 'cover.jpg'
       caption: "Weekly Discovery\n{year} - #{week_num}"
+      # Optional: custom TTF/OTF via ImageMagick (path relative to config)
+      # font: 'fonts/Manrope-ExtraBold.ttf'
     filters:
       date_range: 7  # Last 7 days
     options:
@@ -80,6 +82,9 @@ Each job in the `jobs` array defines a single automated playlist creation task.
 - **`cover`** - Cover image configuration
   - **`image`** - Filename of cover image (relative to config file directory)
   - **`caption`** - Optional caption text template to overlay on image
+  - **`font`** - Optional TTF/OTF path. When set, `in_phase` tries ImageMagick
+    for font rendering and falls back to Dart-native rendering if ImageMagick
+    is unavailable or fails.
 - **`options`** - Processing options
   - **`deduplicate`** - Deduplication mode: `on_id` or `on_match` (optional)
   - **`add_playlist_tracks_based_on`** - Which date to use for filtering playlist tracks: `added_date` or `release_date` (default: `release_date`)
@@ -331,6 +336,23 @@ If `output_playlist.id` is not specified, a new playlist is created with the con
 Cover images are generated automatically if configured. The image file should be placed in the same directory as your config file. The caption text is overlaid on the image and supports template variables.
 
 Cover images are saved to `~/.in_phase/build/generated_covers/` and uploaded to Spotify automatically.
+
+### Custom Fonts (ImageMagick backend)
+
+Set `cover.font` to use a custom `.ttf`/`.otf` file for rendering text:
+
+```yaml
+cover:
+  image: "cover.jpg"
+  caption: "{month} {year}"
+  font: "fonts/Manrope-ExtraBold.ttf"
+```
+
+- Paths may be absolute or relative to the config directory.
+- If ImageMagick (`magick`) is not installed, `in_phase` logs install guidance
+  and automatically falls back to Dart-native rendering.
+- If ImageMagick fails for another reason, `in_phase` also falls back to
+  Dart-native rendering so the crawl can continue.
 
 ## Running Specific Jobs
 

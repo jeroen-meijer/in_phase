@@ -588,6 +588,7 @@ class CrawlCommand extends Command<int> {
         outputPath: outputPath,
         assetsDir: configDir,
         size: 512,
+        fontPath: job.cover!.font,
       );
 
       if (generatedImage != null) {

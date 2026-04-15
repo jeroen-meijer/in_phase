@@ -125,6 +125,7 @@ class CrawlCover {
   const CrawlCover({
     required this.image,
     this.caption,
+    this.font,
   });
 
   factory CrawlCover.fromJson(Map<String, dynamic> json) =>
@@ -138,6 +139,12 @@ class CrawlCover {
   /// Template string for caption text.
   @JsonKey(includeIfNull: false)
   final String? caption;
+
+  /// Optional TTF/OTF font path (relative to config or absolute).
+  ///
+  /// When set, in_phase will try generating the cover text using ImageMagick.
+  @JsonKey(includeIfNull: false)
+  final String? font;
 }
 
 /// Filters for track selection.

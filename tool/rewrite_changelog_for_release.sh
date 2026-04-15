@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Insert a new ## <version> section under ## Upcoming (per docs/CHANGELOG release workflow in CLAUDE.md).
+# Insert a new ## <version> section under ## Upcoming (per CHANGELOG release workflow in CLAUDE.md).
 # Usage:
 #   ./tool/rewrite_changelog_for_release.sh <x.y.z> <input.md>           # write to stdout
 #   ./tool/rewrite_changelog_for_release.sh <x.y.z> <input.md> <output.md>  # write to file (atomically)

@@ -37,7 +37,7 @@
           },
           "cover": {
             "type": "object",
-            "required": ["image", "caption"],
+            "required": ["image"],
             "properties": {
               "image": {
                 "type": "string",
@@ -46,6 +46,10 @@
               "caption": {
                 "type": "string",
                 "description": "Caption text with template variables"
+              },
+              "font": {
+                "type": "string",
+                "description": "Optional TTF/OTF font path. If set, in_phase tries ImageMagick first and falls back to Dart-native rendering when unavailable."
               }
             }
           },
