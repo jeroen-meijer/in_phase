@@ -31,9 +31,21 @@ jobs:
           echo "Tag $TAG_NAME is on main branch, proceeding with publish"
 
       - name: Setup Dart SDK
+        id: setup-dart
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+
+      - name: Cache Dart pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-dart-${{ steps.setup-dart.outputs.dart-version }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-dart-${{ steps.setup-dart.outputs.dart-version }}-
+            ${{ runner.os }}-dart-
 
       - name: Install dependencies
         run: dart pub get
