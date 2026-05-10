@@ -34,6 +34,7 @@ class CurateContext {
     required this.tracksToCurate,
     required this.startIndex,
     required this.targetTrackIdsFuture,
+    required this.likedTrackIdsFuture,
   });
 
   final SpotifyApi api;
@@ -43,6 +44,10 @@ class CurateContext {
   final List<Track> tracksToCurate;
   final int startIndex;
   final Future<Map<String, Set<String>>> targetTrackIdsFuture;
+
+  /// Spotify Liked Songs at session start, updated when this session saves a
+  /// track to the library (key `l` or [CurateConfig.autoAddToLikes]).
+  final Future<Set<String>> likedTrackIdsFuture;
 }
 
 /// Tracks playback position for a single track.

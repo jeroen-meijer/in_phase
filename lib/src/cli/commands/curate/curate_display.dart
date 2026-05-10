@@ -15,7 +15,7 @@ void printKeyHints(CurateConfig config) {
   log.raw(
     '$targetHints  ${cyan("[n/s]")} next  '
     '${cyan("[←][→]")} seek ±${config.seekStep}s  '
-    '${cyan("[r]")} restart  ${cyan("[c]")} copy URL  '
+    '${cyan("[r]")} restart  ${cyan("[l]")} like  ${cyan("[c]")} copy URL  '
     '${cyan("[q]")} quit$autoLike',
   );
 }

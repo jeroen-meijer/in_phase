@@ -61,6 +61,30 @@ class CurateKeyHandler {
       );
     }
 
+    if (char == 'l') {
+      final trackId = currentTrack.track.id;
+      if (trackId == null || trackId.isEmpty) {
+        return KeyResultStay('${red('✗')} No track id for Liked Songs', null);
+      }
+      try {
+        final likedIds = await _context.likedTrackIdsFuture;
+        if (likedIds.contains(trackId)) {
+          return KeyResultStay(
+            '${orange('-')} Already in ${bold('Liked Songs')}',
+            null,
+          );
+        }
+        await _context.api.me.tracks.saveOne(trackId);
+        likedIds.add(trackId);
+        return KeyResultStay(
+          '${green('✓')} Added to ${bold('Liked Songs')}',
+          null,
+        );
+      } catch (e) {
+        return KeyResultStay('${red('✗')} Liked Songs: $e', null);
+      }
+    }
+
     final targetNum = int.tryParse(char);
     if (targetNum != null &&
         targetNum >= 1 &&
@@ -135,9 +159,10 @@ class CurateKeyHandler {
       if (config.autoAddToLikes) {
         final trackId = currentTrack.track.id!;
         try {
-          final wasInLikes = await _context.api.me.tracks.containsOne(trackId);
-          if (!wasInLikes) {
+          final likedIds = await _context.likedTrackIdsFuture;
+          if (!likedIds.contains(trackId)) {
             await _context.api.me.tracks.saveOne(trackId);
+            likedIds.add(trackId);
             status += '  ${green('✓')} Liked';
           }
         } catch (e) {

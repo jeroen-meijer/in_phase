@@ -14,6 +14,9 @@ import 'package:spotify/spotify.dart';
 /// Max tracks fetched per playlist request (Spotify API pagination).
 const _maxPlaylistTracksPerPage = 100;
 
+/// Max items per page for [SpotifyApi.me.tracks.saved] (Spotify API cap).
+const _maxSavedTracksPerPage = 50;
+
 class CurateCommand extends Command<int> {
   CurateCommand() {
     argParser
@@ -134,6 +137,7 @@ class CurateCommand extends Command<int> {
     final targetTrackIdsFuture = config.targets.isNotEmpty
         ? _fetchTargetTrackIds(api, config.targets)
         : Future<Map<String, Set<String>>>.value({});
+    final likedTrackIdsFuture = _fetchLikedTrackIds(api);
 
     final playlist = await api.playlists.get(args.playlistId);
     final playlistName = playlist.name ?? args.playlistId.toString();
@@ -167,6 +171,7 @@ class CurateCommand extends Command<int> {
       tracksToCurate: tracksToCurate,
       startIndex: startIndex,
       targetTrackIdsFuture: targetTrackIdsFuture,
+      likedTrackIdsFuture: likedTrackIdsFuture,
     );
   }
 
@@ -302,6 +307,11 @@ class CurateCommand extends Command<int> {
       }
       await Future<void>.delayed(pollInterval);
     }
+  }
+
+  Future<Set<String>> _fetchLikedTrackIds(SpotifyApi api) async {
+    final saved = await api.me.tracks.saved().all(_maxSavedTracksPerPage);
+    return saved.map((ts) => ts.track?.id).nonNulls.toSet();
   }
 
   Future<Map<String, Set<String>>> _fetchTargetTrackIds(
