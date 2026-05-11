@@ -1,52 +1,76 @@
-import 'package:dart_console/dart_console.dart';
-import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/cli/commands/curate/curate.dart';
 import 'package:in_phase/src/misc/misc.dart';
+import 'package:nocterm/nocterm.dart';
 
 /// Max target playlist key (1-9).
 const _maxTargetKey = 9;
 
-/// Handles key presses during curate playback.
+/// Handles keyboard events during curate playback (Nocterm [KeyboardEvent]).
 class CurateKeyHandler {
   CurateKeyHandler(this._context);
 
   final CurateContext _context;
 
   Future<KeyResult> handleKey(
-    Key key,
+    KeyboardEvent event,
     CurrentTrackInfo currentTrack,
     TrackPlaybackState playbackState,
   ) async {
-    if (key.isControl) {
-      return _handleControlKey(
-        key,
+    if (event.logicalKey == LogicalKey.arrowLeft ||
+        event.logicalKey == LogicalKey.arrowRight) {
+      return _handleArrowSeek(
+        event.logicalKey == LogicalKey.arrowLeft,
         currentTrack.durationMs,
         playbackState,
       );
     }
 
-    final config = _context.config;
-    final char = key.char.isEmpty ? '' : key.char.toLowerCase();
-    if (char == 'q') return KeyResultQuit();
+    if (event.logicalKey == LogicalKey.space) {
+      return KeyResultNext();
+    }
 
-    if (char == 'c') {
+    final config = _context.config;
+
+    final digit = _digitFromLogicalKey(event.logicalKey);
+    if (digit != null &&
+        digit >= 1 &&
+        digit <= _maxTargetKey &&
+        digit <= config.targets.length) {
+      return _handleAddToTarget(currentTrack, digit);
+    }
+
+    final ch = event.character?.toLowerCase();
+    if (ch == null || ch.isEmpty) {
+      return KeyResultIgnore();
+    }
+
+    if (ch == 'q' || event.logicalKey == LogicalKey.keyQ) {
+      return KeyResultQuit();
+    }
+
+    if (ch == 'c') {
       final id = currentTrack.track.id;
       if (id == null || id.isEmpty) {
-        return KeyResultStay('${red('✗')} No track id for URL', null);
+        return KeyResultStay(
+          '✗ No track id for URL',
+          null,
+          tone: CurateMessageTone.error,
+        );
       }
       final url = 'https://open.spotify.com/track/$id';
       final ok = await copyTextToClipboard(url);
       return KeyResultStay(
-        ok
-            ? '${green('✓')} Copied track URL'
-            : '${red('✗')} Clipboard unavailable',
+        ok ? '✓ Copied track URL' : '✗ Clipboard unavailable',
         null,
+        tone: ok ? CurateMessageTone.success : CurateMessageTone.error,
       );
     }
 
-    if (char == ' ' || char == 's' || char == 'n') return KeyResultNext();
+    if (ch == ' ' || ch == 's' || ch == 'n') {
+      return KeyResultNext();
+    }
 
-    if (char == 'r') {
+    if (ch == 'r') {
       final newState = TrackPlaybackState(
         positionMs: config.startPositionMs.clamp(0, currentTrack.durationMs),
         startedAt: DateTime.now(),
@@ -56,36 +80,47 @@ class CurateKeyHandler {
         retrievePlaybackState: false,
       );
       return KeyResultStay(
-        '${cyan('↺')} ${config.startPosition}',
+        '↺ ${config.startPosition}',
         newState,
+        tone: CurateMessageTone.accent,
       );
     }
 
-    if (char == 'l') {
+    if (ch == 'l') {
       final trackId = currentTrack.track.id;
       if (trackId == null || trackId.isEmpty) {
-        return KeyResultStay('${red('✗')} No track id for Liked Songs', null);
+        return KeyResultStay(
+          '✗ No track id for Liked Songs',
+          null,
+          tone: CurateMessageTone.error,
+        );
       }
       try {
         final likedIds = await _context.likedTrackIdsFuture;
         if (likedIds.contains(trackId)) {
           return KeyResultStay(
-            '${orange('-')} Already in ${bold('Liked Songs')}',
+            'Already in Liked Songs',
             null,
+            tone: CurateMessageTone.warning,
           );
         }
         await _context.api.me.tracks.saveOne(trackId);
         likedIds.add(trackId);
         return KeyResultStay(
-          '${green('✓')} Added to ${bold('Liked Songs')}',
+          '✓ Added to Liked Songs',
           null,
+          tone: CurateMessageTone.success,
         );
       } catch (e) {
-        return KeyResultStay('${red('✗')} Liked Songs: $e', null);
+        return KeyResultStay(
+          '✗ Liked Songs: $e',
+          null,
+          tone: CurateMessageTone.error,
+        );
       }
     }
 
-    final targetNum = int.tryParse(char);
+    final targetNum = int.tryParse(ch);
     if (targetNum != null &&
         targetNum >= 1 &&
         targetNum <= _maxTargetKey &&
@@ -96,41 +131,59 @@ class CurateKeyHandler {
     return KeyResultIgnore();
   }
 
-  Future<KeyResult> _handleControlKey(
-    Key key,
+  int? _digitFromLogicalKey(LogicalKey key) {
+    if (key == LogicalKey.digit1) {
+      return 1;
+    }
+    if (key == LogicalKey.digit2) {
+      return 2;
+    }
+    if (key == LogicalKey.digit3) {
+      return 3;
+    }
+    if (key == LogicalKey.digit4) {
+      return 4;
+    }
+    if (key == LogicalKey.digit5) {
+      return 5;
+    }
+    if (key == LogicalKey.digit6) {
+      return 6;
+    }
+    if (key == LogicalKey.digit7) {
+      return 7;
+    }
+    if (key == LogicalKey.digit8) {
+      return 8;
+    }
+    if (key == LogicalKey.digit9) {
+      return 9;
+    }
+    return null;
+  }
+
+  Future<KeyResult> _handleArrowSeek(
+    bool left,
     int durationMs,
     TrackPlaybackState playbackState,
   ) async {
     final config = _context.config;
-    switch (key.controlChar) {
-      case ControlCharacter.arrowLeft:
-      case ControlCharacter.arrowRight:
-        final deltaMs = key.controlChar == ControlCharacter.arrowLeft
-            ? -config.seekStep * 1000
-            : config.seekStep * 1000;
-        final result = await _seek(
-          deltaMs,
-          durationMs,
-          playbackState.positionMs,
-          playbackState.startedAt,
-        );
-        return result != null
-            ? KeyResultStay(
-                null,
-                TrackPlaybackState(
-                  positionMs: result.$1,
-                  startedAt: result.$2,
-                ),
-              )
-            : KeyResultIgnore();
-
-      case ControlCharacter.ctrlC:
-        return KeyResultQuit();
-
-      case ControlCharacter.enter:
-      case _:
-        return KeyResultIgnore();
-    }
+    final deltaMs = left ? -config.seekStep * 1000 : config.seekStep * 1000;
+    final result = await _seek(
+      deltaMs,
+      durationMs,
+      playbackState.positionMs,
+      playbackState.startedAt,
+    );
+    return result != null
+        ? KeyResultStay(
+            null,
+            TrackPlaybackState(
+              positionMs: result.$1,
+              startedAt: result.$2,
+            ),
+          )
+        : KeyResultIgnore();
   }
 
   Future<KeyResult> _handleAddToTarget(
@@ -143,8 +196,9 @@ class CurateKeyHandler {
     if (targetTrackIds[target.playlistId]?.contains(currentTrack.track.id) ??
         false) {
       return KeyResultStay(
-        '${orange('-')} Already in ${bold(target.name)}',
+        'Already in ${target.name}',
         null,
+        tone: CurateMessageTone.warning,
       );
     }
 
@@ -155,7 +209,8 @@ class CurateKeyHandler {
       );
       targetTrackIds[target.playlistId] ??= {};
       targetTrackIds[target.playlistId]!.add(currentTrack.track.id!);
-      var status = '${green('✓')} Added to ${bold(target.name)}';
+      var status = '✓ Added to ${target.name}';
+      var tone = CurateMessageTone.success;
       if (config.autoAddToLikes) {
         final trackId = currentTrack.track.id!;
         try {
@@ -163,28 +218,27 @@ class CurateKeyHandler {
           if (!likedIds.contains(trackId)) {
             await _context.api.me.tracks.saveOne(trackId);
             likedIds.add(trackId);
-            status += '  ${green('✓')} Liked';
+            status += '  ✓ Liked';
           }
         } catch (e) {
-          status += '  ${red('✗')} Liked: $e';
+          status += '  ✗ Liked: $e';
+          tone = CurateMessageTone.error;
         }
       }
       if (config.nextAfterAdd &&
           currentTrack.index + 1 < currentTrack.tracksToCurateLength) {
         return KeyResultNextWithStatus(status);
       }
-      return KeyResultStay(status, null);
+      return KeyResultStay(status, null, tone: tone);
     } catch (e) {
       return KeyResultStay(
-        '${red('✗')} ${bold(target.name)}: $e',
+        '✗ ${target.name}: $e',
         null,
+        tone: CurateMessageTone.error,
       );
     }
   }
 
-  /// Seeks by [deltaMs] from the computed current position. Returns the new
-  /// (positionMs, startedAt) for the caller to update tracked state, or null
-  /// if the seek failed.
   Future<(int, DateTime)?> _seek(
     int deltaMs,
     int durationMs,

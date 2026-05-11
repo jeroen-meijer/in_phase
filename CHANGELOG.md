@@ -1,5 +1,6 @@
 ## Upcoming
 
+- feat(curate): replace curate's stream UI with a Nocterm full-screen session (sticky footer with shortcut hints, per-target and Liked Songs indicators, `auto-like: ✓` when enabled); close the Spotify client before Nocterm shuts down
 - feat(curate): press `l` to save the current track to Liked Songs; shows an "already in Liked Songs" message when it is already saved (same style as target playlist keys)
 - perf(curate): prefetch Liked Songs once per session and update the in-memory id set after each save, so `l` and `auto_add_to_likes` avoid a `contains` API call on every action
 
