@@ -96,8 +96,7 @@ class CurateKeyHandler {
         );
       }
       try {
-        final likedIds = await _context.likedTrackIdsFuture;
-        if (likedIds.contains(trackId)) {
+        if (await _context.likedCache.isLiked(trackId)) {
           return KeyResultStay(
             'Already in Liked Songs',
             null,
@@ -105,7 +104,7 @@ class CurateKeyHandler {
           );
         }
         await _context.api.me.tracks.saveOne(trackId);
-        likedIds.add(trackId);
+        _context.likedCache.markLiked(trackId);
         return KeyResultStay(
           '✓ Added to Liked Songs',
           null,
@@ -192,9 +191,11 @@ class CurateKeyHandler {
   ) async {
     final config = _context.config;
     final target = config.targets[targetNum - 1];
-    final targetTrackIds = await _context.targetTrackIdsFuture;
-    if (targetTrackIds[target.playlistId]?.contains(currentTrack.track.id) ??
-        false) {
+    final alreadyIn = _context.targetPlaylists.contains(
+      target.playlistId,
+      currentTrack.track.id,
+    );
+    if (alreadyIn == true) {
       return KeyResultStay(
         'Already in ${target.name}',
         null,
@@ -207,17 +208,18 @@ class CurateKeyHandler {
         [currentTrack.trackUri],
         target.playlistId,
       );
-      targetTrackIds[target.playlistId] ??= {};
-      targetTrackIds[target.playlistId]!.add(currentTrack.track.id!);
+      _context.targetPlaylists.markAdded(
+        target.playlistId,
+        currentTrack.track.id!,
+      );
       var status = '✓ Added to ${target.name}';
       var tone = CurateMessageTone.success;
       if (config.autoAddToLikes) {
         final trackId = currentTrack.track.id!;
         try {
-          final likedIds = await _context.likedTrackIdsFuture;
-          if (!likedIds.contains(trackId)) {
+          if (!await _context.likedCache.isLiked(trackId)) {
             await _context.api.me.tracks.saveOne(trackId);
-            likedIds.add(trackId);
+            _context.likedCache.markLiked(trackId);
             status += '  ✓ Liked';
           }
         } catch (e) {

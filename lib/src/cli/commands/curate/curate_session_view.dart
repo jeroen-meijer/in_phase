@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dcli/dcli.dart' show printerr;
 import 'package:in_phase/src/cli/commands/curate/curate.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:io/io.dart';
@@ -75,15 +76,19 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
   }
 
   Future<void> _preloadFooterLibraryIds() async {
-    final playlists = await _ctx.targetTrackIdsFuture;
-    final likes = await _ctx.likedTrackIdsFuture;
-    if (!mounted) {
-      return;
+    try {
+      await _ctx.targetPlaylists.ready;
+      final likes = await _ctx.likedCache.idsForFooter;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _playlistTrackIds = _ctx.targetPlaylists.ids;
+        _likedIds = likes;
+      });
+    } catch (e) {
+      _logActivity('✗ Could not load library hints: $e');
     }
-    setState(() {
-      _playlistTrackIds = playlists;
-      _likedIds = likes;
-    });
   }
 
   CurrentTrackInfo _currentTrackInfo(Track track, int durationMs) {
@@ -113,9 +118,10 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
         positionMs: _playbackState.positionMs,
         retrievePlaybackState: false,
       );
-    } catch (e, st) {
-      log.error('Playback failed: $e\n$st');
-      await _complete(ExitCode.software.code);
+    } catch (e) {
+      _logActivity(
+        '✗ Playback failed: $e — press n/s/space for next or q to quit',
+      );
     } finally {
       if (mounted) {
         setState(() => _startingPlayback = false);
@@ -123,12 +129,27 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     }
   }
 
-  Future<void> _complete(int code) async {
+  void _logActivity(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _activityLog.add(message);
+      while (_activityLog.length > 400) {
+        _activityLog.removeAt(0);
+      }
+    });
+  }
+
+  Future<void> _complete(int code, {String? errorMessage}) async {
     if (_sessionEnded) {
       return;
     }
     _sessionEnded = true;
     _clock?.cancel();
+    if (errorMessage != null) {
+      printerr(errorMessage);
+    }
     await component.onExit(code);
   }
 
@@ -137,7 +158,13 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       unawaited(_complete(ExitCode.success.code));
       return true;
     }
-    if (_sessionEnded || _busy || _startingPlayback) {
+    if (_sessionEnded) {
+      return true;
+    }
+    if (_startingPlayback && !_allowsDuringPlaybackStart(event)) {
+      return true;
+    }
+    if (_busy && !_allowsDuringBusy(event)) {
       return true;
     }
     if (_trackIndex >= _ctx.tracksToCurate.length) {
@@ -147,6 +174,11 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     scheduleMicrotask(() async {
       try {
         await _processKey(event);
+      } catch (e, st) {
+        _logActivity('✗ $e');
+        if (log.debugMode) {
+          _logActivity(st.toString());
+        }
       } finally {
         if (mounted) {
           setState(() => _busy = false);
@@ -154,6 +186,21 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       }
     });
     return true;
+  }
+
+  bool _allowsDuringBusy(KeyboardEvent event) =>
+      _isAdvanceOrQuitKey(event) || event.matches(LogicalKey.keyC, ctrl: true);
+
+  bool _allowsDuringPlaybackStart(KeyboardEvent event) =>
+      _isAdvanceOrQuitKey(event) || event.matches(LogicalKey.keyC, ctrl: true);
+
+  bool _isAdvanceOrQuitKey(KeyboardEvent event) {
+    if (event.logicalKey == LogicalKey.space ||
+        event.logicalKey == LogicalKey.keyQ) {
+      return true;
+    }
+    final ch = event.character?.toLowerCase();
+    return ch == ' ' || ch == 's' || ch == 'n' || ch == 'q';
   }
 
   Future<void> _processKey(KeyboardEvent event) async {

@@ -14,9 +14,6 @@ import 'package:spotify/spotify.dart';
 /// Max tracks fetched per playlist request (Spotify API pagination).
 const _maxPlaylistTracksPerPage = 100;
 
-/// Max items per page for [SpotifyApi.me.tracks.saved] (Spotify API cap).
-const _maxSavedTracksPerPage = 50;
-
 class CurateCommand extends Command<int> {
   CurateCommand() {
     argParser
@@ -67,6 +64,12 @@ class CurateCommand extends Command<int> {
       return ExitCode.success.code;
     } on CurateExit catch (e) {
       return e.code;
+    } catch (e, st) {
+      printerr('Curate failed: $e');
+      if (log.debugMode) {
+        printerr(st);
+      }
+      return ExitCode.software.code;
     } finally {
       await session?.dispose();
     }
@@ -148,10 +151,13 @@ class CurateCommand extends Command<int> {
     final api = await spotifyLogin();
 
     try {
-      final targetTrackIdsFuture = config.targets.isNotEmpty
-          ? _fetchTargetTrackIds(api, config.targets)
-          : Future<Map<String, Set<String>>>.value({});
-      final likedTrackIdsFuture = _fetchLikedTrackIds(api);
+      final targetPlaylists = CurateTargetPlaylistsCache();
+      if (config.targets.isNotEmpty) {
+        targetPlaylists.start(_fetchTargetTrackIds(api, config.targets));
+      } else {
+        targetPlaylists.loaded = true;
+      }
+      final likedCache = CurateLikedTracksCache(api)..startPreload();
 
       final playlist = await api.playlists.get(args.playlistId);
       final playlistName = playlist.name ?? args.playlistId.toString();
@@ -185,8 +191,8 @@ class CurateCommand extends Command<int> {
           tracks: tracks,
           tracksToCurate: tracksToCurate,
           startIndex: startIndex,
-          targetTrackIdsFuture: targetTrackIdsFuture,
-          likedTrackIdsFuture: likedTrackIdsFuture,
+          targetPlaylists: targetPlaylists,
+          likedCache: likedCache,
         ),
       );
     } on CurateExit {
@@ -195,7 +201,11 @@ class CurateCommand extends Command<int> {
       final client = await api.client;
       client.close();
       rethrow;
-    } catch (_) {
+    } catch (e, st) {
+      log.error('Curate setup failed: $e');
+      if (log.debugMode) {
+        log.error(st);
+      }
       // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
       // ignore: invalid_use_of_visible_for_testing_member
       final client = await api.client;
@@ -232,11 +242,6 @@ class CurateCommand extends Command<int> {
       }
       await Future<void>.delayed(pollInterval);
     }
-  }
-
-  Future<Set<String>> _fetchLikedTrackIds(SpotifyApi api) async {
-    final saved = await api.me.tracks.saved().all(_maxSavedTracksPerPage);
-    return saved.map((ts) => ts.track?.id).nonNulls.toSet();
   }
 
   Future<Map<String, Set<String>>> _fetchTargetTrackIds(

@@ -1,3 +1,4 @@
+import 'package:in_phase/src/cli/commands/curate/curate_liked_cache.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:spotify/spotify.dart';
 
@@ -42,8 +43,8 @@ class CurateContext {
     required this.tracks,
     required this.tracksToCurate,
     required this.startIndex,
-    required this.targetTrackIdsFuture,
-    required this.likedTrackIdsFuture,
+    required this.targetPlaylists,
+    required this.likedCache,
   });
 
   final SpotifyApi api;
@@ -52,11 +53,12 @@ class CurateContext {
   final List<Track> tracks;
   final List<Track> tracksToCurate;
   final int startIndex;
-  final Future<Map<String, Set<String>>> targetTrackIdsFuture;
 
-  /// Spotify Liked Songs at session start, updated when this session saves a
-  /// track to the library (key `l` or [CurateConfig.autoAddToLikes]).
-  final Future<Set<String>> likedTrackIdsFuture;
+  /// Target playlists: duplicate checks once preload has finished.
+  final CurateTargetPlaylistsCache targetPlaylists;
+
+  /// Liked Songs: fast per-track checks; full library preload for footer hints.
+  final CurateLikedTracksCache likedCache;
 }
 
 /// Owns the Spotify client for a session; call [dispose] before process exit.
