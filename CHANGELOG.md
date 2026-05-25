@@ -1,5 +1,7 @@
 ## Upcoming
 
+## 1.4.1
+
 - ci: run CI and pana only on pull requests, and publish merged `release` PRs with the GitHub Actions `PUB_CREDENTIALS` secret
 
 ## 1.4.0
