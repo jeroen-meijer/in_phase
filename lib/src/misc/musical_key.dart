@@ -33,8 +33,7 @@ enum MusicalKey {
   minE('Em', isMaj: false),
   minF('Fm', isMaj: false),
   minFSharp('F#m', isMaj: false),
-  minG('Gm', isMaj: false)
-  ;
+  minG('Gm', isMaj: false);
 
   const MusicalKey(this.title, {required this.isMaj});
 
@@ -162,8 +161,7 @@ enum CamelotKey {
   b9('9B', isMaj: true),
   b10('10B', isMaj: true),
   b11('11B', isMaj: true),
-  b12('12B', isMaj: true)
-  ;
+  b12('12B', isMaj: true);
 
   const CamelotKey(this.title, {required this.isMaj});
 

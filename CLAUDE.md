@@ -42,7 +42,7 @@ dart run build_runner build --delete-conflicting-outputs
 dart test
 ```
 
-Release PRs (changelog + bump `pubspec.yaml` and `Constants.version`, then open a PR): `./tool/prepare_release.sh <x.y.z>` (requires `git`, `gh`, `awk`, clean working tree). Changelog heading logic lives in `tool/rewrite_changelog_for_release.sh`.
+Release PRs (changelog + bump `pubspec.yaml` and `Constants.version`, then open a labeled PR): `./tool/prepare_release.sh <x.y.z>` (requires `git`, `gh`, `awk`, clean working tree). Changelog heading logic lives in `tool/rewrite_changelog_for_release.sh`.
 
 Pull requests run GitHub Actions (format, `dart analyze`, tests, coverage upload to Codecov; semantic PR titles; pana). See `.github/workflows/`.
 
@@ -99,6 +99,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 - All new features and changes go in `CHANGELOG.md` under `## Upcoming`.
 - New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
+- CI enforces that pull requests prepend new `## Upcoming` bullets; release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
 - When releasing a new version, the section at the top becomes:
   - `## Upcoming` — then a blank line — then `## <version>` — then a blank line — then the **same** bullet list as before (only headings change; see `tool/rewrite_changelog_for_release.sh`).
 - Before committing:
@@ -115,11 +116,21 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 - Config lives in `~/.in_phase/`. Use `in_phase config reveal` to open it.
 - Curate command is Spotify-only; no Rekordbox needed.
 
+## Release Workflow
+
+1. Add bullets under `## Upcoming` in `CHANGELOG.md` (newest at top).
+2. Run `./tool/prepare_release.sh X.Y.Z` to open `chore/release-X.Y.Z` with the `release` label.
+3. Squash-merge the PR to `main` after CI passes.
+4. `Publish Release` runs automatically after merge, publishes to pub.dev, creates the GitHub release, and tags the merge commit with `X.Y.Z`.
+5. If publish fails after merge, use Actions → **Publish Release** → **Run workflow** with the same version, or rerun the failed jobs from the existing workflow run.
+
 ## Documentation
 
 - [tool/prepare_release.sh](tool/prepare_release.sh) — open a release PR (calls `rewrite_changelog_for_release.sh`, bumps versions, `gh pr create`)
+- [tool/check_changelog_pr.sh](tool/check_changelog_pr.sh) — verify PRs prepend new `## Upcoming` bullets
+- [tool/verify_release_publish.sh](tool/verify_release_publish.sh) — sanity checks before merged-release publish
 - [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `CHANGELOG.md` headings for a release
-- [.github/workflows/](.github/workflows/) — CI workflows (and `publish.yml` for tagged releases)
+- [.github/workflows/](.github/workflows/) — CI workflows (`publish.yml` publishes after merged release PRs; `changelog.yml` enforces changelog prepends)
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format

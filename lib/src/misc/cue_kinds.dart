@@ -34,8 +34,7 @@ enum CueKind {
   hotCueG(8, 'Hot Cue G', letter: 'G'),
 
   /// Hot cue slot H (Kind 9)
-  hotCueH(9, 'Hot Cue H', letter: 'H')
-  ;
+  hotCueH(9, 'Hot Cue H', letter: 'H');
 
   const CueKind(this.kind, this.displayName, {this.letter});
 
