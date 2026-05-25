@@ -2,6 +2,8 @@ name: Publish Release
 
 # Publish when a release PR (label: release) is squash-merged to main.
 # Do not trigger on tag push: the pipeline creates the version tag after success.
+# pub.dev's GitHub OIDC publishing flow rejects pull_request events, so this
+# merged-release workflow restores a repo-scoped PUB_CREDENTIALS secret instead.
 on:
   pull_request:
     types: [closed]
@@ -48,7 +50,6 @@ jobs:
     needs: verify-release
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: write
     steps:
       - name: Checkout release commit
@@ -61,6 +62,19 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+
+      - name: Install pub.dev credentials
+        env:
+          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
+        run: |
+          if [ -z "$PUB_CREDENTIALS" ]; then
+            echo "PUB_CREDENTIALS secret is not configured" >&2
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.config/dart"
+          printf '%s' "$PUB_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
+          chmod 600 "$HOME/.config/dart/pub-credentials.json"
 
       - name: Cache Dart pub dependencies
         uses: actions/cache@v4

@@ -121,7 +121,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 1. Add bullets under `## Upcoming` in `CHANGELOG.md` (newest at top).
 2. Run `./tool/prepare_release.sh X.Y.Z` to open `chore/release-X.Y.Z` with the `release` label.
 3. Squash-merge the PR to `main` after CI passes.
-4. `Publish Release` runs automatically after merge, publishes to pub.dev, creates the GitHub release, and tags the merge commit with `X.Y.Z`.
+4. `Publish Release` runs automatically after merge, publishes to pub.dev using the GitHub Actions `PUB_CREDENTIALS` secret, creates the GitHub release, and tags the merge commit with `X.Y.Z`.
 5. If publish fails after merge, rerun the failed jobs from the existing workflow run.
 
 ## Documentation
@@ -130,7 +130,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 - [tool/check_changelog_pr.sh](tool/check_changelog_pr.sh) — verify PRs prepend new `## Upcoming` bullets
 - [tool/verify_release_publish.sh](tool/verify_release_publish.sh) — sanity checks before merged-release publish
 - [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `CHANGELOG.md` headings for a release
-- [.github/workflows/](.github/workflows/) — CI workflows (`ci.yml` and `pana.yml` run on PRs; `publish.yml` publishes after merged release PRs; `changelog.yml` enforces changelog prepends)
+- [.github/workflows/](.github/workflows/) — CI workflows (`ci.yml` and `pana.yml` run on PRs; `publish.yml` publishes after merged release PRs using `PUB_CREDENTIALS`; `changelog.yml` enforces changelog prepends)
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
