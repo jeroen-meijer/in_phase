@@ -92,7 +92,6 @@ gh pr create \
   --body "Prepare release **${VERSION}**: changelog section, \`pubspec.yaml\` version, and \`Constants.version\`.
 
 Merge with **squash** after CI passes. Merging this PR (with the \`${RELEASE_LABEL}\` label) publishes to pub.dev, creates a GitHub release, and tags \`main\` with \`${VERSION}\`.
-
-To retry a failed publish without merging again: Actions → **Publish Release** → **Run workflow** with version \`${VERSION}\`."
+"
 
 echo "Created branch ${BRANCH} and opened a release PR (label: ${RELEASE_LABEL})."

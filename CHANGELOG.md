@@ -1,5 +1,7 @@
 ## Upcoming
 
+- ci: run CI and pana only on pull requests, and publish merged `release` PRs with the GitHub Actions `PUB_CREDENTIALS` secret
+
 ## 1.4.0
 
 - fix(curate): show API/playback errors in the session log instead of exiting silently; keep curating after playback failures; allow next/quit while a key action is in progress
