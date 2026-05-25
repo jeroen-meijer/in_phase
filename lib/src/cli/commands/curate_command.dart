@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:dart_console/dart_console.dart';
 import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/cli/commands/curate/curate.dart';
 import 'package:in_phase/src/entities/entities.dart';
@@ -9,6 +8,7 @@ import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:io/io.dart';
+import 'package:nocterm/nocterm.dart';
 import 'package:spotify/spotify.dart';
 
 /// Max tracks fetched per playlist request (Spotify API pagination).
@@ -42,14 +42,37 @@ class CurateCommand extends Command<int> {
   @override
   Future<int> run() async {
     final args = _parseArgs();
-    return withTeardown((addTeardown) async {
-      try {
-        final context = await _setupContext(args, addTeardown);
-        return await _runLoop(context);
-      } on CurateExit catch (e) {
-        return e.code;
+    CurateSession? session;
+    try {
+      final active = await _loadSession(args);
+      session = active;
+      await _waitForPlayback(active.context.api);
+      log.raw(
+        '${green(active.context.playlistName)}: '
+        '${active.context.tracksToCurate.length} track(s) to curate',
+      );
+      await runApp(
+        CurateSessionView(
+          session: active,
+          onExit: (code) async {
+            await active.dispose();
+            shutdownApp(code);
+          },
+        ),
+        enableHotReload: false,
+      );
+      return ExitCode.success.code;
+    } on CurateExit catch (e) {
+      return e.code;
+    } catch (e, st) {
+      printerr('Curate failed: $e');
+      if (log.debugMode) {
+        printerr(st);
       }
-    });
+      return ExitCode.software.code;
+    } finally {
+      await session?.dispose();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -100,10 +123,10 @@ class CurateCommand extends Command<int> {
   }
 
   // ---------------------------------------------------------------------------
-  // Setup
+  // Session load
   // ---------------------------------------------------------------------------
 
-  Future<CurateContext> _setupContext(
+  Future<CurateSession> _loadSession(
     ({
       SpotifyPlaylistId playlistId,
       int skipCount,
@@ -111,7 +134,6 @@ class CurateCommand extends Command<int> {
       bool usesCustomConfigPath,
     })
     args,
-    void Function(TeardownFn) addTeardown,
   ) async {
     log.info('Loading curate config from: ${args.configFile.path}');
     final config = await CurateConfig.fromFile(
@@ -127,153 +149,69 @@ class CurateCommand extends Command<int> {
     }
 
     final api = await spotifyLogin();
-    // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-    // ignore: invalid_use_of_visible_for_testing_member
-    addTeardown(() async => (await api.client).close());
 
-    final targetTrackIdsFuture = config.targets.isNotEmpty
-        ? _fetchTargetTrackIds(api, config.targets)
-        : Future<Map<String, Set<String>>>.value({});
+    try {
+      final targetPlaylists = CurateTargetPlaylistsCache();
+      if (config.targets.isNotEmpty) {
+        targetPlaylists.start(_fetchTargetTrackIds(api, config.targets));
+      } else {
+        targetPlaylists.loaded = true;
+      }
+      final likedCache = CurateLikedTracksCache(api)..startPreload();
 
-    final playlist = await api.playlists.get(args.playlistId);
-    final playlistName = playlist.name ?? args.playlistId.toString();
-    final playlistTracks = await api.playlists
-        .getPlaylistTracks(args.playlistId.toString())
-        .all(_maxPlaylistTracksPerPage);
-    final tracks = playlistTracks
-        .map((pt) => pt.track)
-        .whereType<Track>()
-        .where((t) => t.id != null)
-        .toList();
+      final playlist = await api.playlists.get(args.playlistId);
+      final playlistName = playlist.name ?? args.playlistId.toString();
+      final playlistTracks = await api.playlists
+          .getPlaylistTracks(args.playlistId.toString())
+          .all(_maxPlaylistTracksPerPage);
+      final tracks = playlistTracks
+          .map((pt) => pt.track)
+          .whereType<Track>()
+          .where((t) => t.id != null)
+          .toList();
 
-    if (tracks.isEmpty) {
-      log.error('No tracks in playlist.');
-      throw CurateExit(ExitCode.noInput.code);
-    }
-
-    final startIndex = args.skipCount.clamp(0, tracks.length);
-    final tracksToCurate = tracks.sublist(startIndex);
-
-    if (tracksToCurate.isEmpty) {
-      log.info('No tracks left after --skip=${args.skipCount}');
-      throw CurateExit(ExitCode.success.code);
-    }
-
-    return CurateContext(
-      api: api,
-      config: config,
-      playlistName: playlistName,
-      tracks: tracks,
-      tracksToCurate: tracksToCurate,
-      startIndex: startIndex,
-      targetTrackIdsFuture: targetTrackIdsFuture,
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Main loop
-  // ---------------------------------------------------------------------------
-
-  Future<int> _runLoop(CurateContext context) async {
-    await _waitForPlayback(context.api);
-
-    log.raw(
-      '${green(context.playlistName)}: '
-      '${context.tracksToCurate.length} track(s) to curate',
-    );
-    printKeyHints(context.config);
-    log.raw('');
-
-    final console = Console();
-    final keyHandler = CurateKeyHandler(context);
-    var index = 0;
-
-    while (index < context.tracksToCurate.length) {
-      final track = context.tracksToCurate[index];
-      final absoluteIndex = context.startIndex + index;
-      final trackUri = 'spotify:track:${track.id}';
-      final durationMs = track.durationMs ?? 0;
-
-      printTrackLine(
-        absoluteIndex + 1,
-        context.tracks.length,
-        context.config.startPositionMs,
-        durationMs,
-        track,
-      );
-
-      var playbackState = TrackPlaybackState(
-        positionMs: context.config.startPositionMs.clamp(0, durationMs),
-        startedAt: DateTime.now(),
-      );
-
-      try {
-        await context.api.player.startWithTracks(
-          [trackUri],
-          positionMs: playbackState.positionMs,
-          retrievePlaybackState: false,
-        );
-      } catch (e) {
-        _handleSpotifyError(e);
-        return ExitCode.software.code;
+      if (tracks.isEmpty) {
+        log.error('No tracks in playlist.');
+        throw CurateExit(ExitCode.noInput.code);
       }
 
-      var statusMessage = '';
-      var advanced = false;
-      final currentTrack = CurrentTrackInfo(
-        track: track,
-        trackUri: trackUri,
-        durationMs: durationMs,
-        index: index,
-        tracksToCurateLength: context.tracksToCurate.length,
+      final startIndex = args.skipCount.clamp(0, tracks.length);
+      final tracksToCurate = tracks.sublist(startIndex);
+
+      if (tracksToCurate.isEmpty) {
+        log.info('No tracks left after --skip=${args.skipCount}');
+        throw CurateExit(ExitCode.success.code);
+      }
+
+      return CurateSession(
+        context: CurateContext(
+          api: api,
+          config: config,
+          playlistName: playlistName,
+          tracks: tracks,
+          tracksToCurate: tracksToCurate,
+          startIndex: startIndex,
+          targetPlaylists: targetPlaylists,
+          likedCache: likedCache,
+        ),
       );
-
-      keyLoop:
-      while (true) {
-        final key = console.readKey();
-        final result = await keyHandler.handleKey(
-          key,
-          currentTrack,
-          playbackState,
-        );
-
-        switch (result) {
-          case KeyResultQuit():
-            log.raw('\n${blue('Quit.')}');
-            return ExitCode.success.code;
-
-          case KeyResultNext():
-            statusMessage = ''; // Don't re-print prior status
-            index++;
-            advanced = true;
-            break keyLoop;
-
-          case KeyResultNextWithStatus(:final status):
-            statusMessage = status;
-            index++;
-            advanced = true;
-            break keyLoop;
-
-          case KeyResultStay(:final status, :final updatedState):
-            if (status != null) {
-              statusMessage = status;
-              log.raw('  $statusMessage');
-            }
-            if (updatedState != null) {
-              playbackState = updatedState;
-            }
-
-          case KeyResultIgnore():
-        }
+    } on CurateExit {
+      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
+      // ignore: invalid_use_of_visible_for_testing_member
+      final client = await api.client;
+      client.close();
+      rethrow;
+    } catch (e, st) {
+      log.error('Curate setup failed: $e');
+      if (log.debugMode) {
+        log.error(st);
       }
-
-      if (advanced && statusMessage.isNotEmpty) {
-        log.raw('  $statusMessage');
-      }
+      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
+      // ignore: invalid_use_of_visible_for_testing_member
+      final client = await api.client;
+      client.close();
+      rethrow;
     }
-
-    log.raw('\n${green('Done.')}');
-    return ExitCode.success.code;
   }
 
   // ---------------------------------------------------------------------------
@@ -288,7 +226,9 @@ class CurateCommand extends Command<int> {
     while (true) {
       try {
         final state = await api.player.currentlyPlaying();
-        if (state.item != null) return;
+        if (state.item != null) {
+          return;
+        }
       } catch (_) {
         // NO_ACTIVE_DEVICE etc. - treat as not playing
       }
@@ -326,16 +266,5 @@ class CurateCommand extends Command<int> {
       for (var i = 0; i < targets.length; i++)
         targets[i].playlistId: trackSets[i],
     };
-  }
-
-  void _handleSpotifyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('Premium') || msg.contains('PREMIUM_REQUIRED')) {
-      log.error('Spotify Premium is required for playback.');
-    } else if (msg.contains('NO_ACTIVE_DEVICE') || msg.contains('404')) {
-      log.error('Open Spotify (app or web player) and try again.');
-    } else {
-      log.error('Error: $e');
-    }
   }
 }

@@ -11,6 +11,7 @@ A music library management CLI for creating and syncing playlists between Spotif
 - **doos** — local storage (credentials, config)
 - **args** — CLI argument parsing
 - **dcli** — terminal colors, utilities
+- **nocterm** — curate full-screen TUI (sticky footer, keyboard)
 - **very_good_analysis** — lint rules
 
 ## Key Directories
