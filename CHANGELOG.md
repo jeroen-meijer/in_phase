@@ -1,5 +1,7 @@
 ## Upcoming
 
+- ci: publish releases from merged `release` PRs, add changelog enforcement, and tag successful publishes automatically
+
 ## 1.3.1
 
 - ci: cache ci setup steps

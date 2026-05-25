@@ -1,34 +1,70 @@
-name: Publish Package
+name: Publish Release
 
+# Publish when a release PR (label: release) is squash-merged to main.
+# workflow_dispatch retries a failed publish for a version already on main.
+# Do not trigger on tag push: the pipeline creates the version tag after success.
 on:
-  push:
-    tags:
-      # Matches version tags like 1.0.3 or v1.0.3
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver to publish (merged chore/release-x.y.z PR)
+        required: true
+        type: string
+
+concurrency:
+  group: publish-${{ github.event.pull_request.number || github.event.inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
-  publish:
+  verify-release:
+    name: Verify release
     runs-on: ubuntu-latest
-    permissions:
-      # Required for OIDC authentication with pub.dev
-      id-token: write
-      contents: write
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'release')) ||
+      github.event_name == 'workflow_dispatch'
+    outputs:
+      tag: ${{ steps.verify.outputs.tag }}
+      version: ${{ steps.verify.outputs.version }}
+      sha: ${{ steps.verify.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history to check if tag is on main
+          fetch-depth: 0
 
-      - name: Verify tag is on main branch
-        run: |
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          # Check if the tag's commit is reachable from the main branch
-          if ! git branch -r --contains "$TAG_NAME" | grep -q "origin/main"; then
-            echo "Error: Tag $TAG_NAME is not on the main branch"
-            exit 1
-          fi
-          echo "Tag $TAG_NAME is on main branch, proceeding with publish"
+      - name: Run release sanity checks
+        id: verify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_MERGED: ${{ github.event.pull_request.merged }}
+          RELEASE_PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: ./tool/verify_release_publish.sh
+
+  publish:
+    name: Publish to pub.dev
+    needs: verify-release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-release.outputs.sha }}
 
       - name: Setup Dart SDK
         id: setup-dart
@@ -53,16 +89,102 @@ jobs:
       - name: Verify package is ready for publishing
         run: dart pub publish --dry-run
 
-      - name: Publish to pub.dev
-        run: dart pub publish --force
+      - name: Check whether version already exists on pub.dev
+        id: pubdev
         env:
-          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
+          PACKAGE_NAME: in_phase
+          VERSION: ${{ needs.verify-release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
 
-      - name: Create GitHub release
+          package_name = os.environ["PACKAGE_NAME"]
+          version = os.environ["VERSION"]
+          url = f"https://pub.dev/api/packages/{package_name}"
+
+          try:
+              with urllib.request.urlopen(url) as response:
+                  payload = json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code == 404:
+                  already_published = False
+              else:
+                  raise
+          else:
+              already_published = any(
+                  entry.get("version") == version
+                  for entry in payload.get("versions", [])
+              )
+
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as handle:
+              handle.write(
+                  f"already_published={'true' if already_published else 'false'}\n"
+              )
+          PY
+
+      - name: Publish to pub.dev
+        if: steps.pubdev.outputs.already_published != 'true'
+        run: dart pub publish --force
+
+      - name: Skip publish because version already exists
+        if: steps.pubdev.outputs.already_published == 'true'
+        env:
+          VERSION: ${{ needs.verify-release.outputs.version }}
+        run: echo "Version ${VERSION} is already on pub.dev; skipping publish."
+
+  release:
+    name: Create GitHub release
+    needs: [verify-release, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-release.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Create release and upload notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG_NAME" \
-            --title "$TAG_NAME" \
+          VERSION="${{ needs.verify-release.outputs.version }}"
+          SHA="${{ needs.verify-release.outputs.sha }}"
+          gh release create "$VERSION" \
+            --target "$SHA" \
+            --title "$VERSION" \
             --generate-notes
+
+  tag-release:
+    name: Tag release commit
+    needs: [verify-release, publish, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push version tag
+        run: |
+          VERSION="${{ needs.verify-release.outputs.version }}"
+          SHA="${{ needs.verify-release.outputs.sha }}"
+          short_sha() { printf '%.7s' "$1"; }
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+          REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/${VERSION}" | awk '{print $1}' | head -1 || true)"
+          if [ -n "$REMOTE_SHA" ]; then
+            if [ "$REMOTE_SHA" != "$SHA" ]; then
+              echo "error: tag $VERSION on origin points to $(short_sha "$REMOTE_SHA"), expected $(short_sha "$SHA")"
+              exit 1
+            fi
+            echo "Tag $VERSION already on origin at $(short_sha "$SHA")"
+            exit 0
+          fi
+
+          git tag "$VERSION" "$SHA"
+          git push origin "refs/tags/${VERSION}"

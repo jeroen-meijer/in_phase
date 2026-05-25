@@ -64,7 +64,7 @@ Future<int> runInPhaseCli(List<String> arguments) async {
     final exitCode = await runWithCliDependencies<int?>(
       () async {
         try {
-          return runner.run(arguments);
+          return await runner.run(arguments);
         } on UsageException {
           rethrow;
         } catch (e) {
