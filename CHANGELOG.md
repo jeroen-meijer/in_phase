@@ -1,5 +1,7 @@
 ## Upcoming
 
+- ci: run CI and pana only on pull requests, and publish releases only from merged `release` PRs
+
 ## 1.4.0
 
 - fix(curate): show API/playback errors in the session log instead of exiting silently; keep curating after playback failures; allow next/quit while a key action is in progress

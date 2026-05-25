@@ -7,11 +7,6 @@
 #   RELEASE_PR_LABELS=release,...
 #   RELEASE_HEAD_REF=chore/release-1.2.3
 #   RELEASE_SHA=<merge commit>
-#
-# Manual retry (env from Actions):
-#   RELEASE_EVENT=workflow_dispatch
-#   RELEASE_VERSION=1.2.3
-#   RELEASE_SHA=<commit on main>  (optional; default: merged release PR commit)
 
 set -eu
 
@@ -81,22 +76,8 @@ case "$EVENT" in
       exit 1
     fi
     ;;
-  workflow_dispatch)
-    VERSION="${RELEASE_VERSION:-}"
-    if ! semver_ok "$VERSION"; then
-      echo "error: RELEASE_VERSION must be semver x.y.z" >&2
-      exit 1
-    fi
-    if [ -z "$SHA" ]; then
-      SHA="$(gh pr list --state merged --head "chore/release-${VERSION}" --json mergeCommit --jq '.[0].mergeCommit.oid' 2>/dev/null || true)"
-      if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
-        echo "error: no merged release PR found for chore/release-${VERSION}" >&2
-        exit 1
-      fi
-    fi
-    ;;
   *)
-    echo "error: unsupported RELEASE_EVENT: $EVENT" >&2
+    echo "error: unsupported RELEASE_EVENT: $EVENT (expected pull_request)" >&2
     exit 1
     ;;
 esac
@@ -137,7 +118,7 @@ if [ -n "$EXISTING_TAG_SHA" ]; then
 fi
 
 if gh release view "$VERSION" >/dev/null 2>&1; then
-  echo "error: GitHub release $VERSION already exists; use workflow_dispatch only after removing it if you must re-publish" >&2
+  echo "error: GitHub release $VERSION already exists; remove it before retrying this publish if needed" >&2
   exit 1
 fi
 
