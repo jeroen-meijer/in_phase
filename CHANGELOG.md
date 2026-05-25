@@ -1,5 +1,7 @@
 ## Upcoming
 
+## 1.4.0
+
 - fix(curate): show API/playback errors in the session log instead of exiting silently; keep curating after playback failures; allow next/quit while a key action is in progress
 - perf(curate): use per-track Liked Songs `contains` for `l` instead of waiting for the full library prefetch; load target playlist ids in the background without blocking add-to-target
 - feat(curate): replace curate's stream UI with a Nocterm full-screen session (sticky footer with shortcut hints, per-target and Liked Songs indicators, `auto-like: ✓` when enabled); close the Spotify client before Nocterm shuts down
