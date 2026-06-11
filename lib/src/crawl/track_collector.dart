@@ -1441,7 +1441,7 @@ class TrackCollector {
           .expand((page) => page.items?.whereType<Track>() ?? <Track>[])
           .toList();
 
-      return tracks.isNotEmpty ? tracks.first : null;
+      return tracks.firstOrNull;
     } catch (e) {
       log.debug(tag: tag, '    Search query failed: $query ($e)');
       return null;

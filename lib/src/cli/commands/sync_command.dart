@@ -61,7 +61,7 @@ class SyncCommand extends Command<int> {
   @override
   Future<int> run() async {
     final rest = argResults!.rest;
-    if (rest.isNotEmpty && rest.first.toLowerCase() == 'validate') {
+    if (rest.firstOrNull?.toLowerCase() == 'validate') {
       if (rest.length > 1) {
         usageException(
           'Unexpected arguments after "validate". '

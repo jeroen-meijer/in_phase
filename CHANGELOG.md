@@ -1,5 +1,8 @@
 ## Upcoming
 
+- feat(convert): add `in_phase convert` to match YouTube playlists, videos, or text searches to Spotify tracks
+- feat(spotify): find playlists by approximate name in convert, collect, and crawl
+
 ## 1.4.1
 
 - ci: run CI and pana only on pull requests, and publish merged `release` PRs with the GitHub Actions `PUB_CREDENTIALS` secret

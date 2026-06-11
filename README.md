@@ -209,7 +209,29 @@ in_phase collect
 in_phase collect --collection drum_and_bass
 ```
 
-Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) for configuration details.
+Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](doc/COLLECT_CONFIG.md) for configuration details.
+
+### Convert YouTube to Spotify
+
+```bash
+# Text query → Liked Songs
+in_phase convert "olivia dean so easy"
+
+# YouTube video → target playlist (fuzzy name, ID, URI, URL, or likes)
+in_phase convert "https://youtu.be/..." --add "My Playlist"
+in_phase convert "https://youtu.be/..." --add likes
+
+# YouTube playlist → new Spotify playlist
+in_phase convert "https://www.youtube.com/playlist?list=PL..."
+
+# YouTube playlist → append to existing playlist
+in_phase convert "https://www.youtube.com/playlist?list=PL..." --add "Weekly Mix"
+
+# Preview matches without writing
+in_phase convert "bruno mars i just might" --dry-run
+```
+
+Matches YouTube sources to Spotify tracks via fuzzy search. Playlist URLs without `--add` create a new private Spotify playlist (`--name` / `--public` optional). Use `--replace` to clear a target playlist before adding, and `--limit` to cap how many videos are processed.
 
 ### Curate playlists
 

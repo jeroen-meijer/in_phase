@@ -11,7 +11,7 @@ The collect command aggregates tracks from multiple source playlists into one ta
 - Takes **all tracks** from each source playlist (no date filtering)
 - **Replaces** the target playlist contents entirely on each run (idempotent updates)
 - Requires the **target playlist to already exist** (you must create it manually first)
-- Supports **playlist ID, exact name, or glob patterns** for source resolution
+- Supports **playlist ID, URI, URL, fuzzy name (≥80% match), or glob patterns** for source/target resolution
 
 This is useful for maintaining aggregated playlists that combine tracks from multiple sources, such as collecting all your "Drum & Bass" playlists into a single "My DnB Collection" playlist.
 
@@ -36,7 +36,7 @@ _notes:
 collections:
   - name: drum_and_bass
     target: "37i9dQZF1DXcBWIGoYBM5M"   # Playlist ID, URI, or share URL
-    # OR: target: "My DnB Collection"  # Exact playlist name
+    # OR: target: "My DnB Collection"  # Exact or fuzzy playlist name
     description: "Last updated: {real_datetime}"  # Optional description template
     sources:
       # Mix of: IDs, URIs, URLs, exact names, glob patterns
@@ -61,11 +61,12 @@ Each collection in the `collections` array defines a single aggregation task.
   - Playlist ID (e.g., `37i9dQZF1DXcBWIGoYBM5M`)
   - URI (e.g., `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`)
   - Share URL (e.g., `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`)
-  - Exact playlist name from your playlists (e.g., `"My DnB Collection"`)
+  - Exact or fuzzy playlist name from your playlists (≥80% token match; must be unique)
 - `**sources**` - List of source playlist identifiers. Each can be:
   - Playlist ID, URI, or share URL (works for any accessible playlist)
   - Glob pattern (e.g., `"DnB Releases*"` matches playlist names)
-  - Exact playlist name (e.g., `"Liquid Drum & Bass"`)
+  - Exact or fuzzy playlist name (duplicate exact names fail ambiguous)
+- **Note:** `likes` is not a valid collect target (Liked Songs is not a playlist). Use `in_phase convert --add likes` to save tracks to Liked Songs.
 
 ### Optional Fields
 

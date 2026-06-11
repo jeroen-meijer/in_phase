@@ -2,6 +2,7 @@ export 'buy_command.dart';
 export 'cache_command.dart';
 export 'collect_command.dart';
 export 'config_command.dart';
+export 'convert_command.dart';
 export 'crawl_command.dart';
 export 'cues_command.dart';
 export 'curate_command.dart';
