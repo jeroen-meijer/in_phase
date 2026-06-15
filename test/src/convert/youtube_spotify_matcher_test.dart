@@ -1,5 +1,24 @@
 import 'package:in_phase/src/convert/youtube_spotify_matcher.dart';
 import 'package:test/test.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
+Video _testVideo({required String id, required String title}) {
+  return Video(
+    VideoId(id),
+    title,
+    'channel',
+    ChannelId('UCAAAAAAAAAAAAAAAAAAAAAA'),
+    null,
+    null,
+    null,
+    '',
+    null,
+    ThumbnailSet(id),
+    null,
+    const Engagement(0, null, null),
+    false,
+  );
+}
 
 void main() {
   group('scoreYoutubeVideoForQuery', () {
@@ -17,6 +36,40 @@ void main() {
         'So Easy (To Fall In Love) (Audio) - Olivia Dean',
       );
       expect(score, greaterThanOrEqualTo(youtubeSpotifyMatchThreshold));
+    });
+  });
+
+  group('pickBestYoutubeVideo', () {
+    test('prefers earlier YouTube search result on score and title tie', () {
+      const query = 'kanine feel the vibration';
+      const title = 'Kanine - Feel The Vibration';
+      final match = pickBestYoutubeVideo(
+        query: query,
+        candidates: [
+          _testVideo(id: 'Hjw86NcG8Bo', title: title),
+          _testVideo(id: 'UJ3auQJMIq4', title: title),
+        ],
+      );
+
+      expect(match, isNotNull);
+      expect(match!.video.id.value, 'Hjw86NcG8Bo');
+      expect(match.score, 100);
+    });
+
+    test('still prefers official title over duplicate search rank', () {
+      const query = 'kanine feel the vibration';
+      final match = pickBestYoutubeVideo(
+        query: query,
+        candidates: [
+          _testVideo(id: 'Hjw86NcG8Bo', title: 'Kanine - Feel The Vibration'),
+          _testVideo(
+            id: 'UJ3auQJMIq4',
+            title: 'Kanine - Feel The Vibration (Official Video)',
+          ),
+        ],
+      );
+
+      expect(match?.video.id.value, 'UJ3auQJMIq4');
     });
   });
 

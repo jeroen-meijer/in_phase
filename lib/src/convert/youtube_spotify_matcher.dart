@@ -336,32 +336,32 @@ YoutubeTextQueryMatch? pickBestYoutubeVideo({
 }) {
   if (candidates.isEmpty) return null;
 
-  final scored = <({Video video, int score, String title, int tieBreak})>[];
-  for (final video in candidates) {
+  final scored =
+      <
+        ({Video video, int score, String title, int tieBreak, int searchIndex})
+      >[];
+  for (final (searchIndex, video) in candidates.indexed) {
     scored.add((
       video: video,
       score: scoreYoutubeVideoForQuery(query, video.title),
       title: video.title,
       tieBreak: _youtubeSearchTieBreakScore(video.title),
+      searchIndex: searchIndex,
     ));
   }
 
   scored.sort((a, b) {
     final scoreCmp = b.score.compareTo(a.score);
     if (scoreCmp != 0) return scoreCmp;
-    return b.tieBreak.compareTo(a.tieBreak);
+    final tieBreakCmp = b.tieBreak.compareTo(a.tieBreak);
+    if (tieBreakCmp != 0) return tieBreakCmp;
+    return a.searchIndex.compareTo(b.searchIndex);
   });
 
   final best = scored.first;
   if (best.score < threshold) return null;
 
   final runnerUp = scored.length > 1 ? scored[1] : null;
-  final ambiguous =
-      runnerUp != null &&
-      runnerUp.score == best.score &&
-      runnerUp.tieBreak == best.tieBreak;
-
-  if (ambiguous) return null;
 
   return YoutubeTextQueryMatch(
     video: best.video,
