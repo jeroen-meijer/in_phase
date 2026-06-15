@@ -217,9 +217,11 @@ class TrackCollector {
     if (progress == null) {
       log.info(tag: tag, '    🔄 Fetching tracks from Spotify...');
     }
-    final playlistTracks = await requestPool.request(
-      () => api.playlists.getPlaylistTracks(playlistId).all(50),
-      identifier: SpotifyCacheIdentifier.playlistTracks(spotifyPlaylistId),
+    final playlistTracks = await requestPool.fetchAllPages(
+      api.playlists.getPlaylistTracks(playlistId),
+      limit: 50,
+      pageIdentifier: (offset) =>
+          SpotifyCacheIdentifier.playlistTracksPage(spotifyPlaylistId, offset),
     );
 
     // Cache the playlist

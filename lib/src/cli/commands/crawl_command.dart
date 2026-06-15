@@ -620,7 +620,11 @@ class CrawlCommand extends Command<int> {
       log
         ..info('  🎯 Resolving target playlist: $targetPlaylistId')
         ..info('    🔍 Fetching user playlists to resolve by name...');
-      final userPlaylists = [...await api.me.playlists.saved().all(50)];
+      final userPlaylists = await requestPool.fetchAllPages(
+        api.me.playlists.saved(),
+        limit: 50,
+        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      );
       final resolvedTarget = await resolvePlaylistTarget(
         api: api,
         input: targetPlaylistId,
@@ -720,9 +724,14 @@ class CrawlCommand extends Command<int> {
       } else {
         // Append mode: check existing tracks and filter duplicates
         log.info('  🔍 Checking existing tracks in playlist...');
-        final existingPlaylistTracks = await api.playlists
-            .getPlaylistTracks(playlist.id!)
-            .all(50);
+        final existingPlaylistTracks = await requestPool.fetchAllPages(
+          api.playlists.getPlaylistTracks(playlist.id!),
+          limit: 50,
+          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+            SpotifyPlaylistId(playlist.id!),
+            offset,
+          ),
+        );
 
         // Extract existing track IDs
         final existingTrackIds = <String>{};

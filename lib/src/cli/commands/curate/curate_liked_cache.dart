@@ -1,3 +1,5 @@
+import 'package:in_phase/src/misc/misc.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
 
 /// Target playlist membership for curate; fills in the background for footer
@@ -33,9 +35,10 @@ class CurateTargetPlaylistsCache {
 /// Liked Songs lookup for curate: fast per-track checks, optional full preload
 /// for footer indicators.
 class CurateLikedTracksCache {
-  CurateLikedTracksCache(this._api);
+  CurateLikedTracksCache(this._api, this._requestPool);
 
   final SpotifyApi _api;
+  final RequestPool _requestPool;
   final Set<String> _ids = {};
   Future<void>? _preload;
 
@@ -46,7 +49,11 @@ class CurateLikedTracksCache {
 
   Future<void> _fetchAllSavedIds() async {
     const pageSize = 50;
-    final saved = await _api.me.tracks.saved().all(pageSize);
+    final saved = await _requestPool.fetchAllPages(
+      _api.me.tracks.saved(),
+      limit: pageSize,
+      pageIdentifier: SpotifyCacheIdentifier.savedTracksPage,
+    );
     _ids.addAll(saved.map((ts) => ts.track?.id).nonNulls);
   }
 

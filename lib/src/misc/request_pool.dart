@@ -411,6 +411,46 @@ final class RequestPool {
   /// Returns the number of currently running requests.
   int get runningRequestCount => _runningCount;
 
+  /// Fetches all items from offset-based [pages] using the pool's concurrency.
+  ///
+  /// Loads the first page, then queues any remaining pages in parallel (subject
+  /// to [maxConcurrent]). Each page is fetched via [request] with the
+  /// [pageIdentifier] for that page's offset.
+  Future<List<T>> fetchAllPages<T>(
+    Pages<T> pages, {
+    required Object Function(int offset) pageIdentifier,
+    int limit = defaultLimit,
+    Duration? ttl,
+  }) async {
+    final firstPage = await request(
+      () => pages.getPage(limit),
+      identifier: pageIdentifier(0),
+      ttl: ttl,
+    );
+
+    final allItems = <T>[...(firstPage.items ?? const [])];
+
+    final remainingOffsets = remainingSpotifyPageOffsets(firstPage);
+    if (remainingOffsets.isEmpty) {
+      return allItems;
+    }
+
+    final remainingPages = await Future.wait(
+      [
+        for (final offset in remainingOffsets)
+          request(
+            () => pages.getPage(limit, offset),
+            identifier: pageIdentifier(offset),
+            ttl: ttl,
+          ),
+      ],
+    );
+
+    allItems.addAll(remainingPages.expand((page) => page.items ?? const []));
+
+    return allItems;
+  }
+
   /// Clears all pending requests and cancels active ones.
   /// NOTE(jeroen-meijer): Use with caution - this will cause all pending
   /// and active requests to complete with a StateError.
@@ -463,4 +503,20 @@ final class _RequestState {
 
   final Completer<Object?> completer;
   int version;
+}
+
+/// Offsets for pages after [firstPage], using Spotify paging metadata.
+List<int> remainingSpotifyPageOffsets(Page<dynamic> firstPage) {
+  if (firstPage.isLast) {
+    return const [];
+  }
+
+  final paging = firstPage.metadata;
+  var offset = firstPage.nextOffset;
+  final offsets = <int>[];
+  while (offset < paging.total) {
+    offsets.add(offset);
+    offset += paging.limit;
+  }
+  return offsets;
 }

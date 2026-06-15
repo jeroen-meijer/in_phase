@@ -219,6 +219,7 @@ class ConvertCommand extends Command<int> {
         );
         await _addTracksToPlaylist(
           api: api,
+          requestPool: requestPool,
           playlist: playlist,
           tracks: matchedTracks,
           replace: true,
@@ -233,7 +234,11 @@ class ConvertCommand extends Command<int> {
       ResolvedSpotifyTarget? resolvedTarget;
       if (addTarget != null) {
         log.info('🎯 Resolving target: $addTarget');
-        final userPlaylists = [...await api.me.playlists.saved().all(50)];
+        final userPlaylists = await requestPool.fetchAllPages(
+          api.me.playlists.saved(),
+          limit: 50,
+          pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+        );
         resolvedTarget = await resolvePlaylistTarget(
           api: api,
           input: addTarget,
@@ -258,6 +263,7 @@ class ConvertCommand extends Command<int> {
           log.info('📤 Adding to playlist "${playlist.name}"');
           await _addTracksToPlaylist(
             api: api,
+            requestPool: requestPool,
             playlist: playlist,
             tracks: matchedTracks,
             replace: isReplace,
@@ -274,6 +280,7 @@ class ConvertCommand extends Command<int> {
 
   Future<void> _addTracksToPlaylist({
     required SpotifyApi api,
+    required RequestPool requestPool,
     required PlaylistSimple playlist,
     required List<Track> tracks,
     required bool replace,
@@ -284,9 +291,14 @@ class ConvertCommand extends Command<int> {
       log.info('  🗑️  Clearing existing tracks...');
       await api.playlists.clear(playlist.id!);
     } else {
-      final existing = await api.playlists
-          .getPlaylistTracks(playlist.id!)
-          .all(50);
+      final existing = await requestPool.fetchAllPages(
+        api.playlists.getPlaylistTracks(playlist.id!),
+        limit: 50,
+        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+          SpotifyPlaylistId(playlist.id!),
+          offset,
+        ),
+      );
       final existingIds = existing
           .map((t) => t.track?.id)
           .whereType<String>()

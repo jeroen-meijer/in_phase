@@ -90,6 +90,20 @@ extension type const SpotifyCacheIdentifier._(String _value) implements String {
   const SpotifyCacheIdentifier.playlistTracks(SpotifyPlaylistId playlistId)
     : _value = 'playlist-tracks:$playlistId';
 
+  /// Creates a cache identifier for a page of playlist track requests.
+  const SpotifyCacheIdentifier.playlistTracksPage(
+    SpotifyPlaylistId playlistId,
+    int offset,
+  ) : _value = 'playlist-tracks:$playlistId:page:$offset';
+
+  /// Creates a cache identifier for a page of the user's saved playlists.
+  const SpotifyCacheIdentifier.savedPlaylistsPage(int offset)
+    : _value = 'saved-playlists:page:$offset';
+
+  /// Creates a cache identifier for a page of the user's saved tracks.
+  const SpotifyCacheIdentifier.savedTracksPage(int offset)
+    : _value = 'saved-tracks:page:$offset';
+
   /// Creates a cache identifier for artist albums requests.
   const SpotifyCacheIdentifier.artistAlbums(SpotifyArtistId artistId)
     : _value = 'artist-albums:$artistId';

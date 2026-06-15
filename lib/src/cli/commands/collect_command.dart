@@ -114,7 +114,11 @@ class CollectCommand extends Command<int> {
 
       // Fetch user playlists once (for glob/name resolution)
       log.info('Fetching user playlists for source resolution...');
-      final userPlaylists = [...await api.me.playlists.saved().all(50)];
+      final userPlaylists = await requestPool.fetchAllPages(
+        api.me.playlists.saved(),
+        limit: 50,
+        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      );
       log.info('Found ${userPlaylists.length} user playlist(s)');
 
       // Process each collection
@@ -187,10 +191,12 @@ class CollectCommand extends Command<int> {
       );
 
       try {
-        final playlistTracks = await requestPool.request(
-          () => api.playlists.getPlaylistTracks(playlist.id!).all(50),
-          identifier: SpotifyCacheIdentifier.playlistTracks(
+        final playlistTracks = await requestPool.fetchAllPages(
+          api.playlists.getPlaylistTracks(playlist.id!),
+          limit: 50,
+          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
             SpotifyPlaylistId(playlist.id!),
+            offset,
           ),
         );
 
@@ -314,18 +320,14 @@ class CollectCommand extends Command<int> {
           'playlist...',
         )
         ..info('  🔍 Checking existing tracks in playlist...');
-      final existingPlaylistTracksPages = await requestPool
-          .request<List<PlaylistTrack>>(
-            () async {
-              final pages = await api.playlists
-                  .getPlaylistTracks(targetPlaylist.id!)
-                  .all(50);
-              return pages.toList();
-            },
-            identifier: SpotifyCacheIdentifier.playlistTracks(
-              SpotifyPlaylistId(targetPlaylist.id!),
-            ),
-          );
+      final existingPlaylistTracksPages = await requestPool.fetchAllPages(
+        api.playlists.getPlaylistTracks(targetPlaylist.id!),
+        limit: 50,
+        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+          SpotifyPlaylistId(targetPlaylist.id!),
+          offset,
+        ),
+      );
 
       // Extract existing track IDs
       final existingTrackIds = <String>{};

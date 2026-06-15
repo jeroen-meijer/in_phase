@@ -286,4 +286,40 @@ void main() {
       expect(calls, 2);
     });
   });
+
+  group('remainingSpotifyPageOffsets', () {
+    Page<dynamic> page({
+      required int offset,
+      required int limit,
+      required int total,
+    }) {
+      final paging = Paging<dynamic>()
+        ..offset = offset
+        ..limit = limit
+        ..total = total
+        ..itemsNative = const [];
+      return Page(paging, (object) => object);
+    }
+
+    test('returns empty when first page is last', () {
+      expect(
+        remainingSpotifyPageOffsets(page(offset: 0, limit: 50, total: 30)),
+        isEmpty,
+      );
+    });
+
+    test('returns remaining offsets from paging metadata', () {
+      expect(
+        remainingSpotifyPageOffsets(page(offset: 0, limit: 50, total: 175)),
+        [50, 100, 150],
+      );
+    });
+
+    test('returns single offset when only one page remains', () {
+      expect(
+        remainingSpotifyPageOffsets(page(offset: 0, limit: 50, total: 75)),
+        [50],
+      );
+    });
+  });
 }
