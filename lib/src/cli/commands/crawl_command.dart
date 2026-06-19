@@ -52,7 +52,10 @@ class CrawlCommand extends Command<int> {
   @override
   final String description =
       'Crawls Spotify for new tracks from configured sources '
-      'and creates/updates playlists.';
+      'and creates/updates playlists. '
+      '`output_playlist.id` in config accepts ID, URI, URL, or fuzzy name. '
+      'To save tracks to Liked Songs, use `in_phase convert --add '
+      '$likedSongsPlaylistTarget`.';
 
   @override
   Future<int> run() async {
@@ -614,12 +617,23 @@ class CrawlCommand extends Command<int> {
     final targetPlaylistId = job.outputPlaylist.id;
 
     if (targetPlaylistId != null) {
-      log.info('  🎯 Resolving target playlist: $targetPlaylistId');
-      final resolved = await _resolveTargetPlaylist(
-        api: api,
-        target: targetPlaylistId,
-        jobName: job.name,
+      log
+        ..info('  🎯 Resolving target playlist: $targetPlaylistId')
+        ..info('    🔍 Fetching user playlists to resolve by name...');
+      final userPlaylists = await requestPool.fetchAllPages(
+        api.me.playlists.saved(),
+        limit: 50,
+        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
       );
+      final resolvedTarget = await resolvePlaylistTarget(
+        api: api,
+        input: targetPlaylistId,
+        userPlaylists: userPlaylists,
+      );
+      final resolved = switch (resolvedTarget) {
+        PlaylistSpotifyTarget(:final playlist) => playlist,
+        _ => null,
+      };
 
       if (resolved == null) {
         throw Exception(
@@ -710,9 +724,14 @@ class CrawlCommand extends Command<int> {
       } else {
         // Append mode: check existing tracks and filter duplicates
         log.info('  🔍 Checking existing tracks in playlist...');
-        final existingPlaylistTracks = await api.playlists
-            .getPlaylistTracks(playlist.id!)
-            .all(50);
+        final existingPlaylistTracks = await requestPool.fetchAllPages(
+          api.playlists.getPlaylistTracks(playlist.id!),
+          limit: 50,
+          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+            SpotifyPlaylistId(playlist.id!),
+            offset,
+          ),
+        );
 
         // Extract existing track IDs
         final existingTrackIds = <String>{};
@@ -893,79 +912,6 @@ class CrawlCommand extends Command<int> {
         return 'Label "$name" (released within timeframe)';
       case CollectedTrackSourceYoutubeChannel(:final name):
         return 'YouTube channel "$name" (uploaded within timeframe)';
-    }
-  }
-
-  /// Resolves target playlist from identifier (ID, URI, URL, or exact name).
-  ///
-  /// Returns null if the playlist cannot be resolved, with appropriate error
-  /// messages logged.
-  Future<PlaylistSimple?> _resolveTargetPlaylist({
-    required SpotifyApi api,
-    required String target,
-    required String jobName,
-  }) async {
-    // Try ID/URI/URL first
-    final playlistId = SpotifyPlaylistId.tryExtract(target);
-    if (playlistId != null) {
-      try {
-        final playlist = await api.playlists.get(playlistId);
-        log.debug(
-          '    ✅ Resolved target playlist by ID: "$target" → '
-          '"${playlist.name}"',
-        );
-        return playlist;
-      } catch (e) {
-        log
-          ..error(
-            '    ❌ Could not fetch target playlist by ID "$target": $e',
-          )
-          ..error(
-            '    💡 Make sure the playlist ID is correct and you have access '
-            'to it (you own it or have collaborative edit access).',
-          );
-        return null;
-      }
-    }
-
-    // Otherwise, fetch user playlists and try exact name match
-    log.info('    🔍 Fetching user playlists to resolve by name...');
-    try {
-      final userPlaylists = [...await api.me.playlists.saved().all(50)];
-      final matches = userPlaylists.where((p) => p.name == target).toList();
-
-      if (matches.isEmpty) {
-        log
-          ..error(
-            '    ❌ Target playlist "$target" not found in your playlists.',
-          )
-          ..error(
-            '    💡 Make sure the playlist name matches exactly, or use a '
-            'playlist ID, URI, or share URL instead.',
-          );
-        return null;
-      }
-
-      if (matches.length > 1) {
-        log.error(
-          '    ❌ Target playlist "$target" matched ${matches.length} '
-          'playlists:',
-        );
-        for (final match in matches) {
-          log.error('      - "${match.name}" (ID: ${match.id})');
-        }
-        log.error(
-          '    💡 Please use a playlist ID, URI, or share URL instead to '
-          'uniquely identify the target playlist.',
-        );
-        return null;
-      }
-
-      log.debug('    ✅ Resolved target playlist by name: "$target"');
-      return matches.first;
-    } catch (e) {
-      log.error('    ❌ Error fetching user playlists: $e');
-      return null;
     }
   }
 

@@ -217,9 +217,11 @@ class TrackCollector {
     if (progress == null) {
       log.info(tag: tag, '    🔄 Fetching tracks from Spotify...');
     }
-    final playlistTracks = await requestPool.request(
-      () => api.playlists.getPlaylistTracks(playlistId).all(50),
-      identifier: SpotifyCacheIdentifier.playlistTracks(spotifyPlaylistId),
+    final playlistTracks = await requestPool.fetchAllPages(
+      api.playlists.getPlaylistTracks(playlistId),
+      limit: 50,
+      pageIdentifier: (offset) =>
+          SpotifyCacheIdentifier.playlistTracksPage(spotifyPlaylistId, offset),
     );
 
     // Cache the playlist
@@ -1441,7 +1443,7 @@ class TrackCollector {
           .expand((page) => page.items?.whereType<Track>() ?? <Track>[])
           .toList();
 
-      return tracks.isNotEmpty ? tracks.first : null;
+      return tracks.firstOrNull;
     } catch (e) {
       log.debug(tag: tag, '    Search query failed: $query ($e)');
       return null;

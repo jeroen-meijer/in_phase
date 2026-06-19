@@ -1,5 +1,10 @@
 ## Upcoming
 
+- fix(convert): break tied YouTube text-query matches using YouTube search order
+- perf(spotify): fetch offset-paged Spotify resources concurrently via `RequestPool.fetchAllPages` instead of sequential `.all()`
+- feat(convert): add `in_phase convert` to match YouTube playlists, videos, or text searches to Spotify tracks
+- feat(spotify): find playlists by approximate name in convert, collect, and crawl
+
 ## 1.4.1
 
 - ci: run CI and pana only on pull requests, and publish merged `release` PRs with the GitHub Actions `PUB_CREDENTIALS` secret

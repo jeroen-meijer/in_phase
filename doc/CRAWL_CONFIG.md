@@ -67,7 +67,7 @@ Each job in the `jobs` array defines a single automated playlist creation task.
   - **`name`** - Playlist name template (supports template variables)
   - **`description`** - Optional playlist description template
   - **`public`** - Whether the playlist should be public (default: `false`, only used when creating new playlist)
-  - **`id`** - Optional playlist ID, URI, or share URL to update instead of creating new. If provided, the existing playlist will be updated with new tracks, name, description, and cover image.
+  - **`id`** - Optional playlist ID, URI, share URL, or fuzzy playlist name (≥80% match, unique) to update instead of creating new. If provided, the existing playlist will be updated with new tracks, name, description, and cover image. `likes` is not valid here; use `in_phase convert --add likes` for Liked Songs.
 - **`filters`** - Track filtering options
   - **`date_range`** - Date range configuration (see [Date Range Formats](#date-range-formats) below)
   - **`added_between_days`** - *Deprecated: Use `date_range` instead.* Number of days to look back for tracks

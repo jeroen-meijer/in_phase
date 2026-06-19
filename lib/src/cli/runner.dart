@@ -21,6 +21,7 @@ CommandRunner<int> createInPhaseCommandRunner({
         ..addCommand(BuyCommand())
         ..addCommand(CollectCommand())
         ..addCommand(ConfigCommand())
+        ..addCommand(ConvertCommand())
         ..addCommand(CrawlCommand())
         ..addCommand(CurateCommand())
         ..addCommand(CuesCommand())

@@ -149,21 +149,30 @@ class CurateCommand extends Command<int> {
     }
 
     final api = await spotifyLogin();
+    final requestPool = Zonable.fromZone<RequestPool>();
 
     try {
       final targetPlaylists = CurateTargetPlaylistsCache();
       if (config.targets.isNotEmpty) {
-        targetPlaylists.start(_fetchTargetTrackIds(api, config.targets));
+        targetPlaylists.start(
+          _fetchTargetTrackIds(api, requestPool, config.targets),
+        );
       } else {
         targetPlaylists.loaded = true;
       }
-      final likedCache = CurateLikedTracksCache(api)..startPreload();
+      final likedCache = CurateLikedTracksCache(api, requestPool)
+        ..startPreload();
 
       final playlist = await api.playlists.get(args.playlistId);
       final playlistName = playlist.name ?? args.playlistId.toString();
-      final playlistTracks = await api.playlists
-          .getPlaylistTracks(args.playlistId.toString())
-          .all(_maxPlaylistTracksPerPage);
+      final playlistTracks = await requestPool.fetchAllPages(
+        api.playlists.getPlaylistTracks(args.playlistId.toString()),
+        limit: _maxPlaylistTracksPerPage,
+        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+          args.playlistId,
+          offset,
+        ),
+      );
       final tracks = playlistTracks
           .map((pt) => pt.track)
           .whereType<Track>()
@@ -246,13 +255,21 @@ class CurateCommand extends Command<int> {
 
   Future<Map<String, Set<String>>> _fetchTargetTrackIds(
     SpotifyApi api,
+    RequestPool requestPool,
     List<CurateTarget> targets,
   ) async {
     final trackSets = await Future.wait([
       for (final t in targets)
-        api.playlists
-            .getPlaylistTracks(t.playlistId)
-            .all(_maxPlaylistTracksPerPage)
+        requestPool
+            .fetchAllPages(
+              api.playlists.getPlaylistTracks(t.playlistId),
+              limit: _maxPlaylistTracksPerPage,
+              pageIdentifier: (offset) =>
+                  SpotifyCacheIdentifier.playlistTracksPage(
+                    SpotifyPlaylistId(t.playlistId),
+                    offset,
+                  ),
+            )
             .then(
               (pts) => pts
                   .map((pt) => pt.track)

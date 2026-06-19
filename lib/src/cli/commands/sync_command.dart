@@ -61,7 +61,7 @@ class SyncCommand extends Command<int> {
   @override
   Future<int> run() async {
     final rest = argResults!.rest;
-    if (rest.isNotEmpty && rest.first.toLowerCase() == 'validate') {
+    if (rest.firstOrNull?.toLowerCase() == 'validate') {
       if (rest.length > 1) {
         usageException(
           'Unexpected arguments after "validate". '
@@ -119,9 +119,11 @@ class SyncCommand extends Command<int> {
           spPlaylistId,
           spSnapshotId,
         )) {
-          playlistFetchFutures[spPlaylistId] = requestPool.request(
-            () => api.playlists.getPlaylistTracks(spPlaylistId).all(50),
-            identifier: SpotifyCacheIdentifier.playlistTracks(spPlaylistId),
+          playlistFetchFutures[spPlaylistId] = requestPool.fetchAllPages(
+            api.playlists.getPlaylistTracks(spPlaylistId),
+            limit: 50,
+            pageIdentifier: (offset) =>
+                SpotifyCacheIdentifier.playlistTracksPage(spPlaylistId, offset),
           );
         }
       }
@@ -535,7 +537,12 @@ class SyncCommand extends Command<int> {
     SyncConfig syncConfig,
   ) async {
     log.info('Fetching all user playlists');
-    final allPlaylists = await spotifyApi.me.playlists.saved().all(50);
+    final requestPool = Zonable.fromZone<RequestPool>();
+    final allPlaylists = await requestPool.fetchAllPages(
+      spotifyApi.me.playlists.saved(),
+      limit: 50,
+      pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+    );
 
     log.info('Filtering ${allPlaylists.length} playlists by sync config');
     final filteredPlaylists = allPlaylists

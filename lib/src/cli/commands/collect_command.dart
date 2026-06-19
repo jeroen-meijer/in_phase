@@ -1,5 +1,4 @@
 import 'package:args/command_runner.dart';
-import 'package:glob/glob.dart';
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/logger/logger.dart';
@@ -38,7 +37,11 @@ class CollectCommand extends Command<int> {
   @override
   final String description =
       'Aggregates tracks from multiple Spotify playlists '
-      'into a single target playlist.';
+      'into a single target playlist. '
+      'Playlist targets and sources in config accept ID, URI, URL, or fuzzy '
+      'name; sources also support glob patterns (`*`). '
+      'To add tracks to Liked Songs, use `in_phase convert --add '
+      '$likedSongsPlaylistTarget`.';
 
   @override
   Future<int> run() async {
@@ -111,7 +114,11 @@ class CollectCommand extends Command<int> {
 
       // Fetch user playlists once (for glob/name resolution)
       log.info('Fetching user playlists for source resolution...');
-      final userPlaylists = [...await api.me.playlists.saved().all(50)];
+      final userPlaylists = await requestPool.fetchAllPages(
+        api.me.playlists.saved(),
+        limit: 50,
+        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      );
       log.info('Found ${userPlaylists.length} user playlist(s)');
 
       // Process each collection
@@ -162,10 +169,9 @@ class CollectCommand extends Command<int> {
     // Resolve source playlists
     log.info('  📋 Resolving source playlists...');
     final resolvedPlaylists = await _resolveSources(
-      api: api,
       sources: collection.sources,
       userPlaylists: userPlaylists,
-      requestPool: requestPool,
+      api: api,
     );
 
     if (resolvedPlaylists.isEmpty) {
@@ -185,10 +191,12 @@ class CollectCommand extends Command<int> {
       );
 
       try {
-        final playlistTracks = await requestPool.request(
-          () => api.playlists.getPlaylistTracks(playlist.id!).all(50),
-          identifier: SpotifyCacheIdentifier.playlistTracks(
+        final playlistTracks = await requestPool.fetchAllPages(
+          api.playlists.getPlaylistTracks(playlist.id!),
+          limit: 50,
+          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
             SpotifyPlaylistId(playlist.id!),
+            offset,
           ),
         );
 
@@ -255,12 +263,15 @@ class CollectCommand extends Command<int> {
 
     // Resolve target playlist
     log.info('  🎯 Resolving target playlist...');
-    final targetPlaylist = await _resolveTarget(
+    final resolvedTarget = await resolvePlaylistTarget(
       api: api,
-      target: collection.target,
+      input: collection.target,
       userPlaylists: userPlaylists,
-      collectionName: collection.name,
     );
+    final targetPlaylist = switch (resolvedTarget) {
+      PlaylistSpotifyTarget(:final playlist) => playlist,
+      _ => null,
+    };
 
     if (targetPlaylist == null) {
       log.error(
@@ -309,18 +320,14 @@ class CollectCommand extends Command<int> {
           'playlist...',
         )
         ..info('  🔍 Checking existing tracks in playlist...');
-      final existingPlaylistTracksPages = await requestPool
-          .request<List<PlaylistTrack>>(
-            () async {
-              final pages = await api.playlists
-                  .getPlaylistTracks(targetPlaylist.id!)
-                  .all(50);
-              return pages.toList();
-            },
-            identifier: SpotifyCacheIdentifier.playlistTracks(
-              SpotifyPlaylistId(targetPlaylist.id!),
-            ),
-          );
+      final existingPlaylistTracksPages = await requestPool.fetchAllPages(
+        api.playlists.getPlaylistTracks(targetPlaylist.id!),
+        limit: 50,
+        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+          SpotifyPlaylistId(targetPlaylist.id!),
+          offset,
+        ),
+      );
 
       // Extract existing track IDs
       final existingTrackIds = <String>{};
@@ -397,149 +404,27 @@ class CollectCommand extends Command<int> {
   }
 
   /// Resolves source playlists from a list of identifiers.
-  ///
-  /// Supports:
-  /// - Playlist IDs, URIs, or share URLs (via tryExtract)
-  /// - Glob patterns (e.g., "DnB Releases*")
-  /// - Exact playlist names
-  ///
-  /// Returns deduplicated list of resolved playlists.
   Future<List<PlaylistSimple>> _resolveSources({
     required SpotifyApi api,
     required List<String> sources,
     required List<PlaylistSimple> userPlaylists,
-    required RequestPool requestPool,
   }) async {
     final resolvedPlaylists = <String, PlaylistSimple>{};
 
     for (final source in sources) {
-      // Try ID/URI/URL first
-      final playlistId = SpotifyPlaylistId.tryExtract(source);
-      if (playlistId != null) {
-        try {
-          final playlist = await requestPool.request(
-            () => api.playlists.get(playlistId),
-            identifier: SpotifyCacheIdentifier.playlist(playlistId),
-          );
-          resolvedPlaylists[playlist.id!] = playlist;
-          log.debug('    ✅ Resolved ID: "$source" → "${playlist.name}"');
-          continue;
-        } catch (e) {
-          log.warning('    ⚠️  Could not fetch playlist by ID "$source": $e');
-          continue;
-        }
-      }
-
-      // Check if it's a glob pattern
-      if (_isGlobPattern(source)) {
-        final glob = Glob(source);
-        final matches = userPlaylists
-            .where((p) => glob.matches(p.name ?? ''))
-            .toList();
-
-        if (matches.isEmpty) {
-          log.warning('    ⚠️  Glob "$source" matched 0 playlists');
-        } else {
-          log.info(
-            '    ✅ Glob "$source" matched ${matches.length} playlist(s)',
-          );
-          for (final match in matches) {
-            if (match.id != null) {
-              resolvedPlaylists[match.id!] = match;
-            }
-          }
-        }
-        continue;
-      }
-
-      // Otherwise, treat as exact name match
-      final matches = userPlaylists.where((p) => p.name == source).toList();
-
-      if (matches.isEmpty) {
-        log.warning('    ⚠️  Exact name "$source" matched 0 playlists');
-      } else if (matches.length > 1) {
-        log.warning(
-          '    ⚠️  Exact name "$source" matched ${matches.length} '
-          'playlists, using first match',
-        );
-        if (matches.first.id != null) {
-          resolvedPlaylists[matches.first.id!] = matches.first;
-        }
-      } else {
-        log.debug('    ✅ Resolved name: "$source"');
-        if (matches.first.id != null) {
-          resolvedPlaylists[matches.first.id!] = matches.first;
+      final matches = await resolvePlaylistSources(
+        api: api,
+        input: source,
+        userPlaylists: userPlaylists,
+      );
+      for (final match in matches) {
+        if (match.id != null) {
+          resolvedPlaylists[match.id!] = match;
         }
       }
     }
 
     return resolvedPlaylists.values.toList();
-  }
-
-  /// Resolves target playlist from identifier (ID, URI, URL, or exact name).
-  ///
-  /// Returns null if the playlist cannot be resolved, with appropriate error
-  /// messages logged.
-  Future<PlaylistSimple?> _resolveTarget({
-    required SpotifyApi api,
-    required String target,
-    required List<PlaylistSimple> userPlaylists,
-    required String collectionName,
-  }) async {
-    // Try ID/URI/URL first
-    final playlistId = SpotifyPlaylistId.tryExtract(target);
-    if (playlistId != null) {
-      try {
-        final playlist = await api.playlists.get(playlistId);
-        log.debug(
-          '    ✅ Resolved target by ID: "$target" → "${playlist.name}"',
-        );
-        return playlist;
-      } catch (e) {
-        log
-          ..error(
-            '    ❌ Could not fetch target playlist by ID "$target": $e',
-          )
-          ..error(
-            '    💡 Make sure the playlist ID is correct and you have access '
-            'to it (you own it or have collaborative edit access).',
-          );
-        return null;
-      }
-    }
-
-    // Otherwise, treat as exact name match
-    final matches = userPlaylists.where((p) => p.name == target).toList();
-
-    if (matches.isEmpty) {
-      log
-        ..error(
-          '    ❌ Target playlist "$target" not found in your playlists.',
-        )
-        ..error(
-          '    💡 Make sure the playlist name matches exactly, or use a '
-          'playlist ID, URI, or share URL instead.',
-        );
-      return null;
-    }
-
-    if (matches.length > 1) {
-      log.error(
-        '    ❌ Target playlist "$target" matched ${matches.length} '
-        'playlists:',
-      );
-      for (final match in matches) {
-        log.error('      - "${match.name}" (ID: ${match.id})');
-      }
-      log.error(
-        '    💡 Please use a playlist ID, URI, or share URL instead to '
-        'uniquely identify the target playlist.',
-      );
-      return null;
-    }
-
-    log.debug('    ✅ Resolved target by name: "$target"');
-    return matches.first;
   }
 
   /// Renders a description template with collect-specific variables.
@@ -599,14 +484,6 @@ class CollectCommand extends Command<int> {
           );
       }
     });
-  }
-
-  /// Checks if a string contains glob pattern characters.
-  bool _isGlobPattern(String input) {
-    return input.contains('*') ||
-        input.contains('?') ||
-        input.contains('[') ||
-        input.contains(']');
   }
 
   /// Deduplicates tracks while keeping the entry with the latest `addedAt`
