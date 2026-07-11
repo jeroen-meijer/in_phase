@@ -135,5 +135,4 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format
 - [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) — collect config format
-- [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config and keyboard controls
-
+- [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) — curate config (string-list `targets`, resolved at session start); playlist argument accepts ID, URI, URL, or name; keyboard controls (`m` move mode, `f` picker, etc.)

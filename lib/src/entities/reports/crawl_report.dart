@@ -86,7 +86,7 @@ class CrawlTrackEntry {
 /// {@template crawl_source_info}
 /// Information about the source of a collected track.
 /// {@endtemplate}
-sealed class CrawlSourceInfo with EquatableMixin {
+sealed class CrawlSourceInfo with Equatable {
   /// {@macro crawl_source_info}
   const CrawlSourceInfo();
 

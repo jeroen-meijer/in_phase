@@ -37,7 +37,7 @@ class CollectedTrack {
 /// {@template collected_track_source}
 /// The source of a collected track.
 /// {@endtemplate}
-sealed class CollectedTrackSource with EquatableMixin {
+sealed class CollectedTrackSource with Equatable {
   /// {@macro collected_track_source}
   const CollectedTrackSource();
 

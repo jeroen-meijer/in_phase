@@ -6,7 +6,7 @@ The `curate` command uses a `curate_config.yaml` file to configure playlist prev
 
 ## Overview
 
-The curate command lets you preview tracks from a Spotify playlist one by one, starting each at a configurable position. You can seek within the track, add tracks to target playlists (key 1 = first in list, key 2 = second, etc.), or move to the next track. Requires Spotify Premium and an active Spotify device (app or web player).
+The curate command lets you preview tracks from a Spotify playlist one by one, starting each at a configurable position. You can seek within the track, add tracks to target playlists (key 1 = first in list, key 2 = second, etc.), toggle **move mode** to remove tracks from the source playlist when adding, search any of your editable playlists with **f**, or move to the next track. Requires Spotify Premium and an active Spotify device (app or web player).
 
 ## Configuration Options
 
@@ -26,12 +26,13 @@ next_after_add: false
 # not already in Liked Songs (so pressing multiple keys does not spam it).
 # auto_add_to_likes: false
 
-# Target playlists to add to (key 1 = first, key 2 = second, etc.)
+# Target playlists (key 1 = first, key 2 = second, etc.; max 9)
+# Each entry is a playlist identifier — resolved at session start.
 targets:
-  - id: "37i9dQZF1DXcBWIGoYBM5M"  # Playlist ID, URI, or share URL
-    name: "Favorites"
-  - id: "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
-    name: "To Review"
+  - KEYSORT
+  - "chill 'n' bass"
+  - 37i9dQZF1DXcBWIGoYBM5M
+  - "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO"
 ```
 
 ## Configuration Fields Explained
@@ -52,11 +53,14 @@ targets:
 - `false` (default): Only the target playlist is updated
 - `true`: After a successful add to a target playlist, the track is saved to Liked Songs if it was not already there; the UI only prints "Liked" when it was newly saved (not on every key press)
 
-**`targets`** - List of playlists you can add tracks to
+**`targets`** - List of playlists you can add or move tracks to
 - List order determines the key: first item = key 1, second = key 2, etc. (max 9)
-- Each target has:
-  - **`id`** - Playlist ID, URI (`spotify:playlist:...`), or share URL
-  - **`name`** - Display name shown in the key hints
+- Each entry is a **string** playlist identifier, resolved at session start (same rules as collect/convert):
+  - Playlist ID, URI (`spotify:playlist:...`), or share URL
+  - Exact playlist name (fails if ambiguous)
+  - Fuzzy name match (≥ 80% score, unique winner)
+- Display names in the TUI footer come from Spotify after resolution, not from config
+- Press **f** to search and add/move to any editable playlist in your library (owned or collaborative). Your playlists are prefetched when the session starts so the picker opens without waiting on Spotify.
 
 ## Playlist Input
 
@@ -64,11 +68,15 @@ The curate command accepts a playlist as argument. You can provide:
 - Playlist ID (e.g., `37i9dQZF1DXcBWIGoYBM5M`)
 - URI (e.g., `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`)
 - Share URL (e.g., `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`)
+- Playlist name (e.g., `KEYSORT`) — exact or fuzzy match against your library (same rules as `targets`)
 
 ## Usage
 
 ```bash
-# Curate a playlist (uses default config)
+# Curate a playlist by name
+in_phase curate KEYSORT
+
+# Curate by ID, URI, or share URL
 in_phase curate <playlist>
 
 # Use a custom config file
@@ -80,8 +88,13 @@ in_phase curate --skip=5 <playlist>
 
 ## Keyboard Controls
 
-- **1-9** - Add track to target playlist (1 = first in list, 2 = second, etc.)
-- **n**, **s**, or **space** - Next track
+- **1-9** - Add track to target playlist (1 = first in list, 2 = second, etc.); in move mode, removes from source playlist instead of copying
+- **m** - Toggle move mode (footer shows `move ON` / `move OFF`). When on, keys 1–9 and **f** move the track: remove from the curated playlist (or the last target you moved to), then add to the destination. Chained moves on the same track work (e.g. P → 1 → 2). If the target already has the track, only the source is cleared
+- **n**, **s**, or **space** - Next track (resets move source to the curated playlist)
 - **←** / **→** - Seek backward / forward (by `seek_step` seconds)
 - **r** - Restart from `start_position`
+- **c** - Copy the current track's Spotify web URL
+- **o** - Open the current track in Spotify (`spotify://track/…`)
+- **f** - Open add-to-playlist picker (search your Spotify library, ↑/↓ to select, Enter to add or move, Esc to cancel)
+- **l** - Save track to Liked Songs
 - **q** - Quit

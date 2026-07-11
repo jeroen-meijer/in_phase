@@ -7,9 +7,10 @@ const _maxTargetKey = 9;
 
 /// Handles keyboard events during curate playback (Nocterm [KeyboardEvent]).
 class CurateKeyHandler {
-  CurateKeyHandler(this._context);
+  CurateKeyHandler(this._context, this._runtime);
 
   final CurateContext _context;
+  final CurateRuntimeState _runtime;
 
   Future<KeyResult> handleKey(
     KeyboardEvent event,
@@ -30,12 +31,13 @@ class CurateKeyHandler {
     }
 
     final config = _context.config;
+    final targetCount = _context.resolvedTargets.length;
 
     final digit = _digitFromLogicalKey(event.logicalKey);
     if (digit != null &&
         digit >= 1 &&
         digit <= _maxTargetKey &&
-        digit <= config.targets.length) {
+        digit <= targetCount) {
       return _handleAddToTarget(currentTrack, digit);
     }
 
@@ -46,6 +48,15 @@ class CurateKeyHandler {
 
     if (ch == 'q' || event.logicalKey == LogicalKey.keyQ) {
       return KeyResultQuit();
+    }
+
+    if (ch == 'm') {
+      _runtime.moveMode = !_runtime.moveMode;
+      return KeyResultStay(
+        _runtime.moveMode ? 'Move mode ON' : 'Move mode OFF',
+        null,
+        tone: CurateMessageTone.accent,
+      );
     }
 
     if (ch == 'c') {
@@ -64,6 +75,31 @@ class CurateKeyHandler {
         null,
         tone: ok ? CurateMessageTone.success : CurateMessageTone.error,
       );
+    }
+
+    if (ch == 'o') {
+      final id = currentTrack.track.id;
+      if (id == null || id.isEmpty) {
+        return KeyResultStay(
+          '✗ No track id to open',
+          null,
+          tone: CurateMessageTone.error,
+        );
+      }
+      try {
+        await SystemLauncher.openUrl('spotify://track/$id');
+        return KeyResultStay(
+          '✓ Opened in Spotify',
+          null,
+          tone: CurateMessageTone.success,
+        );
+      } catch (e) {
+        return KeyResultStay(
+          '✗ Open in Spotify: $e',
+          null,
+          tone: CurateMessageTone.error,
+        );
+      }
     }
 
     if (ch == ' ' || ch == 's' || ch == 'n') {
@@ -123,7 +159,7 @@ class CurateKeyHandler {
     if (targetNum != null &&
         targetNum >= 1 &&
         targetNum <= _maxTargetKey &&
-        targetNum <= config.targets.length) {
+        targetNum <= targetCount) {
       return _handleAddToTarget(currentTrack, targetNum);
     }
 
@@ -189,56 +225,22 @@ class CurateKeyHandler {
     CurrentTrackInfo currentTrack,
     int targetNum,
   ) async {
-    final config = _context.config;
-    final target = config.targets[targetNum - 1];
-    final alreadyIn = _context.targetPlaylists.contains(
-      target.playlistId,
-      currentTrack.track.id,
+    final target = _context.resolvedTargets[targetNum - 1];
+    if (_runtime.moveMode) {
+      return curateMoveTrackToPlaylist(
+        context: _context,
+        runtime: _runtime,
+        currentTrack: currentTrack,
+        playlistId: target.playlistId,
+        playlistName: target.name,
+      );
+    }
+    return curateAddTrackToPlaylist(
+      context: _context,
+      currentTrack: currentTrack,
+      playlistId: target.playlistId,
+      playlistName: target.name,
     );
-    if (alreadyIn == true) {
-      return KeyResultStay(
-        'Already in ${target.name}',
-        null,
-        tone: CurateMessageTone.warning,
-      );
-    }
-
-    try {
-      await _context.api.playlists.addTracks(
-        [currentTrack.trackUri],
-        target.playlistId,
-      );
-      _context.targetPlaylists.markAdded(
-        target.playlistId,
-        currentTrack.track.id!,
-      );
-      var status = '✓ Added to ${target.name}';
-      var tone = CurateMessageTone.success;
-      if (config.autoAddToLikes) {
-        final trackId = currentTrack.track.id!;
-        try {
-          if (!await _context.likedCache.isLiked(trackId)) {
-            await _context.api.me.tracks.saveOne(trackId);
-            _context.likedCache.markLiked(trackId);
-            status += '  ✓ Liked';
-          }
-        } catch (e) {
-          status += '  ✗ Liked: $e';
-          tone = CurateMessageTone.error;
-        }
-      }
-      if (config.nextAfterAdd &&
-          currentTrack.index + 1 < currentTrack.tracksToCurateLength) {
-        return KeyResultNextWithStatus(status);
-      }
-      return KeyResultStay(status, null, tone: tone);
-    } catch (e) {
-      return KeyResultStay(
-        '✗ ${target.name}: $e',
-        null,
-        tone: CurateMessageTone.error,
-      );
-    }
   }
 
   Future<(int, DateTime)?> _seek(

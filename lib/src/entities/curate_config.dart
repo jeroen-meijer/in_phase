@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:in_phase/src/misc/misc.dart';
-import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_codec/yaml_codec.dart';
@@ -79,35 +78,29 @@ class CurateConfig {
   @JsonKey(name: 'auto_add_to_likes', defaultValue: false)
   final bool autoAddToLikes;
 
+  /// Playlist identifiers resolved at session start (ID, URI, URL, or name).
   @JsonKey(fromJson: _targetsFromJson, toJson: _targetsToJson)
-  final List<CurateTarget> targets;
+  final List<String> targets;
 }
 
-List<CurateTarget> _targetsFromJson(dynamic json) {
-  if (json == null || json is! List) return [];
-  return json
-      .map((e) => CurateTarget.fromJson(e as Map<String, dynamic>))
-      .toList();
+List<String> _targetsFromJson(dynamic json) {
+  if (json == null || json is! List) {
+    return [];
+  }
+  return json.map((e) {
+    if (e is String) {
+      return e;
+    }
+    if (e is Map) {
+      throw const FormatException(
+        'curate targets must be a list of strings (playlist ID, URI, URL, or '
+        'name). The old {id, name} object format is no longer supported.',
+      );
+    }
+    throw FormatException(
+      'curate targets must be strings; got ${e.runtimeType}',
+    );
+  }).toList();
 }
 
-List<Map<String, dynamic>> _targetsToJson(List<CurateTarget> data) =>
-    data.map((e) => e.toJson()).toList();
-
-@JsonSerializable(fieldRename: FieldRename.snake)
-class CurateTarget {
-  const CurateTarget({
-    required this.id,
-    required this.name,
-  });
-
-  factory CurateTarget.fromJson(Map<String, dynamic> json) =>
-      _$CurateTargetFromJson(json);
-
-  Map<String, dynamic> toJson() => _$CurateTargetToJson(this);
-
-  /// Resolved playlist ID for API calls (handles URI/URL).
-  String get playlistId => SpotifyPlaylistId.tryExtract(id)?.toString() ?? id;
-
-  final String id;
-  final String name;
-}
+List<String> _targetsToJson(List<String> data) => data;

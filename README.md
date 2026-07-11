@@ -209,7 +209,7 @@ in_phase collect
 in_phase collect --collection drum_and_bass
 ```
 
-Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](doc/COLLECT_CONFIG.md) for configuration details.
+Aggregates tracks from multiple source playlists into a single target playlist. Run again to update the target with new tracks. See [COLLECT_CONFIG.md](docs/COLLECT_CONFIG.md) for configuration details.
 
 ### Convert YouTube to Spotify
 
@@ -237,10 +237,10 @@ Matches YouTube sources to Spotify tracks via fuzzy search. Playlist URLs withou
 
 ```bash
 # Preview tracks and add to target playlists
-in_phase curate <playlist>
+in_phase curate KEYSORT
 ```
 
-Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) for configuration details.
+Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. The playlist argument accepts ID, URI, share URL, or name (e.g. `KEYSORT`). Press **m** to toggle move mode (remove from source playlist instead of copy). Target playlists in config are plain strings (playlist ID, URI, URL, or name). Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) for configuration details.
 
 ### Open config directory
 
@@ -259,4 +259,3 @@ From a clone: `dart pub get`, then `dart format .`, `dart analyze --fatal-infos 
 - Rekordbox database access
 - Spotify API credentials
 - Dart SDK (for development from source)
-

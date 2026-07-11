@@ -1,5 +1,10 @@
 ## Upcoming
 
+- feat(curate): curate playlist argument accepts ID, URI, share URL, or name (exact/fuzzy match in your library)
+- feat(curate)!: `targets` in curate config are now a list of playlist identifier strings (ID, URI, URL, or name) instead of `{id, name}` objects; resolved at session start like collect/convert
+- feat(curate): press `m` to toggle move mode — keys 1–9 and `f` remove the track from the source playlist (curated playlist or last move target) instead of copying; idempotent when target already has the track
+- feat(curate): press `o` to open the current track in Spotify (`spotify://track/…`)
+- feat(curate): press `f` to open an add-to-playlist picker (search your library, ↑/↓ to select, Enter to add); user playlists are prefetched at session start
 - fix(convert): break tied YouTube text-query matches using YouTube search order
 - perf(spotify): fetch offset-paged Spotify resources concurrently via `RequestPool.fetchAllPages` instead of sequential `.all()`
 - feat(convert): add `in_phase convert` to match YouTube playlists, videos, or text searches to Spotify tracks

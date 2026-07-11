@@ -161,7 +161,7 @@ jobs: []
   static const String curateConfig = '''
 # Curate Configuration
 # Usage: in_phase curate <playlist> [--skip=N]
-# Playlist: ID, URI (spotify:playlist:...), or share URL (https://open.spotify.com/playlist/...)
+# Playlist: ID, URI, share URL, or name (exact/fuzzy match in your library)
 # See docs/CURATE_CONFIG.md for full documentation.
 
 # Start each track at this position (default 1:15)
@@ -179,12 +179,10 @@ next_after_add: false
 # auto_add_to_likes: false
 
 # Target playlists to add to (key 1 = first, key 2 = second, etc.)
-# Replace with your playlist ID, URI, or share URL
+# Each entry is a playlist ID, URI, share URL, or name (exact or fuzzy match)
 targets:
-  - id: "YOUR_PLAYLIST_ID_1"
-    name: "Favorites"
-  - id: "YOUR_PLAYLIST_ID_2"
-    name: "To Review"
+  - "Favorites"
+  - "To Review"
 ''';
 
   /// Default collect configuration with commented examples.
