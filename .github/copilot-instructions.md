@@ -10,6 +10,6 @@ Before making any suggestions or changes to this codebase, please read the follo
 ## Additional Documentation
 
 - [SYNC_CONFIG.md](../docs/SYNC_CONFIG.md) — Sync configuration format
-- [CRAWL_CONFIG.md](../docs/CRAWL_CONFIG.md) — Crawl configuration format  
+- [CRAWL_CONFIG.md](../docs/CRAWL_CONFIG.md) — Crawl configuration format
 - [COLLECT_CONFIG.md](../docs/COLLECT_CONFIG.md) — Collect configuration format
-- [CURATE_CONFIG.md](../docs/CURATE_CONFIG.md) — Curate configuration and keyboard controls
+- [CURATE_CONFIG.md](../docs/CURATE_CONFIG.md) — Curate configuration (playlist arg + string-list `targets` accept ID/URI/URL/name; move mode `m`) and keyboard controls

@@ -30,6 +30,10 @@ class CurateTargetPlaylistsCache {
   void markAdded(String playlistId, String trackId) {
     ids.putIfAbsent(playlistId, () => {}).add(trackId);
   }
+
+  void markRemoved(String playlistId, String trackId) {
+    ids[playlistId]?.remove(trackId);
+  }
 }
 
 /// Liked Songs lookup for curate: fast per-track checks, optional full preload

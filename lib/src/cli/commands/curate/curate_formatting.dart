@@ -1,3 +1,4 @@
+import 'package:in_phase/src/cli/commands/curate/curate_types.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:nocterm/nocterm.dart';
@@ -48,11 +49,11 @@ bool? _trackInPlaylist(
 
 /// Sticky footer row: target playlist keys (styled) + per-target ✓ / space.
 RichText curateFooterTargetsRow(
-  CurateConfig config, {
+  List<CurateResolvedTarget> targets, {
   String? trackId,
   Map<String, Set<String>>? playlistTrackIds,
 }) {
-  if (config.targets.isEmpty) {
+  if (targets.isEmpty) {
     return const RichText(
       text: TextSpan(
         text: 'No target playlists in config — add targets for keys 1–9.',
@@ -62,7 +63,7 @@ RichText curateFooterTargetsRow(
   }
 
   final children = <InlineSpan>[
-    for (var i = 0; i < config.targets.length; i++) ...[
+    for (var i = 0; i < targets.length; i++) ...[
       if (i > 0) const TextSpan(text: '  '),
       TextSpan(
         text: '[${i + 1}]',
@@ -72,10 +73,10 @@ RichText curateFooterTargetsRow(
         _trackInPlaylist(
           trackId,
           playlistTrackIds,
-          config.targets[i].playlistId,
+          targets[i].playlistId,
         ),
       ),
-      TextSpan(text: ' ${config.targets[i].name}'),
+      TextSpan(text: ' ${targets[i].name}'),
     ],
   ];
   return RichText(
@@ -91,6 +92,7 @@ RichText curateFooterKeysRow(
   CurateConfig config, {
   String? trackId,
   Set<String>? likedIds,
+  bool moveMode = false,
 }) {
   final inLikes = trackId == null || likedIds == null
       ? null
@@ -121,6 +123,25 @@ RichText curateFooterKeysRow(
     const TextSpan(
       text: '[c] copy URL  ',
       style: TextStyle(color: Colors.cyan),
+    ),
+    const TextSpan(
+      text: '[o] open  ',
+      style: TextStyle(color: Colors.cyan),
+    ),
+    const TextSpan(
+      text: '[f] find playlist  ',
+      style: TextStyle(color: Colors.cyan),
+    ),
+    const TextSpan(
+      text: '[m] move ',
+      style: TextStyle(color: Colors.cyan),
+    ),
+    TextSpan(
+      text: moveMode ? 'ON  ' : 'OFF  ',
+      style: TextStyle(
+        color: moveMode ? Colors.green : Colors.grey,
+        fontWeight: moveMode ? FontWeight.bold : FontWeight.dim,
+      ),
     ),
     const TextSpan(
       text: '[q] quit',

@@ -1,4 +1,5 @@
 import 'package:in_phase/src/cli/commands/curate/curate_liked_cache.dart';
+import 'package:in_phase/src/cli/commands/curate/curate_user_playlists_cache.dart';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:spotify/spotify.dart';
 
@@ -15,6 +16,36 @@ enum CurateMessageTone {
   warning,
   error,
   accent,
+}
+
+/// A config target string resolved to a Spotify playlist at session start.
+class CurateResolvedTarget {
+  const CurateResolvedTarget({
+    required this.input,
+    required this.playlistId,
+    required this.name,
+  });
+
+  /// Config string, e.g. `KEYSORT`.
+  final String input;
+
+  /// Resolved Spotify playlist ID.
+  final String playlistId;
+
+  /// Display name from Spotify after resolution.
+  final String name;
+}
+
+/// Mutable per-session UI state (move mode, chained move source).
+class CurateRuntimeState {
+  CurateRuntimeState({required String sourcePlaylistId})
+    : moveSourcePlaylistId = sourcePlaylistId;
+
+  bool moveMode = false;
+
+  /// Playlist the next move removes from; resets per track to the curated
+  /// playlist id.
+  String moveSourcePlaylistId;
 }
 
 /// Bundles track-specific data needed by key handlers.
@@ -39,17 +70,28 @@ class CurateContext {
   CurateContext({
     required this.api,
     required this.config,
+    required this.sourcePlaylistId,
     required this.playlistName,
+    required this.resolvedTargets,
     required this.tracks,
     required this.tracksToCurate,
     required this.startIndex,
     required this.targetPlaylists,
     required this.likedCache,
+    required this.userPlaylists,
   });
 
   final SpotifyApi api;
   final CurateConfig config;
+
+  /// Playlist being curated (move default source).
+  final String sourcePlaylistId;
+
   final String playlistName;
+
+  /// Config targets resolved at session start (keys 1–9).
+  final List<CurateResolvedTarget> resolvedTargets;
+
   final List<Track> tracks;
   final List<Track> tracksToCurate;
   final int startIndex;
@@ -59,6 +101,22 @@ class CurateContext {
 
   /// Liked Songs: fast per-track checks; full library preload for footer hints.
   final CurateLikedTracksCache likedCache;
+
+  /// User-owned/collaborative playlists for the add-to-playlist picker (`f`).
+  final CurateUserPlaylistsCache userPlaylists;
+
+  /// Display name for [playlistId] (resolved targets or curated playlist).
+  String playlistDisplayName(String playlistId) {
+    if (playlistId == sourcePlaylistId) {
+      return playlistName;
+    }
+    for (final target in resolvedTargets) {
+      if (target.playlistId == playlistId) {
+        return target.name;
+      }
+    }
+    return playlistId;
+  }
 }
 
 /// Owns the Spotify client for a session; call [dispose] before process exit.

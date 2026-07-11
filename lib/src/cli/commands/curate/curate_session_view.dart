@@ -27,6 +27,7 @@ final class CurateSessionView extends StatefulComponent {
 
 final class _CurateSessionViewState extends State<CurateSessionView> {
   late final CurateKeyHandler _keyHandler;
+  late final CurateRuntimeState _runtime;
   var _trackIndex = 0;
   late TrackPlaybackState _playbackState;
   var _busy = false;
@@ -42,7 +43,10 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
   @override
   void initState() {
     super.initState();
-    _keyHandler = CurateKeyHandler(_ctx);
+    _runtime = CurateRuntimeState(
+      sourcePlaylistId: _ctx.sourcePlaylistId,
+    );
+    _keyHandler = CurateKeyHandler(_ctx, _runtime);
     _playbackState = _playbackStateForIndex(_trackIndex);
     unawaited(_preloadFooterLibraryIds());
     unawaited(_startPlaybackForCurrentTrack());
@@ -161,6 +165,12 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     if (_sessionEnded) {
       return true;
     }
+    if (_isFindPlaylistKey(event)) {
+      if (_trackIndex < _ctx.tracksToCurate.length) {
+        unawaited(_openAddToPlaylistDialog());
+      }
+      return true;
+    }
     if (_startingPlayback && !_allowsDuringPlaybackStart(event)) {
       return true;
     }
@@ -201,6 +211,35 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     }
     final ch = event.character?.toLowerCase();
     return ch == ' ' || ch == 's' || ch == 'n' || ch == 'q';
+  }
+
+  bool _isFindPlaylistKey(KeyboardEvent event) {
+    final ch = event.character?.toLowerCase();
+    return ch == 'f' || event.logicalKey == LogicalKey.keyF;
+  }
+
+  Future<void> _openAddToPlaylistDialog() async {
+    if (_sessionEnded || _trackIndex >= _ctx.tracksToCurate.length) {
+      return;
+    }
+    final track = _ctx.tracksToCurate[_trackIndex];
+    final durationMs = track.durationMs ?? 0;
+    final navigator = Navigator.maybeOf(context);
+    if (navigator == null) {
+      return;
+    }
+    final result = await navigator.showDialog<KeyResult>(
+      builder: (dialogContext) => CurateAddToPlaylistDialog(
+        context: _ctx,
+        runtime: _runtime,
+        currentTrack: _currentTrackInfo(track, durationMs),
+      ),
+      width: 56,
+      height: 18,
+    );
+    if (result != null && mounted) {
+      await _applyKeyResult(result, durationMs);
+    }
   }
 
   Future<void> _processKey(KeyboardEvent event) async {
@@ -251,6 +290,7 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       // when moving to the next song — same idea as clearing status on "next"
       // in the pre-Nocterm stream UI.
       _activityLog.clear();
+      _runtime.moveSourcePlaylistId = _ctx.sourcePlaylistId;
       _trackIndex++;
       if (logLine != null) {
         _activityLog.add(logLine);
@@ -320,7 +360,7 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
           ),
           const Divider(),
           curateFooterTargetsRow(
-            _ctx.config,
+            _ctx.resolvedTargets,
             trackId: track.id,
             playlistTrackIds: _playlistTrackIds,
           ),
@@ -328,6 +368,7 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
             _ctx.config,
             trackId: track.id,
             likedIds: _likedIds,
+            moveMode: _runtime.moveMode,
           ),
         ],
       ),

@@ -22,9 +22,3 @@ Map<String, dynamic> _$CurateConfigToJson(CurateConfig instance) =>
       'auto_add_to_likes': instance.autoAddToLikes,
       'targets': _targetsToJson(instance.targets),
     };
-
-CurateTarget _$CurateTargetFromJson(Map<String, dynamic> json) =>
-    CurateTarget(id: json['id'] as String, name: json['name'] as String);
-
-Map<String, dynamic> _$CurateTargetToJson(CurateTarget instance) =>
-    <String, dynamic>{'id': instance.id, 'name': instance.name};

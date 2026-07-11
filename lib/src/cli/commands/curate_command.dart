@@ -14,6 +14,9 @@ import 'package:spotify/spotify.dart';
 /// Max tracks fetched per playlist request (Spotify API pagination).
 const _maxPlaylistTracksPerPage = 100;
 
+/// Max target playlist keys (1-9).
+const _maxTargetPlaylists = 9;
+
 class CurateCommand extends Command<int> {
   CurateCommand() {
     argParser
@@ -37,6 +40,7 @@ class CurateCommand extends Command<int> {
   @override
   final String description =
       'Preview playlist tracks, add to target playlists or go to next. '
+      'Playlist: ID, URI, URL, or name. '
       'Requires Spotify Premium and an active device.';
 
   @override
@@ -52,12 +56,14 @@ class CurateCommand extends Command<int> {
         '${active.context.tracksToCurate.length} track(s) to curate',
       );
       await runApp(
-        CurateSessionView(
-          session: active,
-          onExit: (code) async {
-            await active.dispose();
-            shutdownApp(code);
-          },
+        Navigator(
+          home: CurateSessionView(
+            session: active,
+            onExit: (code) async {
+              await active.dispose();
+              shutdownApp(code);
+            },
+          ),
         ),
         enableHotReload: false,
       );
@@ -80,7 +86,7 @@ class CurateCommand extends Command<int> {
   // ---------------------------------------------------------------------------
 
   ({
-    SpotifyPlaylistId playlistId,
+    String playlistInput,
     int skipCount,
     File configFile,
     bool usesCustomConfigPath,
@@ -90,16 +96,13 @@ class CurateCommand extends Command<int> {
         ? argResults!.rest.first
         : null;
     if (playlistArg == null) {
-      usageException('A playlist is required (ID, URI, or share URL).');
+      usageException(
+        'A playlist is required (ID, URI, share URL, or name).',
+      );
     }
     final arg = playlistArg.trim();
     if (arg.isEmpty) {
       usageException('A playlist is required.');
-    }
-
-    final playlistId = SpotifyPlaylistId.tryExtract(arg);
-    if (playlistId == null) {
-      usageException('Invalid playlist: $playlistArg');
     }
 
     final skipStr = argResults!['skip'] as String? ?? '0';
@@ -115,7 +118,7 @@ class CurateCommand extends Command<int> {
         : Constants.curateConfigFile;
 
     return (
-      playlistId: playlistId,
+      playlistInput: arg,
       skipCount: skipCount,
       configFile: configFile,
       usesCustomConfigPath: usesCustomConfigPath,
@@ -128,7 +131,7 @@ class CurateCommand extends Command<int> {
 
   Future<CurateSession> _loadSession(
     ({
-      SpotifyPlaylistId playlistId,
+      String playlistInput,
       int skipCount,
       File configFile,
       bool usesCustomConfigPath,
@@ -143,33 +146,58 @@ class CurateCommand extends Command<int> {
     if (config.targets.isEmpty) {
       log.warning(
         'No target playlists configured. Add targets to your curate '
-        'config to add tracks to playlists (keys 1-N).\n'
+        'config to add tracks to playlists (keys 1-N), or press f to '
+        'search your library.\n'
         'Config path: ${args.configFile.path}',
       );
+    } else if (config.targets.length > _maxTargetPlaylists) {
+      log.error(
+        'Too many target playlists (${config.targets.length}). '
+        'Maximum is $_maxTargetPlaylists (keys 1-9).',
+      );
+      throw CurateExit(ExitCode.config.code);
     }
 
     final api = await spotifyLogin();
     final requestPool = Zonable.fromZone<RequestPool>();
 
     try {
+      final likedCache = CurateLikedTracksCache(api, requestPool)
+        ..startPreload();
+      final userPlaylists = CurateUserPlaylistsCache()..start(api, requestPool);
+
+      log.info('Prefetching your Spotify playlists for add-to-playlist…');
+      await userPlaylists.ready;
+
+      final resolvedTargets = await _resolveTargets(
+        api: api,
+        inputs: config.targets,
+        userPlaylists: userPlaylists.savedPlaylists,
+      );
+
       final targetPlaylists = CurateTargetPlaylistsCache();
-      if (config.targets.isNotEmpty) {
+      if (resolvedTargets.isNotEmpty) {
         targetPlaylists.start(
-          _fetchTargetTrackIds(api, requestPool, config.targets),
+          _fetchTargetTrackIds(api, requestPool, resolvedTargets),
         );
       } else {
         targetPlaylists.loaded = true;
       }
-      final likedCache = CurateLikedTracksCache(api, requestPool)
-        ..startPreload();
 
-      final playlist = await api.playlists.get(args.playlistId);
-      final playlistName = playlist.name ?? args.playlistId.toString();
+      log.info('Resolving playlist to curate: "${args.playlistInput}"');
+      final sourcePlaylist = await _resolveSourcePlaylist(
+        api: api,
+        input: args.playlistInput,
+        userPlaylists: userPlaylists.savedPlaylists,
+      );
+      final playlistId = SpotifyPlaylistId(sourcePlaylist.playlistId);
+      final resolvedName = sourcePlaylist.name;
+
       final playlistTracks = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(args.playlistId.toString()),
+        api.playlists.getPlaylistTracks(playlistId.toString()),
         limit: _maxPlaylistTracksPerPage,
         pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-          args.playlistId,
+          playlistId,
           offset,
         ),
       );
@@ -196,12 +224,15 @@ class CurateCommand extends Command<int> {
         context: CurateContext(
           api: api,
           config: config,
-          playlistName: playlistName,
+          sourcePlaylistId: playlistId.toString(),
+          playlistName: resolvedName,
+          resolvedTargets: resolvedTargets,
           tracks: tracks,
           tracksToCurate: tracksToCurate,
           startIndex: startIndex,
           targetPlaylists: targetPlaylists,
           likedCache: likedCache,
+          userPlaylists: userPlaylists,
         ),
       );
     } on CurateExit {
@@ -253,10 +284,93 @@ class CurateCommand extends Command<int> {
     }
   }
 
+  Future<List<CurateResolvedTarget>> _resolveTargets({
+    required SpotifyApi api,
+    required List<String> inputs,
+    required List<PlaylistSimple> userPlaylists,
+  }) async {
+    if (inputs.isEmpty) {
+      return [];
+    }
+
+    log.info('Resolving ${inputs.length} target playlist(s)…');
+    final resolved = <CurateResolvedTarget>[];
+
+    for (final input in inputs) {
+      final result = await resolvePlaylistTarget(
+        api: api,
+        input: input,
+        userPlaylists: userPlaylists,
+      );
+
+      switch (result) {
+        case PlaylistSpotifyTarget(:final playlist):
+          final playlistId = playlist.id;
+          if (playlistId == null || playlistId.isEmpty) {
+            log.error('Target "$input" resolved but has no playlist id.');
+            throw CurateExit(ExitCode.config.code);
+          }
+          final name = playlist.name ?? input;
+          log.info('  ✓ "$input" → "$name"');
+          resolved.add(
+            CurateResolvedTarget(
+              input: input,
+              playlistId: playlistId,
+              name: name,
+            ),
+          );
+        case LikedSongsSpotifyTarget():
+          log.error(
+            'Target "$input" resolved to Liked Songs. Use key l during '
+            'curate, or pick a playlist target.',
+          );
+          throw CurateExit(ExitCode.config.code);
+        case null:
+          log.error('Could not resolve target playlist: "$input"');
+          throw CurateExit(ExitCode.config.code);
+      }
+    }
+
+    return resolved;
+  }
+
+  Future<({String playlistId, String name})> _resolveSourcePlaylist({
+    required SpotifyApi api,
+    required String input,
+    required List<PlaylistSimple> userPlaylists,
+  }) async {
+    final result = await resolvePlaylistTarget(
+      api: api,
+      input: input,
+      userPlaylists: userPlaylists,
+    );
+
+    switch (result) {
+      case PlaylistSpotifyTarget(:final playlist):
+        final playlistId = playlist.id;
+        if (playlistId == null || playlistId.isEmpty) {
+          log.error('Playlist "$input" resolved but has no playlist id.');
+          throw CurateExit(ExitCode.config.code);
+        }
+        final name = playlist.name ?? input;
+        log.info('  ✓ "$input" → "$name"');
+        return (playlistId: playlistId, name: name);
+      case LikedSongsSpotifyTarget():
+        log.error(
+          'Playlist "$input" resolved to Liked Songs. '
+          'Curate requires a playlist.',
+        );
+        throw CurateExit(ExitCode.config.code);
+      case null:
+        log.error('Could not resolve playlist to curate: "$input"');
+        throw CurateExit(ExitCode.config.code);
+    }
+  }
+
   Future<Map<String, Set<String>>> _fetchTargetTrackIds(
     SpotifyApi api,
     RequestPool requestPool,
-    List<CurateTarget> targets,
+    List<CurateResolvedTarget> targets,
   ) async {
     final trackSets = await Future.wait([
       for (final t in targets)
