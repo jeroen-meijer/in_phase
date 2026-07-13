@@ -11,6 +11,7 @@ export 'itunes_store.dart';
 export 'musical_key.dart';
 export 'nullable_extensions.dart';
 export 'rekordbox_audio_path.dart';
+export 'shell_spinner.dart';
 export 'request_pool.dart';
 export 'string_extensions.dart';
 export 'system_launcher.dart';

@@ -29,6 +29,14 @@ class Constants {
     path.join(appDataDir.path, 'collect_config.yaml'),
   );
 
+  static final engineSyncConfigFile = File(
+    path.join(appDataDir.path, 'engine_sync_config.yaml'),
+  );
+
+  static final engineSyncBackupsDir = Directory(
+    path.join(buildDir.path, 'engine_sync_backups'),
+  );
+
   static final buildDir = Directory(
     path.join(appDataDir.path, 'build'),
   );

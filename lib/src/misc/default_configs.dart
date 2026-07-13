@@ -214,4 +214,29 @@ targets:
 #       track_order: oldest_first         # oldest_first | newest_first (default: oldest_first)
 collections: []
 ''';
+
+  /// Default engine sync configuration.
+  static const String engineSyncConfig = '''
+# Engine Sync Configuration
+# This file configures the one-way sync from Rekordbox to Engine DJ.
+# Usage: in_phase library sync engine [--dry-run]
+# See docs/ENGINE_SYNC.md for full documentation.
+
+# Engine Library directory (default: ~/Music/Engine Library)
+# engine_library_path: "~/Music/Engine Library"
+
+# Rekordbox analysis files directory containing PIONEER/
+# (default: <rekordbox database dir>/share)
+# anlz_root_path: "~/Library/Pioneer/rekordbox/share"
+
+# Remove Engine tracks/playlists that are absent from Rekordbox, making
+# Engine an exact mirror of Rekordbox. Disable to only add/update.
+prune: true
+
+# Spill memory cues into empty hot cue slots (Engine has no memory cues).
+memory_cues_to_hot_cues: false
+
+# Sync album artwork from Rekordbox ImagePath into Engine.
+sync_art: true
+''';
 }
