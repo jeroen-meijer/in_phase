@@ -14,8 +14,9 @@ Future<void> main(List<String> args) async {
 
   final results = parser.parse(args);
   if (results.rest.isNotEmpty) {
-    stderr.writeln('Unexpected arguments: ${results.rest.join(' ')}');
-    stderr.writeln(parser.usage);
+    stderr
+      ..writeln('Unexpected arguments: ${results.rest.join(' ')}')
+      ..writeln(parser.usage);
     exitCode = 64;
     return;
   }

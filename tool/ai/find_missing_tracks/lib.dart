@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:in_phase/src/database/database.dart';
 import 'package:in_phase/src/misc/misc.dart';
@@ -36,7 +35,8 @@ File findMissingTracksApprovedFile() =>
 
 /// Filters synced Spotify playlist names. Empty scope = all missing tracks.
 ///
-/// Patterns are Dart regexes, combined with OR when `--playlist-regex` is repeated.
+/// Patterns are Dart regexes, combined with OR when `--playlist-regex` is
+/// repeated.
 class PlaylistScope {
   PlaylistScope._({
     required this.patterns,
@@ -58,9 +58,7 @@ class PlaylistScope {
     return PlaylistScope._(patterns: patterns, regexes: regexes);
   }
 
-  const PlaylistScope.unfiltered()
-      : patterns = const [],
-        _regexes = const [];
+  const PlaylistScope.unfiltered() : patterns = const [], _regexes = const [];
 
   final List<String> patterns;
   final List<RegExp> _regexes;
@@ -88,15 +86,14 @@ class PlaylistScope {
 }
 
 ArgParser buildPlaylistScopeParser() {
-  return ArgParser()
-    ..addMultiOption(
-      'playlist-regex',
-      abbr: 'r',
-      help:
-          'Synced playlist name matches this regex (repeatable; OR between '
-          'patterns). Omit to include all missing tracks.',
-      valueHelp: 'REGEX',
-    );
+  return ArgParser()..addMultiOption(
+    'playlist-regex',
+    abbr: 'r',
+    help:
+        'Synced playlist name matches this regex (repeatable; OR between '
+        'patterns). Omit to include all missing tracks.',
+    valueHelp: 'REGEX',
+  );
 }
 
 PlaylistScope playlistScopeFromArgs(ArgResults results) =>
@@ -330,7 +327,8 @@ Future<Map<String, Object?>> investigateTrack({
     'spotify_artists': track.artists,
     'spotify_display': track.display,
     'search_query': combinedQuery,
-    'near_miss': syncScore >= nearMissMinScore && syncScore < syncMatchThreshold,
+    'near_miss':
+        syncScore >= nearMissMinScore && syncScore < syncMatchThreshold,
     'sync_best': {
       'score': syncScore,
       'rb_track_id': syncMatch.value.song.id,
@@ -358,8 +356,9 @@ String buildReviewBrief({
     ..writeln('**Remixes/versions:** same remix on both sides only.')
     ..writeln(
       '`Artist - Song` ≠ `Artist - Song (Someguy Remix)`. '
-      'If Spotify is original, reject Rekordbox remix/VIP/bootleg titles. '
-      'If Spotify names a remix, Rekordbox must be that remix (not original, not another remix).',
+      'If Spotify is original, reject Rekordbox remix/VIP/bootleg '
+      'titles. If Spotify names a remix, Rekordbox must be that remix '
+      '(not original, not another remix).',
     )
     ..writeln(
       'Also reject: acapella stems (`_(Vocals)`), title-only matches.',
@@ -374,17 +373,19 @@ String buildReviewBrief({
     );
 
   if (nearMisses.isNotEmpty) {
-    buffer.writeln(
-      '## Near misses (sync score $nearMissMinScore–$nearMissMaxScore)',
-    );
-    buffer.writeln();
+    buffer
+      ..writeln(
+        '## Near misses (sync score $nearMissMinScore–$nearMissMaxScore)',
+      )
+      ..writeln();
     for (final track in nearMisses) {
       _writeTrackSection(buffer, track);
     }
   }
 
-  buffer.writeln('## All missing tracks');
-  buffer.writeln();
+  buffer
+    ..writeln('## All missing tracks')
+    ..writeln();
   for (final track in tracks) {
     _writeTrackSection(buffer, track);
   }
@@ -400,14 +401,18 @@ void _writeTrackSection(StringBuffer buffer, Map<String, Object?> track) {
     ..writeln('- Spotify ID: `${track['spotify_track_id']}`')
     ..writeln('- Search query: `${track['search_query']}`')
     ..writeln(
-      '- Sync best (${sync['score']}): ${sync['rb_artist']} - ${sync['rb_title']} [`${sync['rb_track_id']}`]',
+      '- Sync best (${sync['score']}): ${sync['rb_artist']} - '
+      '${sync['rb_title']} [`${sync['rb_track_id']}`]',
     )
     ..writeln('- Combined search top hits:');
 
-  for (final hit in (track['search_combined']! as List).cast<Map>()) {
-    buffer.writeln(
-      '  - (${hit['score']}) ${hit['rb_artist']} - ${hit['rb_title']} [`${hit['rb_track_id']}`]',
-    );
+  for (final hit
+      in (track['search_combined']! as List).cast<Map<String, Object?>>()) {
+    final score = hit['score'];
+    final artist = hit['rb_artist'];
+    final title = hit['rb_title'];
+    final id = hit['rb_track_id'];
+    buffer.writeln('  - ($score) $artist - $title [`$id`]');
   }
   buffer.writeln();
 }
@@ -476,9 +481,9 @@ Future<void> applyMappingsToCache(Map<String, String> mappings) async {
     });
 
     final spotifyIds = mappings.keys.toList();
-    await (db.delete(db.syncMissingTracks)
-          ..where((t) => t.spotifyTrackId.isIn(spotifyIds)))
-        .go();
+    await (db.delete(
+      db.syncMissingTracks,
+    )..where((t) => t.spotifyTrackId.isIn(spotifyIds))).go();
   } finally {
     await db.close();
   }

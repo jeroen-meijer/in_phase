@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/cli/commands/sort/sort_relative_moves.dart';
 import 'package:in_phase/src/database/database.exports.dart';
+import 'package:in_phase/src/library/library.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
@@ -99,7 +100,7 @@ class SortCommand extends Command<int> {
       }
 
       final mappings = await syncDb.syncMappingsDao.getAllMappings();
-      final rbSongKeys = await _loadRekordboxSongKeys(rbDb);
+      final rbSongKeys = await loadRekordboxSongKeys(rbDb);
 
       final entries = <_SortEntry>[];
       var unmappedCount = 0;
@@ -224,25 +225,6 @@ class _SortEntry {
   final int originalIndex;
 }
 
-Future<Map<String, String?>> _loadRekordboxSongKeys(
-  RekordboxDatabase rbDb,
-) async {
-  final keyById = {
-    for (final key in await rbDb.select(rbDb.djmdKey).get())
-      if (key.id != null && key.scaleName != null) key.id!: key.scaleName!,
-  };
-
-  final contents = await (rbDb.select(
-    rbDb.djmdContent,
-  )..where((c) => c.rbLocalDeleted.equals(0))).get();
-
-  return {
-    for (final content in contents)
-      if (content.id != null)
-        content.id!: content.keyID != null ? keyById[content.keyID] : null,
-  };
-}
-
 void _logSortedPreview({
   required String playlistName,
   required List<_SortEntry> sortedEntries,
@@ -312,9 +294,7 @@ String _formatSortTrackLine({
   final artistPart = artists.isEmpty ? 'Unknown Artist' : artists;
   final titlePart = '$artistPart — ${entry.trackName}';
   // Same width for arrow / blank so moved and stable lines stay aligned.
-  final marker = moved
-      ? (position - 1 < entry.originalIndex ? '↑' : '↓')
-      : ' ';
+  final marker = moved ? (position - 1 < entry.originalIndex ? '↑' : '↓') : ' ';
 
   if (!moved) {
     return grey('  $pos. $marker  $keyRaw  $titlePart');

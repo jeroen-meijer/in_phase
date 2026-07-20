@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:args/args.dart';
 import 'package:in_phase/src/database/database.dart';
 import 'package:in_phase/src/misc/misc.dart';
 
@@ -10,8 +9,9 @@ Future<void> main(List<String> args) async {
   final parser = buildPlaylistScopeParser();
   final results = parser.parse(args);
   if (results.rest.isNotEmpty) {
-    stderr.writeln('Unexpected arguments: ${results.rest.join(' ')}');
-    stderr.writeln(parser.usage);
+    stderr
+      ..writeln('Unexpected arguments: ${results.rest.join(' ')}')
+      ..writeln(parser.usage);
     exitCode = 64;
     return;
   }
@@ -19,7 +19,8 @@ Future<void> main(List<String> args) async {
   late final PlaylistScope scope;
   try {
     scope = playlistScopeFromArgs(results);
-  } on ArgumentError catch (e) {
+  } catch (e) {
+    if (e is! ArgumentError) rethrow;
     stderr.writeln(e.message);
     exitCode = 64;
     return;
@@ -42,18 +43,25 @@ Future<void> main(List<String> args) async {
       );
     }
 
-    stdout.writeln('');
-    stdout.writeln('$total missing track rows across ${playlists.length} playlist(s)');
-    stdout.writeln('');
-    stdout.writeln('Cache: ${Constants.cacheDbFile.path}');
+    stdout
+      ..writeln()
+      ..writeln(
+        '$total missing track rows across ${playlists.length} playlist(s)',
+      )
+      ..writeln()
+      ..writeln('Cache: ${Constants.cacheDbFile.path}');
     if (scope.isUnfiltered) {
       stdout.writeln('Scope: all missing tracks (no playlist filter).');
     } else {
       stdout.writeln('Scope: ${scope.describe()}');
     }
-    stdout.writeln('');
-    stdout.writeln('Prepare with one or more --playlist-regex flags (OR):');
-    stdout.writeln(r'  dart run tool/ai/find_missing_tracks/prepare.dart --playlist-regex ".*DJ.*"');
+    stdout
+      ..writeln()
+      ..writeln('Prepare with one or more --playlist-regex flags (OR):')
+      ..writeln(
+        '  dart run tool/ai/find_missing_tracks/prepare.dart '
+        '--playlist-regex ".*DJ.*"',
+      );
   } finally {
     await db.close();
   }

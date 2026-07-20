@@ -16,4 +16,5 @@ export 'rekordbox/anlz_parser.dart';
 export 'rekordbox/rekordbox_artwork.dart';
 export 'rekordbox/rekordbox_models.dart';
 export 'rekordbox/rekordbox_reader.dart';
+export 'rekordbox/rekordbox_song_meta.dart';
 export 'sync/engine_sync_runner.dart';

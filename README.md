@@ -182,6 +182,14 @@ in_phase sync <playlist_id1> <playlist_id2>
 
 Syncs Spotify playlists to your Rekordbox database. See [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) for configuration details.
 
+### Export for Spicetify
+
+```bash
+in_phase export spicetify
+```
+
+Writes `~/.config/spicetify/Extensions/in-phase-data.js` (Spotify track → Rekordbox Camelot key + BPM) for the companion [spicetify-in-phase](https://github.com/jeroen-meijer/spicetify-in-phase) extension. Requires a prior `sync` so track mappings exist. Restart Spotify after exporting.
+
 ### Buy missing tracks
 
 ```bash

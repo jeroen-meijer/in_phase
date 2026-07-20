@@ -13,8 +13,14 @@ void main() {
     });
 
     test('accepts natural key names', () {
-      expect(mapKeyToCamelotPlaylistOrder('Am'), mapKeyToCamelotPlaylistOrder('8A'));
-      expect(mapKeyToCamelotPlaylistOrder('C'), mapKeyToCamelotPlaylistOrder('8B'));
+      expect(
+        mapKeyToCamelotPlaylistOrder('Am'),
+        mapKeyToCamelotPlaylistOrder('8A'),
+      );
+      expect(
+        mapKeyToCamelotPlaylistOrder('C'),
+        mapKeyToCamelotPlaylistOrder('8B'),
+      );
     });
 
     test('returns null for unknown keys', () {

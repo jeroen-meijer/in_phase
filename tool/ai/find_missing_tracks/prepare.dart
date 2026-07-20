@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:args/args.dart';
 import 'package:in_phase/src/database/database.dart';
 import 'package:in_phase/src/misc/misc.dart';
 
@@ -11,8 +10,9 @@ Future<void> main(List<String> args) async {
   final parser = buildPlaylistScopeParser();
   final results = parser.parse(args);
   if (results.rest.isNotEmpty) {
-    stderr.writeln('Unexpected arguments: ${results.rest.join(' ')}');
-    stderr.writeln(parser.usage);
+    stderr
+      ..writeln('Unexpected arguments: ${results.rest.join(' ')}')
+      ..writeln(parser.usage);
     exitCode = 64;
     return;
   }
@@ -20,7 +20,8 @@ Future<void> main(List<String> args) async {
   late final PlaylistScope scope;
   try {
     scope = playlistScopeFromArgs(results);
-  } on ArgumentError catch (e) {
+  } catch (e) {
+    if (e is! ArgumentError) rethrow;
     stderr.writeln(e.message);
     exitCode = 64;
     return;
@@ -29,8 +30,11 @@ Future<void> main(List<String> args) async {
   final reviewDir = findMissingTracksReviewDir();
   await reviewDir.create(recursive: true);
 
-  stderr.writeln('Loading missing tracks from ${Constants.cacheDbFile.path}...');
-  stderr.writeln('Playlist scope: ${scope.describe()}');
+  stderr
+    ..writeln(
+      'Loading missing tracks from ${Constants.cacheDbFile.path}...',
+    )
+    ..writeln('Playlist scope: ${scope.describe()}');
   final cacheDb = AppDatabase.fromCacheDbFile();
   final missingTracks = await loadMissingTracks(
     db: cacheDb,
@@ -83,6 +87,7 @@ Future<void> main(List<String> args) async {
     await findMissingTracksApprovedFile().delete();
   }
 
-  stdout.writeln(findMissingTracksReviewDir().path);
-  stdout.writeln('tracks=${candidates.length} near_misses=$nearMissCount');
+  stdout
+    ..writeln(findMissingTracksReviewDir().path)
+    ..writeln('tracks=${candidates.length} near_misses=$nearMissCount');
 }
