@@ -3,3 +3,4 @@ alwaysApply: true
 ---
 - For any Dart command, do NOT use `fvm dart`, but simple `dart`.
 - Use the Dart MCP first, if that doesn't work for you fall back to static code analysis.
+- Prefer `package:collection`'s `.sorted` over mutating `.sort` (including `..sort`). `.sorted` returns a new list and chains; `.sort` mutates in place and needs cascade syntax.

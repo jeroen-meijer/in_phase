@@ -10,7 +10,9 @@ environment:
 
 dependencies:
   args: ^2.7.0
+  clix: ^1.2.0
   collection: ^1.19.1
+  crypto: ^3.0.7
   dart_console: ^4.1.1
   dcli: ^8.3.0
   doos: ^0.0.1
@@ -22,6 +24,7 @@ dependencies:
   intl: ^0.20.2
   io: ^1.0.5
   json_annotation: ^4.9.0
+  meta: ^1.16.0
   nocterm: ^0.6.0
   oauth2: ^2.0.5
   oxidized: ^6.2.0

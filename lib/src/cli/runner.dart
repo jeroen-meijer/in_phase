@@ -25,8 +25,11 @@ CommandRunner<int> createInPhaseCommandRunner({
         ..addCommand(CrawlCommand())
         ..addCommand(CurateCommand())
         ..addCommand(CuesCommand())
+        ..addCommand(ExportCommand())
+        ..addCommand(LibraryCommand())
         ..addCommand(LoginCommand())
         ..addCommand(SearchCommand())
+        ..addCommand(SortCommand())
         ..addCommand(SyncCommand())
         ..addCommand(UpdateCommand());
 

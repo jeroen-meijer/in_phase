@@ -4,3 +4,4 @@ alwaysApply: true
 - NEVER run these commands yourself, always ask for permission: `sync`, `crawl`, etc. You cannot run these since they are expensive API calls and we want to avoid hitting rate limits. Instead, if you want to assert or test some behavior, make a script or config to do so that doesn't call APIs too often (but up to 50 or so times is fine).
 - NEVER clear the cache for crawl or sync yourself, always ask for permission.
 - NEVER run a command or custom script that may delete data from Spotify or especially Rekordbox.
+- For **in_phase CLI** commands, always use `./run.sh <command>` (from repo root), not `dart run bin/in_phase.dart`. `run.sh` compiles when needed and runs the prebuilt binary. Standalone scripts under `tool/` (e.g. `tool/ai/...`) still use `dart run`.

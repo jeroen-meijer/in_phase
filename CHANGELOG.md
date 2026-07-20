@@ -1,5 +1,13 @@
 ## Upcoming
 
+- feat(export): add `in_phase export spicetify` to write `in-phase-data.js` (Spotify track → Rekordbox Camelot key + BPM) for the spicetify-in-phase extension
+- refactor(library): extract `loadRekordboxSongMeta` / `loadRekordboxSongKeys` for shared Rekordbox key+BPM loading (used by `sort` and `export spicetify`)
+- feat(sort): preview full Camelot-sorted track list before confirm; grey relative-stable tracks, highlight movers with ↑/↓; quieter fetch logs
+- feat(sort): add `in_phase sort` to reorder a Spotify playlist by Rekordbox Camelot keys (1A, 1B, 2A, …); prompts for Y confirmation unless `--yes`
+- feat(library): `sync_art` config for `library sync engine` (skip artwork import when false); artwork import shows a clix spinner with `[done/total]` progress
+- fix(library): clarify `library sync engine` summary output (`rewritten` vs `up to date`, beat grid write counts)
+- feat(library): sync album artwork from Rekordbox `ImagePath` into Engine `AlbumArt` (deduped by SHA-1, external `Artwork/` on schema 3.0.2+)
+- fix(library): align beat grid phase and subtract AAC/MP3 encoder delay so Engine downbeats and cues match Rekordbox on WAV and lossy files
 - feat(curate): curate playlist argument accepts ID, URI, share URL, or name (exact/fuzzy match in your library)
 - feat(curate)!: `targets` in curate config are now a list of playlist identifier strings (ID, URI, URL, or name) instead of `{id, name}` objects; resolved at session start like collect/convert
 - feat(curate): press `m` to toggle move mode — keys 1–9 and `f` remove the track from the source playlist (curated playlist or last move target) instead of copying; idempotent when target already has the track

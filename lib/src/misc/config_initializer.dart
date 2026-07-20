@@ -30,6 +30,10 @@ Future<void> ensureDefaultConfigs() async {
     Constants.collectConfigFile,
     DefaultConfigs.collectConfig,
   );
+  await _ensureConfig(
+    Constants.engineSyncConfigFile,
+    DefaultConfigs.engineSyncConfig,
+  );
 }
 
 Future<void> _ensureConfig(File file, String defaultContent) async {

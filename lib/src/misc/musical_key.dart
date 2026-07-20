@@ -218,3 +218,20 @@ String? mapKeyToCamelot(String? key) {
   // If no match found, return original key
   return key;
 }
+
+/// Sort order for Camelot keys in playlist order: 1A, 1B, 2A, 2B, … 12B.
+///
+/// Returns `null` when [keyName] cannot be parsed.
+int? mapKeyToCamelotPlaylistOrder(String? keyName) {
+  final camelot = mapKeyToCamelot(keyName);
+  if (camelot == null) return null;
+
+  final match = RegExp(r'^(\d+)([AB])$').firstMatch(camelot);
+  if (match == null) return null;
+
+  final number = int.tryParse(match.group(1)!);
+  if (number == null || number < 1 || number > 12) return null;
+
+  final isB = match.group(2)! == 'B';
+  return (number - 1) * 2 + (isB ? 1 : 0);
+}
