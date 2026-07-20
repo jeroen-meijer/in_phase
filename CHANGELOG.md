@@ -1,5 +1,7 @@
 ## Upcoming
 
+## 1.5.0
+
 - feat(export): add `in_phase export spicetify` to write `in-phase-data.js` (Spotify track → Rekordbox Camelot key + BPM) for the spicetify-in-phase extension
 - refactor(library): extract `loadRekordboxSongMeta` / `loadRekordboxSongKeys` for shared Rekordbox key+BPM loading (used by `sort` and `export spicetify`)
 - feat(sort): preview full Camelot-sorted track list before confirm; grey relative-stable tracks, highlight movers with ↑/↓; quieter fetch logs
