@@ -28,6 +28,7 @@ CommandRunner<int> createInPhaseCommandRunner({
         ..addCommand(LibraryCommand())
         ..addCommand(LoginCommand())
         ..addCommand(SearchCommand())
+        ..addCommand(SortCommand())
         ..addCommand(SyncCommand())
         ..addCommand(UpdateCommand());
 

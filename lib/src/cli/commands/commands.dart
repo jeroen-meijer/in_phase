@@ -9,5 +9,6 @@ export 'curate_command.dart';
 export 'library_command.dart';
 export 'login_command.dart';
 export 'search_command.dart';
+export 'sort_command.dart';
 export 'sync_command.dart';
 export 'update_command.dart';

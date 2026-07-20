@@ -1,5 +1,7 @@
 ## Upcoming
 
+- feat(sort): preview full Camelot-sorted track list before confirm; grey relative-stable tracks, highlight movers with ↑/↓; quieter fetch logs
+- feat(sort): add `in_phase sort` to reorder a Spotify playlist by Rekordbox Camelot keys (1A, 1B, 2A, …); prompts for Y confirmation unless `--yes`
 - feat(library): `sync_art` config for `library sync engine` (skip artwork import when false); artwork import shows a clix spinner with `[done/total]` progress
 - fix(library): clarify `library sync engine` summary output (`rewritten` vs `up to date`, beat grid write counts)
 - feat(library): sync album artwork from Rekordbox `ImagePath` into Engine `AlbumArt` (deduped by SHA-1, external `Artwork/` on schema 3.0.2+)

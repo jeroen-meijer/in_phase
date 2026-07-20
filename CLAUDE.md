@@ -36,11 +36,12 @@ lib/src/
 
 ```bash
 dart pub get
-./run.sh <command>           # Builds if needed, then runs in_phase
-dart run bin/in_phase.dart <command>
+./run.sh <command>           # Preferred: builds if needed, runs compiled binary
 dart run build_runner build --delete-conflicting-outputs
 dart test
 ```
+
+Use `./run.sh`, not `dart run bin/in_phase.dart`, for all in_phase CLI commands. Standalone `tool/` scripts (e.g. `tool/ai/...`) still use `dart run`.
 
 Release PRs (changelog + bump `pubspec.yaml` and `Constants.version`, then open a labeled PR): `./tool/prepare_release.sh <x.y.z>` (requires `git`, `gh`, `awk`, clean working tree). Changelog heading logic lives in `tool/rewrite_changelog_for_release.sh`.
 
@@ -50,6 +51,7 @@ Pull requests run GitHub Actions (format, `dart analyze`, tests, coverage upload
 
 - Use `dart` (not `fvm dart`) for all Dart commands.
 - Use the Dart MCP first; fall back to static analysis if needed.
+- Prefer `package:collection`'s `.sorted` over mutating `.sort` (including `..sort`); `.sorted` returns a new list and chains cleanly.
 - Linting: `very_good_analysis`, excludes `**/*.g.dart`, `build/**`.
 - Config entities: `@JsonSerializable(fieldRename: FieldRename.snake)`, `yamlDecode` + `YamlMap.toMap()` for YAML.
 - Config pattern: Add constant (e.g. `Constants.curateConfigFile`), `fromFile`, default in `config_initializer.dart`.

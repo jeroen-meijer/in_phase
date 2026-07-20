@@ -18,7 +18,7 @@ Cursor's terminal sandbox **blocks** the workflow scripts. Always run with **`re
 - `dart run tool/ai/find_missing_tracks/prepare.dart` (slow — loads full Rekordbox library)
 - `dart run tool/ai/find_missing_tracks/apply.dart`
 - `dart run tool/ai/find_missing_tracks/cleanup.dart`
-- `dart run bin/in_phase.dart search ...` (optional spot-check only)
+- `./run.sh search ...` (optional spot-check only; use `run.sh`, not `dart run bin/in_phase.dart`)
 
 In sandbox they fail on `~/.dart-tool/` telemetry, cannot write `~/.in_phase/build/`, and cannot open the Rekordbox database reliably.
 
@@ -32,7 +32,7 @@ Dart is **compiled**. These do **not** work — do not try:
 - `echo 'void main() {}' | dart`
 - piping heredocs into `dart` as if it were Python/node
 
-Use **`dart run path/to/script.dart`** only. For one-off logic, use the **Read** tool on generated JSON/Markdown, or extend the scripts below.
+Use **`dart run path/to/script.dart`** for `tool/ai/...` workflow scripts. For **in_phase CLI** (e.g. `search`), use **`./run.sh`**, not `dart run bin/in_phase.dart`. For one-off logic, use the **Read** tool on generated JSON/Markdown, or extend the scripts below.
 
 ### Use the scripts, not ad-hoc tooling
 
