@@ -41,6 +41,59 @@ void main() {
     });
   });
 
+  group('coerceEngineAlbumArtHash', () {
+    test('passes through hex TEXT', () {
+      expect(
+        coerceEngineAlbumArtHash('094bfbee1855a36201150b96b1a79df65a767d28'),
+        '094bfbee1855a36201150b96b1a79df65a767d28',
+      );
+    });
+
+    test('hex-encodes a raw 20-byte SHA-1 BLOB', () {
+      final digest = Uint8List.fromList([
+        0x09,
+        0x4b,
+        0xfb,
+        0xee,
+        0x18,
+        0x55,
+        0xa3,
+        0x62,
+        0x01,
+        0x15,
+        0x0b,
+        0x96,
+        0xb1,
+        0xa7,
+        0x9d,
+        0xf6,
+        0x5a,
+        0x76,
+        0x7d,
+        0x28,
+      ]);
+      expect(
+        coerceEngineAlbumArtHash(digest),
+        '094bfbee1855a36201150b96b1a79df65a767d28',
+      );
+    });
+
+    test('decodes a UTF-8 hex string stored as BLOB', () {
+      expect(
+        coerceEngineAlbumArtHash(
+          Uint8List.fromList('abc123'.codeUnits),
+        ),
+        'abc123',
+      );
+    });
+
+    test('returns null for null and empty', () {
+      expect(coerceEngineAlbumArtHash(null), isNull);
+      expect(coerceEngineAlbumArtHash(''), isNull);
+      expect(coerceEngineAlbumArtHash(Uint8List(0)), isNull);
+    });
+  });
+
   group('resolveRekordboxArtworkFile', () {
     test('returns null when the file is missing', () {
       final dir = Directory.systemTemp.createTempSync('in_phase_art_test');

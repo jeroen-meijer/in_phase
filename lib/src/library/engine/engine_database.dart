@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:in_phase/src/library/convert/track_mapper.dart';
 import 'package:in_phase/src/library/engine/engine_album_art.dart';
 import 'package:meta/meta.dart';
@@ -225,7 +227,7 @@ class EngineDatabase {
       for (final row in result)
         EngineAlbumArtRow(
           id: row['id'] as int,
-          hash: row['hash'] as String?,
+          hash: coerceEngineAlbumArtHash(row['hash']),
         ),
     ];
   }
@@ -401,4 +403,31 @@ String _formatEngineDateTime(DateTime time) {
   String pad(int n) => n.toString().padLeft(2, '0');
   return '${time.year}-${pad(time.month)}-${pad(time.day)} '
       '${pad(time.hour)}:${pad(time.minute)}:${pad(time.second)}';
+}
+
+/// Normalizes `AlbumArt.hash` from Engine's sqlite row.
+///
+/// The column is declared TEXT, but some rows store a raw 20-byte SHA-1 BLOB
+/// (legacy / third-party imports). Dart's sqlite3 driver returns those as
+/// [Uint8List], which must be hex-encoded to match our digests.
+@visibleForTesting
+String? coerceEngineAlbumArtHash(Object? value) {
+  switch (value) {
+    case null:
+      return null;
+    case final String s:
+      return s.isEmpty ? null : s;
+    case final Uint8List bytes when bytes.isEmpty:
+      return null;
+    case final Uint8List bytes when bytes.length == 20:
+      return Digest(bytes).toString();
+    case final Uint8List bytes:
+      return utf8.decode(bytes);
+    default:
+      throw ArgumentError.value(
+        value,
+        'value',
+        'Unexpected AlbumArt.hash type: ${value.runtimeType}',
+      );
+  }
 }
