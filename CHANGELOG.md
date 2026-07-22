@@ -1,5 +1,7 @@
 ## Upcoming
 
+## 1.5.1
+
 - feat(tool): add `tool/ai/edit_custom_tracks` resolve helper and Cursor skill for sync `custom_tracks` edits
 - fix(library): coerce Engine `AlbumArt.hash` when stored as a raw SHA-1 BLOB (was crashing `library sync engine` with a Uint8List cast error)
 
