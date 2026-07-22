@@ -1,5 +1,8 @@
 ## Upcoming
 
+- feat(tool): add `tool/ai/edit_custom_tracks` resolve helper and Cursor skill for sync `custom_tracks` edits
+- fix(library): coerce Engine `AlbumArt.hash` when stored as a raw SHA-1 BLOB (was crashing `library sync engine` with a Uint8List cast error)
+
 ## 1.5.0
 
 - feat(export): add `in_phase export spicetify` to write `in-phase-data.js` (Spotify track → Rekordbox Camelot key + BPM) for the spicetify-in-phase extension
