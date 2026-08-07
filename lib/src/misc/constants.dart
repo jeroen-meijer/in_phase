@@ -6,7 +6,7 @@ class Constants {
   static const appName = 'InPhase';
   static const packageName = 'in_phase';
   static const commandName = 'in_phase';
-  static const version = '1.5.0';
+  static const version = '1.5.1';
 
   static final appDataDir = Directory(path.join(_getUserDir(), '.in_phase'));
 
