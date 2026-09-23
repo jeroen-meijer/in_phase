@@ -105,6 +105,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 - **Unshipped work:** edit or merge existing Upcoming bullets. Do not add `fix(X)` under a `feat(X)` that never left Upcoming. Collapse iterative polish into one bullet.
 - **After a release:** only then does a later bug fix get its own Upcoming line.
 - Prefer fewer, broader bullets over one line per agent session. Skip internal-only churn unless users notice it.
+- Run `/humanize` (or match that skill) on every new or edited Upcoming bullet before you commit. Keep conventional prefixes; the rest should read like a short product note, not a session diary.
 - CI (`tool/check_changelog_pr.sh`) requires Upcoming to change on a PR; release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
 - When releasing, headings become: `## Upcoming` — blank line — `## <version>` — blank line — then the same bullets (see `tool/rewrite_changelog_for_release.sh`).
 - Before committing: run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .` until clean; HALT if you cannot fix errors.
