@@ -99,16 +99,15 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Changelog Workflow
 
-- All new features and changes go in `CHANGELOG.md` under `## Upcoming`.
-- New changes are added to the **top** of the list under `## Upcoming`, never the bottom.
-- CI enforces that pull requests prepend new `## Upcoming` bullets; release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
-- When releasing a new version, the section at the top becomes:
-  - `## Upcoming` — then a blank line — then `## <version>` — then a blank line — then the **same** bullet list as before (only headings change; see `tool/rewrite_changelog_for_release.sh`).
-- Before committing:
-  - Run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .`
-  - If there are errors, fix them and rerun both commands
-  - Repeat in a loop until all errors are fixed
-  - If you encounter errors you cannot fix, HALT and report them
+`CHANGELOG.md` → `## Upcoming` is the **user-facing draft for the next release**, not a commit diary.
+
+- Write for someone who installs the next version. Conventional prefixes (`feat` / `fix` / `perf` / …) are fine; the rest of the line should read as a product note.
+- **Unshipped work:** edit or merge existing Upcoming bullets. Do not add `fix(X)` under a `feat(X)` that never left Upcoming. Collapse iterative polish into one bullet.
+- **After a release:** only then does a later bug fix get its own Upcoming line.
+- Prefer fewer, broader bullets over one line per agent session. Skip internal-only churn unless users notice it.
+- CI (`tool/check_changelog_pr.sh`) requires Upcoming to change on a PR; release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
+- When releasing, headings become: `## Upcoming` — blank line — `## <version>` — blank line — then the same bullets (see `tool/rewrite_changelog_for_release.sh`).
+- Before committing: run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .` until clean; HALT if you cannot fix errors.
 
 ## Project-Specific Warnings
 
@@ -120,7 +119,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Release Workflow
 
-1. Add bullets under `## Upcoming` in `CHANGELOG.md` (newest at top).
+1. Keep `## Upcoming` as a short user-facing draft for the next release (merge unshipped work; see Changelog Workflow).
 2. Run `./tool/prepare_release.sh X.Y.Z` to open `chore/release-X.Y.Z` with the `release` label.
 3. Squash-merge the PR to `main` after CI passes.
 4. `Publish Release` runs automatically after merge, publishes to pub.dev using the GitHub Actions `PUB_CREDENTIALS` secret, creates the GitHub release, and tags the merge commit with `X.Y.Z`.
@@ -129,10 +128,10 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 ## Documentation
 
 - [tool/prepare_release.sh](tool/prepare_release.sh) — open a release PR (calls `rewrite_changelog_for_release.sh`, bumps versions, `gh pr create`)
-- [tool/check_changelog_pr.sh](tool/check_changelog_pr.sh) — verify PRs prepend new `## Upcoming` bullets
+- [tool/check_changelog_pr.sh](tool/check_changelog_pr.sh) — verify PRs update `## Upcoming` (edit/merge allowed)
 - [tool/verify_release_publish.sh](tool/verify_release_publish.sh) — sanity checks before merged-release publish
 - [tool/rewrite_changelog_for_release.sh](tool/rewrite_changelog_for_release.sh) — rewrite `CHANGELOG.md` headings for a release
-- [.github/workflows/](.github/workflows/) — CI workflows (`ci.yml` and `pana.yml` run on PRs; `publish.yml` publishes after merged release PRs using `PUB_CREDENTIALS`; `changelog.yml` enforces changelog prepends)
+- [.github/workflows/](.github/workflows/) — CI workflows (`ci.yml` and `pana.yml` run on PRs; `publish.yml` publishes after merged release PRs using `PUB_CREDENTIALS`; `changelog.yml` requires an Upcoming update)
 - [README.md](README.md) — install, setup, usage
 - [SYNC_CONFIG.md](docs/SYNC_CONFIG.md) — sync config format
 - [CRAWL_CONFIG.md](docs/CRAWL_CONFIG.md) — crawl config format

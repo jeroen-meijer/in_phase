@@ -1,11 +1,14 @@
 #!/usr/bin/env sh
-# Verify a PR prepends new bullets under ## Upcoming (see CHANGELOG workflow in CLAUDE.md).
+# Verify a PR updates ## Upcoming in CHANGELOG.md.
+#
+# Upcoming is the draft for the next release: keep it user-facing and
+# consolidate unshipped work (edit/merge existing bullets). Do not append a
+# "fix feature A" line for something that never shipped.
 #
 # Usage:
 #   ./tool/check_changelog_pr.sh [<base-ref>]
 #
-# Default base ref: origin/main (or GITHUB_BASE_REF when set by Actions).
-# Exempt: branches chore/release-* (prepare_release.sh rewrites the Upcoming section).
+# Exempt: branches chore/release-* (prepare_release.sh rewrites Upcoming).
 
 set -eu
 
@@ -14,7 +17,6 @@ cd "$ROOT"
 
 CHANGELOG="CHANGELOG.md"
 BASE_REF="${1:-${GITHUB_BASE_REF:-main}}"
-# Actions provides short ref name; resolve to origin/main when needed.
 case "$BASE_REF" in
   main | master) BASE_REF="origin/$BASE_REF" ;;
 esac
@@ -41,7 +43,6 @@ if ! git cat-file -e "$BASE_REF:$CHANGELOG" 2>/dev/null; then
   exit 1
 fi
 
-# Extract non-empty lines in ## Upcoming until the next ## x.y.z version heading.
 extract_upcoming_from_git() {
   git show "$1:$CHANGELOG" | awk '
     BEGIN { in_up = 0 }
@@ -63,52 +64,26 @@ extract_upcoming_from_file() {
 }
 
 BASE_LINES="$(extract_upcoming_from_git "$BASE_REF" || true)"
-# Working tree matches the PR head commit in CI after checkout.
 HEAD_LINES="$(extract_upcoming_from_file || true)"
 
 if [ -z "$HEAD_LINES" ] && [ -n "$BASE_LINES" ]; then
   echo "error: $CHANGELOG ## Upcoming has no entries on this branch." >&2
-  echo "Add new bullets at the top of the Upcoming list (below the header)." >&2
+  echo "Keep user-facing bullets for unshipped work, or ship a release first." >&2
   exit 1
 fi
 
 if [ "$HEAD_LINES" = "$BASE_LINES" ]; then
   echo "error: $CHANGELOG ## Upcoming was not updated in this PR." >&2
-  echo "Prepend at least one new bullet under ## Upcoming." >&2
+  echo "Edit Upcoming for the user-visible change (add, merge, or rewrite bullets)." >&2
   exit 1
 fi
 
-# HEAD upcoming must be: [new lines...] + [exact prior upcoming lines in order]
-if [ -z "$BASE_LINES" ]; then
-  echo "ok: new Upcoming section entries added"
-  exit 0
-fi
-
-BASE_COUNT="$(printf '%s\n' "$BASE_LINES" | wc -l | tr -d ' ')"
-HEAD_COUNT="$(printf '%s\n' "$HEAD_LINES" | wc -l | tr -d ' ')"
-NEW_COUNT=$((HEAD_COUNT - BASE_COUNT))
-
-if [ "$NEW_COUNT" -lt 1 ]; then
-  echo "error: no new lines were added under ## Upcoming." >&2
-  exit 1
-fi
-
-# Tail of HEAD must match all BASE lines (old entries stay below new ones).
-TAIL_START=$((NEW_COUNT + 1))
-HEAD_TAIL="$(printf '%s\n' "$HEAD_LINES" | tail -n +"$TAIL_START")"
-
-if [ "$HEAD_TAIL" != "$BASE_LINES" ]; then
-  echo "error: new changelog entries must be prepended at the top of ## Upcoming." >&2
-  echo "Do not reorder or edit existing Upcoming bullets; add new lines above them." >&2
-  exit 1
-fi
-
-NEW_LINES="$(printf '%s\n' "$HEAD_LINES" | head -n "$NEW_COUNT")"
-BAD="$(printf '%s\n' "$NEW_LINES" | grep -v '^- ' || true)"
+BAD="$(printf '%s\n' "$HEAD_LINES" | grep -v '^- ' || true)"
 if [ -n "$BAD" ]; then
-  echo "error: expected new Upcoming lines to be bullets starting with \"- \"" >&2
+  echo "error: every Upcoming line must be a bullet starting with \"- \"" >&2
   printf '%s\n' "$BAD" | sed 's/^/  /' >&2
   exit 1
 fi
 
-echo "ok: $NEW_COUNT new Upcoming entr$( [ "$NEW_COUNT" = 1 ] && echo y || echo ies ) prepended"
+HEAD_COUNT="$(printf '%s\n' "$HEAD_LINES" | wc -l | tr -d ' ')"
+echo "ok: ## Upcoming updated ($HEAD_COUNT bullet$( [ "$HEAD_COUNT" = 1 ] && echo '' || echo s ))"
