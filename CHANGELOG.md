@@ -1,8 +1,6 @@
 ## Upcoming
 
-- docs: keep changelog bullets consecutive (no blank lines between entries)
-- feat(curate): accept multiple source playlists; dedupe by normalized artist+title (same song on different releases once); show all origin playlists per track
-- feat(curate): press `p` to go to the previous track
+- docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1
 
