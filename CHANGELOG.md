@@ -1,5 +1,6 @@
 ## Upcoming
 
+- docs: keep changelog bullets consecutive (no blank lines between entries)
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets instead of appending fix-of-unshipped-feat noise
 
 ## 1.5.1
