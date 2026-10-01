@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # Verify a PR updates ## Upcoming in CHANGELOG.md.
 #
-# Upcoming is the draft for the next release: keep it user-facing and
-# consolidate unshipped work (edit/merge existing bullets). Do not append a
-# "fix feature A" line for something that never shipped.
+# Every PR must change ## Upcoming (product or docs/tooling). Prefer end-user
+# wording when the change is product-visible. Consolidate unshipped work
+# (edit/merge existing bullets). Do not append a "fix feature A" line for
+# something that never shipped.
 #
 # Usage:
 #   ./tool/check_changelog_pr.sh [<base-ref>]
