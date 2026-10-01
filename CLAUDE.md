@@ -106,6 +106,7 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 - No implementation jargon (internal names, token ids, patch details) unless the product exposes that name.
 - One distinct surface or capability per bullet when they are separate. Do not semicolon-stack unrelated polish onto one feat.
 - Fix lines name the symptom the user sees, not the patch mechanism.
+- Prefer what the UI does now over soft wrappers ("keep usable", "improve X") and parenthetical patch dumps ("stop stealing focus", "wire the callback"). Say what happens when the user acts ("… close when you click the chip again").
 - Simplify for end users: short, concrete, scannable.
 - **Unshipped work:** edit or merge existing Upcoming bullets. Do not add `fix(X)` under a `feat(X)` that never left Upcoming. Collapse iterative polish into one bullet.
 - **After a release:** only then does a later bug fix get its own Upcoming line.
