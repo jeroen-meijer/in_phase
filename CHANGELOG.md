@@ -1,6 +1,6 @@
 ## Upcoming
 
-- docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets instead of appending fix-of-unshipped-feat noise
+- docs: require every PR to update Upcoming; prefer end-user wording when the change is visible, and write what the UI does instead of soft wrappers
 
 ## 1.5.1
 

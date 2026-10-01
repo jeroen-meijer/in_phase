@@ -99,14 +99,21 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 
 ## Changelog Workflow
 
-`CHANGELOG.md` → `## Upcoming` is the **user-facing draft for the next release**, not a commit diary.
+`CHANGELOG.md` → `## Upcoming` is the draft for the next release.
 
 - Write for someone who installs the next version. Conventional prefixes (`feat` / `fix` / `perf` / …) are fine; the rest of the line should read as a product note.
+- Lead with what the user can do or notice, not how it was built.
+- No implementation jargon (internal names, token ids, patch details) unless the product exposes that name.
+- One distinct surface or capability per bullet when they are separate. Do not semicolon-stack unrelated polish onto one feat.
+- Fix lines name the symptom the user sees, not the patch mechanism.
+- Prefer what the UI does now over soft wrappers ("keep usable", "improve X") and parenthetical patch dumps ("stop stealing focus", "wire the callback"). Say what happens when the user acts ("… close when you click the chip again").
+- Every PR updates `## Upcoming` (CI enforces this when the check is present). Prefer end-user wording when the change is product-visible. CI, tooling, refactors, and agent-doc changes still get a short honest bullet (`docs` / `chore` / `ci` / …); do not invent fake product language for them.
+- Simplify for end users: short, concrete, scannable.
 - **Unshipped work:** edit or merge existing Upcoming bullets. Do not add `fix(X)` under a `feat(X)` that never left Upcoming. Collapse iterative polish into one bullet.
 - **After a release:** only then does a later bug fix get its own Upcoming line.
-- Prefer fewer, broader bullets over one line per agent session. Skip internal-only churn unless users notice it.
+- Prefer fewer, broader bullets over one line per agent session.
 - Run `/humanize` (or match that skill) on every new or edited Upcoming bullet before you commit. Keep conventional prefixes; the rest should read like a short product note, not a session diary.
-- CI (`tool/check_changelog_pr.sh`) requires Upcoming to change on a PR; release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
+- CI (`tool/check_changelog_pr.sh`) requires Upcoming to change on every PR (product or docs); release branches `chore/release-*` are exempt because `prepare_release.sh` rewrites the section.
 - When releasing, headings become: `## Upcoming` — blank line — `## <version>` — blank line — then the same bullets (see `tool/rewrite_changelog_for_release.sh`).
 - Before committing: run `dart format .` and `dart analyze --fatal-infos --fatal-warnings .` until clean; HALT if you cannot fix errors.
 
