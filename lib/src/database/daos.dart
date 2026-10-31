@@ -465,58 +465,57 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMissingTracksDaoMixin {
   SyncMissingTracksDao(super.attachedDatabase);
 
-  /// Adds or updates a missing track.
-  Future<void> insertMissingTrack({
-    required SpotifyTrackId spotifyTrackId,
-    required String artist,
-    required String title,
-    required DateTime lastInsertedAt,
-    String? itunesUrl,
-  }) async {
-    await into(syncMissingTracks).insertOnConflictUpdate(
-      SyncMissingTracksCompanion.insert(
-        spotifyTrackId: spotifyTrackId.toString(),
-        artist: artist,
-        title: title,
-        itunesUrl: Value(itunesUrl),
-        lastInsertedAt: lastInsertedAt,
-      ),
-    );
+  /// Gets missing tracks by latest source-playlist addition, then title.
+  Future<List<SyncMissingTrack>> getMissingTracksBySourceDate() {
+    return (select(syncMissingTracks)..orderBy([
+          (t) => OrderingTerm.desc(t.sourceAddedAt),
+          (t) => OrderingTerm.asc(t.title),
+          (t) => OrderingTerm.asc(t.spotifyTrackId),
+        ]))
+        .get();
   }
 
-  /// Gets all missing tracks.
-  Future<List<SyncMissingTrack>> getAllMissingTracks() async {
-    return select(syncMissingTracks).get();
-  }
-
-  /// Gets all missing tracks ordered by most recently inserted first.
-  Future<List<SyncMissingTrack>> getAllMissingTracksNewestFirst() {
-    return (select(
-      syncMissingTracks,
-    )..orderBy([(t) => OrderingTerm.desc(t.lastInsertedAt)])).get();
-  }
-
-  /// Batch inserts multiple missing tracks.
+  /// Save missing tracks without discarding an earlier source date or buy link.
   Future<void> insertMissingTracksBatch(
-    List<({SpotifyTrackId id, String artist, String title, DateTime addedAt})>
+    List<
+      ({
+        SpotifyTrackId id,
+        String artist,
+        String title,
+        DateTime? sourceAddedAt,
+      })
+    >
     tracks,
   ) async {
     if (tracks.isEmpty) return;
 
-    await batch((batch) {
-      batch.insertAllOnConflictUpdate(
-        syncMissingTracks,
-        [
-          for (final track in tracks)
-            SyncMissingTracksCompanion.insert(
-              spotifyTrackId: track.id.toString(),
-              artist: track.artist,
-              title: track.title,
-              itunesUrl: const Value(null),
-              lastInsertedAt: track.addedAt,
-            ),
-        ],
-      );
+    await transaction(() async {
+      for (final track in tracks) {
+        await customStatement(
+          '''
+          INSERT INTO sync_missing_tracks
+            (spotify_track_id, artist, title, source_added_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(spotify_track_id) DO UPDATE SET
+            artist = excluded.artist,
+            title = excluded.title,
+            source_added_at = CASE
+              WHEN excluded.source_added_at IS NULL
+                THEN sync_missing_tracks.source_added_at
+              WHEN sync_missing_tracks.source_added_at IS NULL
+                OR excluded.source_added_at > sync_missing_tracks.source_added_at
+                THEN excluded.source_added_at
+              ELSE sync_missing_tracks.source_added_at
+            END
+        ''',
+          [
+            track.id.toString(),
+            track.artist,
+            track.title,
+            track.sourceAddedAt?.toUtc().toIso8601String(),
+          ],
+        );
+      }
     });
   }
 
@@ -614,6 +613,7 @@ class SyncPlaylistsDao extends DatabaseAccessor<AppDatabase>
             name: track.name,
             artistNames: jsonEncode(track.artistNames),
             orderIndex: i,
+            addedAt: Value(track.addedAt),
           ),
         );
       }

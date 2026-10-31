@@ -6,7 +6,7 @@ The `curate` command uses a `curate_config.yaml` file to configure playlist prev
 
 ## Overview
 
-The curate command lets you preview tracks from a Spotify playlist one by one, starting each at a configurable position. You can seek within the track, add tracks to target playlists (key 1 = first in list, key 2 = second, etc.), toggle **move mode** to remove tracks from the source playlist when adding, search any of your editable playlists with **f**, or move to the next track. Requires Spotify Premium and an active Spotify device (app or web player).
+The curate command lets you preview tracks from one or more Spotify playlists one by one (deduplicated across sources), starting each at a configurable position. You can seek within the track, add tracks to target playlists (key 1 = first in list, key 2 = second, etc.), toggle **move mode** to remove tracks from the source playlist when adding, search any of your editable playlists with **f**, go to the next or previous track, or quit. Requires Spotify Premium and an active Spotify device (app or web player).
 
 ## Configuration Options
 
@@ -64,11 +64,13 @@ targets:
 
 ## Playlist Input
 
-The curate command accepts a playlist as argument. You can provide:
+The curate command accepts **one or more** playlists as arguments. Each can be:
 - Playlist ID (e.g., `37i9dQZF1DXcBWIGoYBM5M`)
 - URI (e.g., `spotify:playlist:37i9dQZF1DXcBWIGoYBM5M`)
 - Share URL (e.g., `https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M`)
 - Playlist name (e.g., `KEYSORT`) — exact or fuzzy match against your library (same rules as `targets`)
+
+Tracks from all source playlists are loaded in argument order, then **deduplicated** by normalized artist + title (same idea as crawl `on_match`): identical Spotify IDs and the same song on different albums/releases appear once. The TUI shows every source playlist that contained that song (`From: …`). Move mode removes from the **first** origin playlist for the current track.
 
 ## Usage
 
@@ -79,18 +81,22 @@ in_phase curate KEYSORT
 # Curate by ID, URI, or share URL
 in_phase curate <playlist>
 
+# Curate multiple playlists (deduped across all)
+in_phase curate PlaylistA PlaylistB
+
 # Use a custom config file
 in_phase curate --config ./my_curate_config.yaml <playlist>
 
-# Skip the first N tracks (e.g. when resuming)
+# Skip the first N tracks (e.g. when resuming; applies to the deduped list)
 in_phase curate --skip=5 <playlist>
 ```
 
 ## Keyboard Controls
 
 - **1-9** - Add track to target playlist (1 = first in list, 2 = second, etc.); in move mode, removes from source playlist instead of copying
-- **m** - Toggle move mode (footer shows `move ON` / `move OFF`). When on, keys 1–9 and **f** move the track: remove from the curated playlist (or the last target you moved to), then add to the destination. Chained moves on the same track work (e.g. P → 1 → 2). If the target already has the track, only the source is cleared
-- **n**, **s**, or **space** - Next track (resets move source to the curated playlist)
+- **m** - Toggle move mode (footer shows `move ON` / `move OFF`). When on, keys 1–9 and **f** move the track: remove from the track's first origin playlist (or the last target you moved to), then add to the destination. Chained moves on the same track work (e.g. P → 1 → 2). If the target already has the track, only the source is cleared
+- **n**, **s**, or **space** - Next track (resets move source to the next track's first origin)
+- **p** - Previous track (no-op with a message on the first track)
 - **←** / **→** - Seek backward / forward (by `seek_step` seconds)
 - **r** - Restart from `start_position`
 - **c** - Copy the current track's Spotify web URL
