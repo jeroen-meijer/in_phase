@@ -22,7 +22,7 @@ class BuyCommand extends Command<int> {
   @override
   Future<int> run() async {
     final missingTracks = await db().syncMissingTracksDao
-        .getAllMissingTracksNewestFirst();
+        .getMissingTracksBySourceDate();
 
     if (missingTracks.isEmpty) {
       log.info('No missing tracks found.');

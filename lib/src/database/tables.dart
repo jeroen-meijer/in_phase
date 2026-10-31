@@ -214,8 +214,8 @@ class SyncMissingTracks extends Table {
   /// iTunes URL (nullable).
   TextColumn get itunesUrl => text().nullable()();
 
-  /// Latest Spotify playlist-added date seen while this track was missing.
-  DateTimeColumn get lastInsertedAt => dateTime()();
+  /// Latest addition to a source playlist (excluding collect targets).
+  DateTimeColumn get sourceAddedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {spotifyTrackId};
@@ -255,6 +255,9 @@ class SyncPlaylistTracks extends Table {
 
   /// Position in the playlist.
   IntColumn get orderIndex => integer()();
+
+  /// When Spotify added the track to this playlist.
+  DateTimeColumn get addedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {playlistId, trackId, orderIndex};
