@@ -246,9 +246,12 @@ Matches YouTube sources to Spotify tracks via fuzzy search. Playlist URLs withou
 ```bash
 # Preview tracks and add to target playlists
 in_phase curate KEYSORT
+
+# Multiple sources (deduped by artist+title across playlists)
+in_phase curate PlaylistA PlaylistB
 ```
 
-Preview playlist tracks one by one, add them to target playlists (key 1 = first in list, key 2 = second, etc.), or skip to the next. The playlist argument accepts ID, URI, share URL, or name (e.g. `KEYSORT`). Press **m** to toggle move mode (remove from source playlist instead of copy). Target playlists in config are plain strings (playlist ID, URI, URL, or name). Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) for configuration details.
+Preview playlist tracks one by one (deduplicated across sources), add them to target playlists (key 1 = first in list, key 2 = second, etc.), go to next (`n`/`s`/space) or previous (`p`), or quit. Playlist arguments accept ID, URI, share URL, or name. Press **m** to toggle move mode (remove from the track's first origin playlist instead of copy). The TUI shows which source playlist(s) contained each song. Target playlists in config are plain strings (playlist ID, URI, URL, or name). Requires Spotify Premium and an active device. See [CURATE_CONFIG.md](docs/CURATE_CONFIG.md) for configuration details.
 
 ### Open config directory
 

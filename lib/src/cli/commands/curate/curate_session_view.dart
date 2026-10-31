@@ -40,11 +40,14 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
 
   CurateContext get _ctx => component.session.context;
 
+  String _moveSourceForIndex(int index) =>
+      _ctx.tracksToCurate[index].origins.first.playlistId;
+
   @override
   void initState() {
     super.initState();
     _runtime = CurateRuntimeState(
-      sourcePlaylistId: _ctx.sourcePlaylistId,
+      sourcePlaylistId: _moveSourceForIndex(0),
     );
     _keyHandler = CurateKeyHandler(_ctx, _runtime);
     _playbackState = _playbackStateForIndex(_trackIndex);
@@ -64,8 +67,8 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
   }
 
   TrackPlaybackState _playbackStateForIndex(int index) {
-    final track = _ctx.tracksToCurate[index];
-    final durationMs = track.durationMs ?? 0;
+    final sourceTrack = _ctx.tracksToCurate[index];
+    final durationMs = sourceTrack.durationMs ?? 0;
     final pos = _ctx.config.startPositionMs.clamp(0, durationMs);
     return TrackPlaybackState(positionMs: pos, startedAt: DateTime.now());
   }
@@ -113,23 +116,73 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       await _complete(ExitCode.success.code);
       return;
     }
-    final track = _ctx.tracksToCurate[_trackIndex];
-    final trackUri = 'spotify:track:${track.id}';
+    final sourceTrack = _ctx.tracksToCurate[_trackIndex];
+    final trackId = sourceTrack.id;
+    if (trackId == null) {
+      _logActivity('✗ Playback failed: current track has no Spotify ID');
+      return;
+    }
+    final trackUri = 'spotify:track:$trackId';
     setState(() => _startingPlayback = true);
     try {
-      await _ctx.api.player.startWithTracks(
-        [trackUri],
-        positionMs: _playbackState.positionMs,
-        retrievePlaybackState: false,
+      final albumUri = sourceTrack.track.album?.uri;
+      if (albumUri != null && albumUri.isNotEmpty) {
+        await _ctx.api.player.startWithContext(
+          albumUri,
+          offset: UriOffset(trackUri),
+          retrievePlaybackState: false,
+        );
+      } else {
+        await _ctx.api.player.startWithTracks(
+          [trackUri],
+          positionMs: _playbackState.positionMs,
+          retrievePlaybackState: false,
+        );
+      }
+      // Album-context playback works around Spotify desktop's current behavior
+      // of accepting bare track-URI requests without starting the requested
+      // track. Acknowledge the API response immediately; poll only to update
+      // the UI's playback clock, never as a fallback that launches the app.
+      unawaited(
+        _confirmPlayback(
+          trackId,
+          startPositionMs: albumUri == null || albumUri.isEmpty
+              ? 0
+              : _playbackState.positionMs,
+        ),
       );
     } catch (e) {
       _logActivity(
-        '✗ Playback failed: $e — press n/s/space for next or q to quit',
+        '✗ Playback failed: $e — press n/s/space for next, p for prev, '
+        'or q to quit',
       );
     } finally {
       if (mounted) {
         setState(() => _startingPlayback = false);
       }
+    }
+  }
+
+  Future<void> _confirmPlayback(
+    String trackId, {
+    required int startPositionMs,
+  }) async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      try {
+        final playback = await _ctx.api.player.currentlyPlaying();
+        if (playback.isPlaying == true && playback.item?.id == trackId) {
+          if (startPositionMs > 0) {
+            await _ctx.api.player.seek(
+              startPositionMs,
+              retrievePlaybackState: false,
+            );
+          }
+          return;
+        }
+      } catch (_) {
+        // The player can briefly report no state while changing tracks.
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
 
@@ -210,7 +263,7 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       return true;
     }
     final ch = event.character?.toLowerCase();
-    return ch == ' ' || ch == 's' || ch == 'n' || ch == 'q';
+    return ch == ' ' || ch == 's' || ch == 'n' || ch == 'p' || ch == 'q';
   }
 
   bool _isFindPlaylistKey(KeyboardEvent event) {
@@ -222,8 +275,9 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     if (_sessionEnded || _trackIndex >= _ctx.tracksToCurate.length) {
       return;
     }
-    final track = _ctx.tracksToCurate[_trackIndex];
-    final durationMs = track.durationMs ?? 0;
+    final sourceTrack = _ctx.tracksToCurate[_trackIndex];
+    final track = sourceTrack.track;
+    final durationMs = sourceTrack.durationMs ?? 0;
     final navigator = Navigator.maybeOf(context);
     if (navigator == null) {
       return;
@@ -243,8 +297,9 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
   }
 
   Future<void> _processKey(KeyboardEvent event) async {
-    final track = _ctx.tracksToCurate[_trackIndex];
-    final durationMs = track.durationMs ?? 0;
+    final sourceTrack = _ctx.tracksToCurate[_trackIndex];
+    final track = sourceTrack.track;
+    final durationMs = sourceTrack.durationMs ?? 0;
     final result = await _keyHandler.handleKey(
       event,
       _currentTrackInfo(track, durationMs),
@@ -261,6 +316,8 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
         _advanceTrack();
       case KeyResultNextWithStatus(:final status):
         _advanceTrack(logLine: status);
+      case KeyResultPrevious():
+        _retreatTrack();
       case KeyResultStay(:final message, :final updatedState):
         if (!mounted) {
           return;
@@ -290,12 +347,12 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       // when moving to the next song — same idea as clearing status on "next"
       // in the pre-Nocterm stream UI.
       _activityLog.clear();
-      _runtime.moveSourcePlaylistId = _ctx.sourcePlaylistId;
       _trackIndex++;
       if (logLine != null) {
         _activityLog.add(logLine);
       }
       if (_trackIndex < _ctx.tracksToCurate.length) {
+        _runtime.moveSourcePlaylistId = _moveSourceForIndex(_trackIndex);
         _playbackState = _playbackStateForIndex(_trackIndex);
       }
     });
@@ -304,6 +361,23 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
     } else {
       unawaited(_startPlaybackForCurrentTrack());
     }
+  }
+
+  void _retreatTrack() {
+    if (!mounted) {
+      return;
+    }
+    if (_trackIndex <= 0) {
+      _logActivity('Already at first track');
+      return;
+    }
+    setState(() {
+      _activityLog.clear();
+      _trackIndex--;
+      _runtime.moveSourcePlaylistId = _moveSourceForIndex(_trackIndex);
+      _playbackState = _playbackStateForIndex(_trackIndex);
+    });
+    unawaited(_startPlaybackForCurrentTrack());
   }
 
   @override
@@ -315,8 +389,9 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       return const Center(child: Text('Done.'));
     }
 
-    final track = _ctx.tracksToCurate[_trackIndex];
-    final durationMs = track.durationMs ?? 0;
+    final sourceTrack = _ctx.tracksToCurate[_trackIndex];
+    final track = sourceTrack.track;
+    final durationMs = sourceTrack.durationMs ?? 0;
     final progressMs = _liveProgressMs(durationMs);
     final trackLine = formatCurateTrackLine(
       position: _absolutePosition,
@@ -325,8 +400,12 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       durationMs: durationMs,
       track: track,
     );
+    final originsLine = formatCurateOriginsLine(sourceTrack.origins);
 
     final remaining = _ctx.tracksToCurate.length - _trackIndex;
+    final listLabel = _ctx.sourcePlaylists.length == 1
+        ? 'in playlist'
+        : 'after dedup';
 
     return Focusable(
       focused: true,
@@ -340,11 +419,15 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
           ),
           Text(
             '$remaining track(s) to curate · '
-            '[$_absolutePosition/${_ctx.tracks.length}] in playlist',
+            '[$_absolutePosition/${_ctx.tracks.length}] $listLabel',
             style: const TextStyle(fontWeight: FontWeight.dim),
           ),
           const Divider(),
           Text(trackLine, style: const TextStyle(color: Colors.cyan)),
+          Text(
+            originsLine,
+            style: const TextStyle(fontWeight: FontWeight.dim),
+          ),
           if (_startingPlayback || _busy)
             Text(
               _startingPlayback ? 'Starting playback…' : 'Working…',

@@ -160,9 +160,9 @@ jobs: []
   /// Default curate configuration.
   static const String curateConfig = '''
 # Curate Configuration
-# Usage: in_phase curate <playlist> [--skip=N]
-# Playlist: ID, URI, share URL, or name (exact/fuzzy match in your library)
-# See docs/CURATE_CONFIG.md for full documentation.
+# Usage: in_phase curate <playlist>… [--skip=N]
+# One or more playlists: ID, URI, share URL, or name (exact/fuzzy match)
+# Tracks are deduped across sources by artist+title; see docs/CURATE_CONFIG.md
 
 # Start each track at this position (default 1:15)
 start_position: "1:15"

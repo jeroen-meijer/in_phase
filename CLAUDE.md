@@ -102,6 +102,11 @@ Follow conventional commits format: `<type>[optional scope]: <description>`
 `CHANGELOG.md` → `## Upcoming` is the **user-facing draft for the next release**, not a commit diary.
 
 - Write for someone who installs the next version. Conventional prefixes (`feat` / `fix` / `perf` / …) are fine; the rest of the line should read as a product note.
+- Lead with what the user can do or notice, not how it was built.
+- No implementation jargon (internal names, token ids, patch details) unless the product exposes that name.
+- One distinct surface or capability per bullet when they are separate. Do not semicolon-stack unrelated polish onto one feat.
+- Fix lines name the symptom the user sees, not the patch mechanism.
+- Simplify for end users: short, concrete, scannable.
 - **Unshipped work:** edit or merge existing Upcoming bullets. Do not add `fix(X)` under a `feat(X)` that never left Upcoming. Collapse iterative polish into one bullet.
 - **After a release:** only then does a later bug fix get its own Upcoming line.
 - Prefer fewer, broader bullets over one line per agent session. Skip internal-only churn unless users notice it.

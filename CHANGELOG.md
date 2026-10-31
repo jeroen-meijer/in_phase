@@ -1,5 +1,6 @@
 ## Upcoming
 
+- feat(curate): preview and organize tracks from multiple playlists, with previous-track navigation and reliable custom start positions
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1
