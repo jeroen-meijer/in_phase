@@ -69,10 +69,7 @@ class CrawlCommand extends Command<int> {
         : Constants.crawlConfigFile;
 
     log.info('Loading crawl config from: ${configFile.path}');
-    final config = await CrawlConfig.fromFile(
-      configFile,
-      createFileIfNotExists: !usesCustomConfigPath,
-    );
+    final config = await CrawlConfig.fromFile(configFile);
 
     if (config.jobs.isEmpty) {
       log.warning('No jobs found in configuration');

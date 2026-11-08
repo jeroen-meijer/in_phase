@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_codec/yaml_codec.dart';
 
 part 'collect_config.g.dart';
 
@@ -26,31 +24,11 @@ class CollectConfig {
 
   Map<String, dynamic> toJson() => _$CollectConfigToJson(this);
 
-  static Future<CollectConfig> fromFile(
-    File file, {
-    bool createFileIfNotExists = true,
-  }) async {
-    // ignore: avoid_slow_async_io
-    if (!await file.exists()) {
-      if (createFileIfNotExists) {
-        await file.create(recursive: true);
-        const config = CollectConfig.empty();
-        await config.write(file);
-        return config;
-      } else {
-        throw Exception('Collect config file not found at ${file.path}');
-      }
-    }
-
-    final content = await file.readAsString();
-    final yaml = yamlDecode(content) as YamlMap;
-    return CollectConfig.fromJson(yaml.toMap());
-  }
-
-  Future<void> write(File file) async {
-    await file.create(recursive: true);
-    await file.writeAsString(yamlEncode(toJson()));
-  }
+  static Future<CollectConfig> fromFile(File file) => readYamlConfig(
+    file,
+    fromJson: CollectConfig.fromJson,
+    defaults: const CollectConfig.empty(),
+  );
 
   final List<CollectCollection> collections;
 }

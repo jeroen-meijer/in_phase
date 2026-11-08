@@ -52,10 +52,7 @@ class CollectCommand extends Command<int> {
         : Constants.collectConfigFile;
 
     log.info('Loading collect config from: ${configFile.path}');
-    final config = await CollectConfig.fromFile(
-      configFile,
-      createFileIfNotExists: !usesCustomConfigPath,
-    );
+    final config = await CollectConfig.fromFile(configFile);
 
     if (config.collections.isEmpty) {
       log.warning('No collections found in configuration');

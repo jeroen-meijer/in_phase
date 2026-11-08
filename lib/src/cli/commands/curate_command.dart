@@ -133,10 +133,7 @@ class CurateCommand extends Command<int> {
     args,
   ) async {
     log.info('Loading curate config from: ${args.configFile.path}');
-    final config = await CurateConfig.fromFile(
-      args.configFile,
-      createFileIfNotExists: !args.usesCustomConfigPath,
-    );
+    final config = await CurateConfig.fromFile(args.configFile);
     if (config.targets.isEmpty) {
       log.warning(
         'No target playlists configured. Add targets to your curate '

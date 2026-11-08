@@ -5,8 +5,6 @@ import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_codec/yaml_codec.dart';
 
 part 'sync_config.g.dart';
 
@@ -34,35 +32,19 @@ class SyncConfig {
   ///
   /// Throws if YAML is invalid, if the root value is not a map, or if the data
   /// does not match the sync config schema (same rules as `fromJson`).
-  factory SyncConfig.fromYamlString(String content) {
-    final decoded = yamlDecode(content);
-    if (decoded is! YamlMap) {
-      throw const FormatException('Expected YAML map at the root');
-    }
-    return SyncConfig.fromJson(decoded.toMap());
-  }
+  factory SyncConfig.fromYamlString(String content) => parseYamlConfig(
+    content,
+    fromJson: SyncConfig.fromJson,
+    defaults: const SyncConfig.empty(),
+  );
 
   Map<String, dynamic> toJson() => _$SyncConfigToJson(this);
 
-  static Future<SyncConfig> fromFile(
-    File file, {
-    bool createFileIfNotExists = true,
-  }) async {
-    // ignore: avoid_slow_async_io
-    if (!await file.exists()) {
-      if (createFileIfNotExists) {
-        await file.create(recursive: true);
-        const config = SyncConfig.empty();
-        await config.write(file);
-        return config;
-      } else {
-        throw Exception('Sync config file not found at ${file.path}');
-      }
-    }
-
-    final content = await file.readAsString();
-    return SyncConfig.fromYamlString(content);
-  }
+  static Future<SyncConfig> fromFile(File file) => readYamlConfig(
+    file,
+    fromJson: SyncConfig.fromJson,
+    defaults: const SyncConfig.empty(),
+  );
 
   /// Every [CustomTrack.rekordboxId] and [CustomTrack.target] in
   /// [customTracks].
@@ -75,11 +57,6 @@ class SyncConfig {
       }
     }
     return ids;
-  }
-
-  Future<void> write(File file) async {
-    await file.create(recursive: true);
-    await file.writeAsString(yamlEncode(toJson()));
   }
 
   @JsonKey(fromJson: _globListFromJson, toJson: _globListToJson)
