@@ -11,9 +11,6 @@ import 'package:io/io.dart';
 import 'package:nocterm/nocterm.dart';
 import 'package:spotify/spotify.dart';
 
-/// Max tracks fetched per playlist request (Spotify API pagination).
-const _maxPlaylistTracksPerPage = 100;
-
 /// Max target playlist keys (1-9).
 const _maxTargetPlaylists = 9;
 
@@ -184,16 +181,12 @@ class CurateCommand extends Command<int> {
       final sourcePlaylists = <CurateResolvedTarget>[];
       for (final input in args.playlistInputs) {
         log.info('Resolving playlist to curate: "$input"');
-        final source = await _resolveSourcePlaylist(
-          api: api,
-          input: input,
-          userPlaylists: userPlaylists.savedPlaylists,
-        );
         sourcePlaylists.add(
-          CurateResolvedTarget(
+          await _resolvePlaylist(
+            api: api,
             input: input,
-            playlistId: source.playlistId,
-            name: source.name,
+            userPlaylists: userPlaylists.savedPlaylists,
+            role: 'playlist to curate',
           ),
         );
       }
@@ -231,21 +224,8 @@ class CurateCommand extends Command<int> {
           userPlaylists: userPlaylists,
         ),
       );
-    } on CurateExit {
-      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-      // ignore: invalid_use_of_visible_for_testing_member
-      final client = await api.client;
-      client.close();
-      rethrow;
-    } catch (e, st) {
-      log.error('Curate setup failed: $e');
-      if (log.debugMode) {
-        log.error(st);
-      }
-      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-      // ignore: invalid_use_of_visible_for_testing_member
-      final client = await api.client;
-      client.close();
+    } catch (_) {
+      await closeSpotifyApi(api);
       rethrow;
     }
   }
@@ -268,13 +248,10 @@ class CurateCommand extends Command<int> {
     for (final source in sourcePlaylists) {
       final playlistId = SpotifyPlaylistId(source.playlistId);
       log.info('Loading tracks from "${source.name}"…');
-      final playlistTracks = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(playlistId.toString()),
-        limit: _maxPlaylistTracksPerPage,
-        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-          playlistId,
-          offset,
-        ),
+      final playlistTracks = await fetchPlaylistTracks(
+        api: api,
+        requestPool: requestPool,
+        playlistId: playlistId,
       );
 
       for (final pt in playlistTracks) {
@@ -343,50 +320,25 @@ class CurateCommand extends Command<int> {
     }
 
     log.info('Resolving ${inputs.length} target playlist(s)…');
-    final resolved = <CurateResolvedTarget>[];
-
-    for (final input in inputs) {
-      final result = await resolvePlaylistTarget(
-        api: api,
-        input: input,
-        userPlaylists: userPlaylists,
-      );
-
-      switch (result) {
-        case PlaylistSpotifyTarget(:final playlist):
-          final playlistId = playlist.id;
-          if (playlistId == null || playlistId.isEmpty) {
-            log.error('Target "$input" resolved but has no playlist id.');
-            throw CurateExit(ExitCode.config.code);
-          }
-          final name = playlist.name ?? input;
-          log.info('  ✓ "$input" → "$name"');
-          resolved.add(
-            CurateResolvedTarget(
-              input: input,
-              playlistId: playlistId,
-              name: name,
-            ),
-          );
-        case LikedSongsSpotifyTarget():
-          log.error(
-            'Target "$input" resolved to Liked Songs. Use key l during '
-            'curate, or pick a playlist target.',
-          );
-          throw CurateExit(ExitCode.config.code);
-        case null:
-          log.error('Could not resolve target playlist: "$input"');
-          throw CurateExit(ExitCode.config.code);
-      }
-    }
-
-    return resolved;
+    return [
+      for (final input in inputs)
+        await _resolvePlaylist(
+          api: api,
+          input: input,
+          userPlaylists: userPlaylists,
+          role: 'target playlist',
+        ),
+    ];
   }
 
-  Future<({String playlistId, String name})> _resolveSourcePlaylist({
+  /// Resolves [input] to a playlist, or exits with a config error.
+  ///
+  /// [role] names the playlist in error messages.
+  Future<CurateResolvedTarget> _resolvePlaylist({
     required SpotifyApi api,
     required String input,
     required List<PlaylistSimple> userPlaylists,
+    required String role,
   }) async {
     final result = await resolvePlaylistTarget(
       api: api,
@@ -398,20 +350,24 @@ class CurateCommand extends Command<int> {
       case PlaylistSpotifyTarget(:final playlist):
         final playlistId = playlist.id;
         if (playlistId == null || playlistId.isEmpty) {
-          log.error('Playlist "$input" resolved but has no playlist id.');
+          log.error('The $role "$input" resolved but has no playlist id.');
           throw CurateExit(ExitCode.config.code);
         }
         final name = playlist.name ?? input;
         log.info('  ✓ "$input" → "$name"');
-        return (playlistId: playlistId, name: name);
+        return CurateResolvedTarget(
+          input: input,
+          playlistId: playlistId,
+          name: name,
+        );
       case LikedSongsSpotifyTarget():
         log.error(
-          'Playlist "$input" resolved to Liked Songs. '
-          'Curate requires a playlist.',
+          'The $role "$input" resolved to Liked Songs. Use key l during '
+          'curate, or pick a playlist.',
         );
         throw CurateExit(ExitCode.config.code);
       case null:
-        log.error('Could not resolve playlist to curate: "$input"');
+        log.error('Could not resolve $role: "$input"');
         throw CurateExit(ExitCode.config.code);
     }
   }
@@ -423,24 +379,18 @@ class CurateCommand extends Command<int> {
   ) async {
     final trackSets = await Future.wait([
       for (final t in targets)
-        requestPool
-            .fetchAllPages(
-              api.playlists.getPlaylistTracks(t.playlistId),
-              limit: _maxPlaylistTracksPerPage,
-              pageIdentifier: (offset) =>
-                  SpotifyCacheIdentifier.playlistTracksPage(
-                    SpotifyPlaylistId(t.playlistId),
-                    offset,
-                  ),
-            )
-            .then(
-              (pts) => pts
-                  .map((pt) => pt.track)
-                  .nonNulls
-                  .map((t) => t.id)
-                  .nonNulls
-                  .toSet(),
-            ),
+        fetchPlaylistTracks(
+          api: api,
+          requestPool: requestPool,
+          playlistId: SpotifyPlaylistId(t.playlistId),
+        ).then(
+          (pts) => pts
+              .map((pt) => pt.track)
+              .nonNulls
+              .map((t) => t.id)
+              .nonNulls
+              .toSet(),
+        ),
     ]);
     return {
       for (var i = 0; i < targets.length; i++)

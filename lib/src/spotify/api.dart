@@ -128,6 +128,13 @@ Future<String> spotifyOpenBrowserAndAskForPasteUrl(Uri uri) async {
   return response.trim();
 }
 
+/// Closes the HTTP client behind [api]. Call once the command is done with it.
+Future<void> closeSpotifyApi(SpotifyApi api) async {
+  // The spotify package exposes its client only for tests.
+  // ignore: invalid_use_of_visible_for_testing_member
+  (await api.client).close();
+}
+
 Future<void> spotifyLogout() async {
   log.debug('Removing credentials from cache');
   await _credentialsEntry().remove();

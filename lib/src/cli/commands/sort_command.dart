@@ -46,8 +46,7 @@ class SortCommand extends Command<int> {
 
     return withTeardown((addTeardown) async {
       final api = await spotifyLogin();
-      // ignore: invalid_use_of_visible_for_testing_member
-      addTeardown(() async => (await api.client).close());
+      addTeardown(() => closeSpotifyApi(api));
 
       final requestPool = Zonable.fromZone<RequestPool>();
       addTeardown(requestPool.clear);
@@ -60,10 +59,9 @@ class SortCommand extends Command<int> {
       final syncDb = db();
 
       log.debug('Fetching user playlists...');
-      final userPlaylists = await requestPool.fetchAllPages(
-        api.me.playlists.saved(),
-        limit: 50,
-        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      final userPlaylists = await fetchSavedPlaylists(
+        api: api,
+        requestPool: requestPool,
       );
 
       final resolvedTarget = await resolvePlaylistTarget(
@@ -83,11 +81,10 @@ class SortCommand extends Command<int> {
       final playlistName = targetPlaylist.name ?? playlistInput;
 
       log.debug('Fetching tracks from "$playlistName"...');
-      final playlistTracks = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(playlistId),
-        limit: 100,
-        pageIdentifier: (offset) =>
-            SpotifyCacheIdentifier.playlistTracksPage(playlistId, offset),
+      final playlistTracks = await fetchPlaylistTracks(
+        api: api,
+        requestPool: requestPool,
+        playlistId: playlistId,
       );
 
       final tracks = playlistTracks

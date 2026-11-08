@@ -58,8 +58,7 @@ Future<int> runSyncValidate({String? customConfigPath}) async {
 
   return withTeardown((addTeardown) async {
     final api = await spotifyLogin();
-    // ignore: invalid_use_of_visible_for_testing_member
-    addTeardown(() async => (await api.client).close());
+    addTeardown(() => closeSpotifyApi(api));
 
     final rbDb = await RekordboxDatabase.connect();
     addTeardown(rbDb.close);

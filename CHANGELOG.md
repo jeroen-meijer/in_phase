@@ -3,6 +3,9 @@
 - feat(curate): preview and organize tracks from multiple playlists, with previous-track navigation and reliable custom start positions
 - fix(buy): show recently added source-playlist tracks first, even after a collected playlist is refreshed
 - fix: `--help`, `library`, `buy`, `cues`, `cache` and `config` work without the Spotify environment variables; only commands that talk to Spotify need them
+- fix(sync): playlists that contain Spotify local files sync instead of stopping with an error
+- fix(collect,crawl): when a source playlist, artist or label cannot be read, the collection or job fails and its playlist stays as it was, instead of being refilled without those tracks
+- fix(collect,crawl,convert): replacing a playlist's tracks no longer leaves it empty when a later request fails
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1

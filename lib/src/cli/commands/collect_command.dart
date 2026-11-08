@@ -45,128 +45,114 @@ class CollectCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final teardown = <Future<void> Function()>[];
+    final customConfigPath = argResults!['config'] as String?;
+    final usesCustomConfigPath = customConfigPath != null;
+    final configFile = usesCustomConfigPath
+        ? resolveConfigPath(customConfigPath)
+        : Constants.collectConfigFile;
 
-    try {
-      // Load configuration
-      final customConfigPath = argResults!['config'] as String?;
-      final usesCustomConfigPath = customConfigPath != null;
+    log.info('Loading collect config from: ${configFile.path}');
+    final config = await CollectConfig.fromFile(
+      configFile,
+      createFileIfNotExists: !usesCustomConfigPath,
+    );
 
-      final configFile = usesCustomConfigPath
-          ? resolveConfigPath(customConfigPath)
-          : Constants.collectConfigFile;
+    if (config.collections.isEmpty) {
+      log.warning('No collections found in configuration');
+      return ExitCode.config.code;
+    }
 
-      log.info('Loading collect config from: ${configFile.path}');
-      final config = await CollectConfig.fromFile(
-        configFile,
-        createFileIfNotExists: !usesCustomConfigPath,
+    final requestedCollections = argResults!['collection'] as List<String>;
+    final collectionsToRun = requestedCollections.isEmpty
+        ? config.collections
+        : config.collections
+              .where((c) => requestedCollections.contains(c.name))
+              .toList();
+    if (collectionsToRun.isEmpty) {
+      usageException(
+        'No matching collections found for: '
+        '${requestedCollections.join(', ')}',
       );
+    }
 
-      if (config.collections.isEmpty) {
-        log.warning('No collections found in configuration');
-        return ExitCode.config.code;
-      }
+    final isDryRun = argResults!['dry-run'] as bool;
 
-      // Login to Spotify
+    return withTeardown((addTeardown) async {
       final api = await spotifyLogin();
+      addTeardown(() => closeSpotifyApi(api));
 
-      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-      // ignore: invalid_use_of_visible_for_testing_member
-      teardown.add(() async => (await api.client).close());
-
-      // Initialize request pool
       final requestPool = Zonable.fromZone<RequestPool>();
-      teardown.add(() async => requestPool.clear());
+      addTeardown(requestPool.clear);
 
-      // Get current user
       final user = await api.me.get();
-      log.info('Logged in as: ${user.displayName}');
-
-      // Filter collections if specific ones were requested
-      final requestedCollections = argResults!['collection'] as List<String>;
-      var collectionsToRun = config.collections;
-      if (requestedCollections.isNotEmpty) {
-        collectionsToRun = config.collections
-            .where(
-              (collection) => requestedCollections.contains(collection.name),
-            )
-            .toList();
-
-        if (collectionsToRun.isEmpty) {
-          usageException(
-            'No matching collections found for: '
-            '${requestedCollections.join(', ')}',
-          );
-        }
-      }
-
       log
+        ..info('Logged in as: ${user.displayName}')
         ..info('Found ${collectionsToRun.length} collection(s) to process')
         ..info('');
 
-      // Check if dry run
-      final isDryRun = argResults!['dry-run'] as bool;
       if (isDryRun) {
         log
           ..info('🔍 DRY RUN MODE - No playlists will be updated')
           ..info('');
       }
 
-      // Fetch user playlists once (for glob/name resolution)
       log.info('Fetching user playlists for source resolution...');
-      final userPlaylists = await requestPool.fetchAllPages(
-        api.me.playlists.saved(),
-        limit: 50,
-        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      final userPlaylists = await fetchSavedPlaylists(
+        api: api,
+        requestPool: requestPool,
       );
       log.info('Found ${userPlaylists.length} user playlist(s)');
 
-      // Process each collection
+      final failedCollections = <String>[];
       for (final (index, collection) in collectionsToRun.indexed) {
         log.info(
           '🔄 Processing collection ${index + 1}/${collectionsToRun.length}: '
           '${collection.name}',
         );
 
-        await _processCollection(
-          api: api,
-          user: user,
-          collection: collection,
-          requestPool: requestPool,
-          userPlaylists: userPlaylists,
-          isDryRun: isDryRun,
-        );
+        try {
+          await _processCollection(
+            api: api,
+            collection: collection,
+            requestPool: requestPool,
+            userPlaylists: userPlaylists,
+            isDryRun: isDryRun,
+          );
+        } on Exception catch (e, stackTrace) {
+          failedCollections.add(collection.name);
+          log
+            ..error('  ❌ Collection "${collection.name}" failed: $e')
+            ..error('     The target playlist was not changed.')
+            ..debug('Stack trace: $stackTrace');
+        }
 
         log.info('');
       }
 
-      log.info('✅ Collect complete!');
+      if (failedCollections.isNotEmpty) {
+        log.error(
+          '❌ ${failedCollections.length} collection(s) failed: '
+          '${failedCollections.join(', ')}',
+        );
+        return ExitCode.software.code;
+      }
 
+      log.info('✅ Collect complete!');
       return ExitCode.success.code;
-    } catch (e, stackTrace) {
-      log
-        ..error('❌ Fatal error: $e')
-        ..debug('Stack trace: $stackTrace');
-      return ExitCode.software.code;
-    } finally {
-      await Future.wait([
-        for (final fn in teardown)
-          fn().catchError((Object e) {
-            log.error('Error in teardown: $e');
-          }),
-      ]);
-    }
+    });
   }
 
+  /// Collects tracks for [collection] and writes them to its target.
+  ///
+  /// Throws when a source or the target cannot be read, before anything is
+  /// written to Spotify.
   Future<void> _processCollection({
     required SpotifyApi api,
-    required User user,
     required CollectCollection collection,
     required RequestPool requestPool,
     required List<PlaylistSimple> userPlaylists,
     required bool isDryRun,
   }) async {
-    // Resolve source playlists
     log.info('  📋 Resolving source playlists...');
     final resolvedPlaylists = await _resolveSources(
       sources: collection.sources,
@@ -190,22 +176,16 @@ class CollectCommand extends Command<int> {
         'Fetching from "${playlist.name}"...',
       );
 
-      try {
-        final playlistTracks = await requestPool.fetchAllPages(
-          api.playlists.getPlaylistTracks(playlist.id!),
-          limit: 50,
-          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-            SpotifyPlaylistId(playlist.id!),
-            offset,
-          ),
-        );
+      final playlistTracks = await fetchPlaylistTracks(
+        api: api,
+        requestPool: requestPool,
+        playlistId: SpotifyPlaylistId(playlist.id!),
+      );
 
-        // Convert to CollectedTrack (no date filtering for collect)
-        for (final playlistTrack in playlistTracks) {
-          if (playlistTrack.track?.id == null) continue;
-
-          final track = playlistTrack.track!;
-          final collectedTrack = CollectedTrack(
+      for (final playlistTrack in playlistTracks.spotifyTracks) {
+        final track = playlistTrack.track!;
+        allTracks.add(
+          CollectedTrack(
             id: SpotifyTrackId(track.id!),
             uri: track.uri!,
             name: track.name!,
@@ -218,18 +198,14 @@ class CollectCommand extends Command<int> {
             albumId: track.album?.id != null
                 ? SpotifyAlbumId(track.album!.id!)
                 : null,
-          );
-
-          allTracks.add(collectedTrack);
-        }
-
-        log.info(
-          '    ✅ Found ${playlistTracks.length} track(s) from '
-          '"${playlist.name}"',
+          ),
         );
-      } catch (e) {
-        log.error('    ❌ Error fetching from "${playlist.name}": $e');
       }
+
+      log.info(
+        '    ✅ Found ${playlistTracks.length} track(s) from '
+        '"${playlist.name}"',
+      );
     }
 
     log.info('  📊 Collected ${allTracks.length} total tracks');
@@ -261,7 +237,6 @@ class CollectCommand extends Command<int> {
       );
     }
 
-    // Resolve target playlist
     log.info('  🎯 Resolving target playlist...');
     final resolvedTarget = await resolvePlaylistTarget(
       api: api,
@@ -272,112 +247,53 @@ class CollectCommand extends Command<int> {
       PlaylistSpotifyTarget(:final playlist) => playlist,
       _ => null,
     };
-
     if (targetPlaylist == null) {
-      log.error(
-        '  ❌ Could not resolve target playlist: ${collection.target}',
-      );
       throw Exception(
-        'Failed to resolve target playlist for collection '
-        '"${collection.name}". See errors above.',
+        'Could not resolve target playlist "${collection.target}"',
       );
     }
+    final targetPlaylistId = SpotifyPlaylistId(targetPlaylist.id!);
 
     log.info('  ✅ Target playlist: "${targetPlaylist.name}"');
 
+    final replaceMode = collection.options?.replace ?? true;
+    final uris = dedupedTracks.map((t) => t.uri).toList();
+
     if (isDryRun) {
-      final replaceMode = collection.options?.replace ?? true;
-      if (replaceMode) {
-        log.info(
-          '  🔍 DRY RUN: Would replace playlist with '
-          '${dedupedTracks.length} tracks',
-        );
-      } else {
-        log.info(
-          '  🔍 DRY RUN: Would check existing tracks and append new ones '
-          '(${dedupedTracks.length} tracks to check)',
-        );
-      }
+      log.info(
+        replaceMode
+            ? '  🔍 DRY RUN: Would replace playlist with ${uris.length} tracks'
+            : '  🔍 DRY RUN: Would append the new ones of ${uris.length} '
+                  'tracks',
+      );
       return;
     }
 
-    // Determine mode: replace or append
-    final replaceMode = collection.options?.replace ?? true;
-
-    // Get tracks to add
-    List<String> trackUris;
     if (replaceMode) {
       log.info(
-        '  📤 Replacing playlist contents with ${dedupedTracks.length} '
-        'track(s)...',
+        '  📤 Replacing playlist contents with ${uris.length} track(s)...',
       );
-      // Convert all tracks to URIs
-      trackUris = dedupedTracks.map((t) => t.uri).toList();
+      await replacePlaylistTracks(
+        api: api,
+        playlistId: targetPlaylistId,
+        uris: uris,
+      );
     } else {
-      log
-        ..info(
-          '  📤 Appending ${dedupedTracks.length} track(s) to existing '
-          'playlist...',
-        )
-        ..info('  🔍 Checking existing tracks in playlist...');
-      final existingPlaylistTracksPages = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(targetPlaylist.id!),
-        limit: 50,
-        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-          SpotifyPlaylistId(targetPlaylist.id!),
-          offset,
-        ),
+      log.info('  📤 Appending new tracks to existing playlist...');
+      final added = await appendNewPlaylistTracks(
+        api: api,
+        requestPool: requestPool,
+        playlistId: targetPlaylistId,
+        uris: uris,
       );
-
-      // Extract existing track IDs
-      final existingTrackIds = <String>{};
-      for (final playlistTrack in existingPlaylistTracksPages) {
-        if (playlistTrack.track?.id != null) {
-          existingTrackIds.add(playlistTrack.track!.id!);
-        }
-      }
-
-      log.info('  📊 Found ${existingTrackIds.length} existing track(s)');
-
-      // Filter out tracks that are already in the playlist
-      final newTracks = dedupedTracks
-          .where((track) => !existingTrackIds.contains(track.id.toString()))
-          .toList();
-
-      final skippedCount = dedupedTracks.length - newTracks.length;
-      if (skippedCount > 0) {
-        log.info(
-          '  ⏭️  Skipping $skippedCount track(s) already in playlist',
-        );
-      }
-
-      if (newTracks.isEmpty) {
-        log.info('  ✅ All tracks already in playlist, nothing to add');
-        return;
-      }
-
       log.info(
-        '  ➕ Adding ${newTracks.length} new track(s) to playlist',
+        '  ➕ Added ${added.length} new track(s), '
+        '${uris.length - added.length} already in playlist',
       );
-
-      // Convert new tracks to URIs
-      trackUris = newTracks.map((t) => t.uri).toList();
-    }
-
-    // Clear playlist first if replacing
-    if (replaceMode) {
-      await api.playlists.clear(targetPlaylist.id!);
-    }
-
-    // Add tracks in batches of 100 (Spotify API limit)
-    for (var i = 0; i < trackUris.length; i += 100) {
-      final batch = trackUris.skip(i).take(100).toList();
-      await api.playlists.addTracks(batch, targetPlaylist.id!);
     }
 
     log.info('  ✅ Successfully updated playlist');
 
-    // Update playlist description if configured
     if (collection.description != null) {
       log.info('  📝 Updating playlist description...');
       try {
@@ -387,7 +303,7 @@ class CollectCommand extends Command<int> {
           sourceCount: resolvedPlaylists.length,
         );
         await api.playlists.updatePlaylist(
-          targetPlaylist.id!,
+          targetPlaylistId,
           targetPlaylist.name ?? '',
           description: renderedDescription,
         );
@@ -397,7 +313,6 @@ class CollectCommand extends Command<int> {
       }
     }
 
-    // Show playlist URL
     if (targetPlaylist.externalUrls?.spotify != null) {
       log.info('  🔗 Playlist URL: ${targetPlaylist.externalUrls!.spotify}');
     }

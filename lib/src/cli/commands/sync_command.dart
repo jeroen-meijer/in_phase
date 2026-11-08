@@ -94,8 +94,7 @@ class SyncCommand extends Command<int> {
           .toList();
 
       final api = await spotifyLogin();
-      // ignore: invalid_use_of_visible_for_testing_member
-      addTeardown(() async => (await api.client).close());
+      addTeardown(() => closeSpotifyApi(api));
 
       final rbDb = await RekordboxDatabase.connect();
       addTeardown(rbDb.close);
@@ -125,11 +124,10 @@ class SyncCommand extends Command<int> {
           spPlaylistId,
           spSnapshotId,
         )) {
-          playlistFetchFutures[spPlaylistId] = requestPool.fetchAllPages(
-            api.playlists.getPlaylistTracks(spPlaylistId),
-            limit: 50,
-            pageIdentifier: (offset) =>
-                SpotifyCacheIdentifier.playlistTracksPage(spPlaylistId, offset),
+          playlistFetchFutures[spPlaylistId] = fetchPlaylistTracks(
+            api: api,
+            requestPool: requestPool,
+            playlistId: spPlaylistId,
           );
         }
       }
@@ -201,7 +199,7 @@ class SyncCommand extends Command<int> {
           );
 
           // Convert and cache tracks
-          trackList = spPlaylistTrackList.where((e) => e.track != null).map(
+          trackList = spPlaylistTrackList.spotifyTracks.map(
             (e) {
               final track = e.track!;
               return (
@@ -556,10 +554,9 @@ class SyncCommand extends Command<int> {
   ) async {
     log.info('Fetching all user playlists');
     final requestPool = Zonable.fromZone<RequestPool>();
-    final allPlaylists = await requestPool.fetchAllPages(
-      spotifyApi.me.playlists.saved(),
-      limit: 50,
-      pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+    final allPlaylists = await fetchSavedPlaylists(
+      api: spotifyApi,
+      requestPool: requestPool,
     );
 
     log.info('Filtering ${allPlaylists.length} playlists by sync config');

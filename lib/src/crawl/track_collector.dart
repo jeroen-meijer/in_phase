@@ -217,30 +217,27 @@ class TrackCollector {
     if (progress == null) {
       log.info(tag: tag, '    🔄 Fetching tracks from Spotify...');
     }
-    final playlistTracks = await requestPool.fetchAllPages(
-      api.playlists.getPlaylistTracks(playlistId),
-      limit: 50,
-      pageIdentifier: (offset) =>
-          SpotifyCacheIdentifier.playlistTracksPage(spotifyPlaylistId, offset),
-    );
+    // Tracks without an added date cannot be cached or filtered by date.
+    final playlistTracks = (await fetchPlaylistTracks(
+      api: api,
+      requestPool: requestPool,
+      playlistId: spotifyPlaylistId,
+    )).spotifyTracks.where((pt) => pt.addedAt != null).toList();
 
     // Cache the playlist
-    final cachedTracks = playlistTracks
-        .where((pt) => pt.track?.id != null && pt.addedAt != null)
-        .map((playlistTrack) {
-          final track = playlistTrack.track!;
-          return entities.CachedPlaylistTrack(
-            trackId: SpotifyTrackId(track.id!),
-            uri: track.uri!,
-            name: track.name!,
-            artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-            addedAt: playlistTrack.addedAt!,
-            albumId: track.album?.id != null
-                ? SpotifyAlbumId(track.album!.id!)
-                : null,
-          );
-        })
-        .toList();
+    final cachedTracks = playlistTracks.map((playlistTrack) {
+      final track = playlistTrack.track!;
+      return entities.CachedPlaylistTrack(
+        trackId: SpotifyTrackId(track.id!),
+        uri: track.uri!,
+        name: track.name!,
+        artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
+        addedAt: playlistTrack.addedAt!,
+        albumId: track.album?.id != null
+            ? SpotifyAlbumId(track.album!.id!)
+            : null,
+      );
+    }).toList();
 
     await cacheAdapter.cachePlaylist(
       spotifyPlaylistId,
@@ -296,8 +293,6 @@ class TrackCollector {
     final collectedTracks = <CollectedTrack>[];
 
     for (final playlistTrack in playlistTracks) {
-      if (playlistTrack.track?.id == null) continue;
-
       final track = playlistTrack.track!;
       late final DateTime addedAtForCollected;
       late final String dateLog;
