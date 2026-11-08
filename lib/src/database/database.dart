@@ -1,5 +1,3 @@
-// ignore_for_file: lines_longer_than_80_chars
-
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -16,13 +14,11 @@ part 'database.g.dart';
     CachedPlaylists,
     CachedPlaylistTracks,
     CachedAlbums,
-    TrackAlbumMappings,
     CachedArtists,
     CachedArtistAlbumLists,
     ArtistAlbumRelationships,
     CachedLabelSearches,
     CachedLabelTracks,
-    CacheMetadata,
     SyncTrackMappings,
     SyncMissingTracks,
     SyncPlaylists,
@@ -31,11 +27,9 @@ part 'database.g.dart';
   daos: [
     PlaylistsDao,
     AlbumsDao,
-    TrackAlbumMappingsDao,
     ArtistsDao,
     ArtistAlbumsDao,
     LabelSearchesDao,
-    MetadataDao,
     SyncMappingsDao,
     SyncMissingTracksDao,
     SyncPlaylistsDao,
@@ -57,75 +51,81 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
-      onCreate: (m) async {
-        await m.createAll();
-      },
+      onCreate: (m) => m.createAll(),
       onUpgrade: (m, from, to) async {
-        if (from == 1 && to == 2) {
-          // Add sync tables in version 2
+        if (from < 2) {
           await m.createTable(syncTrackMappings);
           await m.createTable(syncMissingTracks);
           await m.createTable(syncPlaylists);
           await m.createTable(syncPlaylistTracks);
         }
-        if (from <= 2 && to == 3) {
-          // Add order_index column to artist_album_relationships table
-          // Check if the column already exists
-          final result = await m.database
-              .customSelect(
-                'PRAGMA table_info(artist_album_relationships)',
-              )
-              .get();
-
-          final hasOrderIndex = result.any(
-            (row) => row.data['name'] == 'order_index',
+        if (from < 3) {
+          final orderIndex =
+              await _hasColumn('artist_album_relationships', 'order_index')
+              ? 'COALESCE(order_index, 0)'
+              : '0';
+          await _rebuildTable(
+            m,
+            artistAlbumRelationships,
+            selectColumns: 'artist_id, album_id, $orderIndex',
           );
-
-          // Clean up any existing temporary table
-          try {
-            await m.database.customStatement(
-              'DROP TABLE IF EXISTS artist_album_relationships_new',
+        }
+        if (from < 4) {
+          // 1.5.1 stored `last_inserted_at` (NOT NULL); some caches were
+          // already patched by hand to `source_added_at`.
+          if (await _hasColumn('sync_missing_tracks', 'last_inserted_at')) {
+            await _rebuildTable(
+              m,
+              syncMissingTracks,
+              selectColumns:
+                  'spotify_track_id, artist, title, itunes_url, '
+                  'last_inserted_at',
             );
-          } catch (e) {
-            // Ignore errors if table doesn't exist
-          }
-
-          if (!hasOrderIndex) {
-            // First add the column as nullable
-            await m.database.customStatement(
-              'ALTER TABLE artist_album_relationships ADD COLUMN order_index INTEGER',
-            );
-
-            // Update existing rows to have order_index = 0
-            await m.database.customStatement(
-              'UPDATE artist_album_relationships SET order_index = 0 WHERE order_index IS NULL',
+          } else if (!await _hasColumn(
+            'sync_missing_tracks',
+            'source_added_at',
+          )) {
+            await m.addColumn(
+              syncMissingTracks,
+              syncMissingTracks.sourceAddedAt,
             );
           }
-
-          // Make the column NOT NULL by recreating the table
-          await m.database.customStatement(
-            'CREATE TABLE artist_album_relationships_new (artist_id TEXT NOT NULL, album_id TEXT NOT NULL, order_index INTEGER NOT NULL, PRIMARY KEY (artist_id, album_id), FOREIGN KEY (artist_id) REFERENCES cached_artists (id), FOREIGN KEY (album_id) REFERENCES cached_albums (id))',
-          );
-
-          // Copy data to new table
-          await m.database.customStatement(
-            'INSERT INTO artist_album_relationships_new SELECT artist_id, album_id, COALESCE(order_index, 0) FROM artist_album_relationships',
-          );
-
-          // Drop old table and rename new one
-          await m.database.customStatement(
-            'DROP TABLE artist_album_relationships',
-          );
-          await m.database.customStatement(
-            'ALTER TABLE artist_album_relationships_new RENAME TO artist_album_relationships',
-          );
+          if (!await _hasColumn('sync_playlist_tracks', 'added_at')) {
+            await m.addColumn(syncPlaylistTracks, syncPlaylistTracks.addedAt);
+          }
+          await m.deleteTable('track_album_mappings');
+          await m.deleteTable('cache_metadata');
         }
       },
     );
+  }
+
+  /// Recreates [table] from its current definition, copying rows from the
+  /// old table with [selectColumns] (in the order of the table's columns).
+  Future<void> _rebuildTable(
+    Migrator m,
+    TableInfo<Table, dynamic> table, {
+    required String selectColumns,
+  }) async {
+    final name = table.actualTableName;
+    final oldName = '${name}_old';
+    await customStatement('DROP TABLE IF EXISTS $oldName');
+    await customStatement('ALTER TABLE $name RENAME TO $oldName');
+    await m.createTable(table);
+    final columns = table.$columns.map((c) => c.name).join(', ');
+    await customStatement(
+      'INSERT INTO $name ($columns) SELECT $selectColumns FROM $oldName',
+    );
+    await m.deleteTable(oldName);
+  }
+
+  Future<bool> _hasColumn(String table, String column) async {
+    final rows = await customSelect('PRAGMA table_info($table)').get();
+    return rows.any((row) => row.data['name'] == column);
   }
 }

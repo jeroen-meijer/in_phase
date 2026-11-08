@@ -84,58 +84,11 @@ class AlbumsDao extends DatabaseAccessor<AppDatabase> with _$AlbumsDaoMixin {
     return album != null;
   }
 
-  /// Inserts or updates an album.
-  Future<void> upsertAlbum(CachedAlbumsCompanion album) {
-    return into(cachedAlbums).insertOnConflictUpdate(album);
-  }
-
   /// Inserts or updates multiple albums.
   Future<void> upsertAlbums(List<CachedAlbumsCompanion> albums) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(cachedAlbums, albums);
     });
-  }
-
-  /// Gets albums by release date range.
-  Future<List<CachedAlbum>> getAlbumsByReleaseDate({
-    String? fromDate,
-    String? toDate,
-  }) {
-    final query = select(cachedAlbums);
-
-    if (fromDate != null) {
-      query.where((a) => a.releaseDate.isBiggerOrEqualValue(fromDate));
-    }
-    if (toDate != null) {
-      query.where((a) => a.releaseDate.isSmallerOrEqualValue(toDate));
-    }
-
-    return query.get();
-  }
-}
-
-/// DAO for track-album mappings operations.
-@DriftAccessor(tables: [TrackAlbumMappings])
-class TrackAlbumMappingsDao extends DatabaseAccessor<AppDatabase>
-    with _$TrackAlbumMappingsDaoMixin {
-  TrackAlbumMappingsDao(super.attachedDatabase);
-
-  /// Gets the album ID for a track.
-  Future<String?> getAlbumIdForTrack(String trackId) async {
-    final mapping = await (select(
-      trackAlbumMappings,
-    )..where((m) => m.trackId.equals(trackId))).getSingleOrNull();
-    return mapping?.albumId;
-  }
-
-  /// Inserts or updates a track-album mapping.
-  Future<void> upsertMapping(String trackId, String albumId) {
-    return into(trackAlbumMappings).insertOnConflictUpdate(
-      TrackAlbumMappingsCompanion.insert(
-        trackId: trackId,
-        albumId: albumId,
-      ),
-    );
   }
 }
 
@@ -149,15 +102,6 @@ class ArtistsDao extends DatabaseAccessor<AppDatabase> with _$ArtistsDaoMixin {
     return (select(
       cachedArtists,
     )..where((a) => a.id.equals(artistId))).getSingleOrNull();
-  }
-
-  /// Checks if an artist is stale (older than 1 month).
-  Future<bool> isArtistStale(String artistId) async {
-    final artist = await getArtist(artistId);
-    if (artist == null) return true;
-
-    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
-    return artist.cachedAt.isBefore(oneMonthAgo);
   }
 
   /// Inserts or updates an artist.
@@ -187,26 +131,6 @@ class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
             .get();
 
     return results.map((r) => r.albumId).toList();
-  }
-
-  /// Checks if artist albums list is fresh (from today).
-  Future<bool> isArtistAlbumsFresh(String artistId) async {
-    final list = await (select(
-      cachedArtistAlbumLists,
-    )..where((l) => l.artistId.equals(artistId))).getSingleOrNull();
-
-    if (list == null) return false;
-
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      list.cachedAt.year,
-      list.cachedAt.month,
-      list.cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
   }
 
   /// Removes all cached data for an artist.
@@ -279,26 +203,6 @@ class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
     )..where((t) => t.labelName.equals(labelName))).get();
   }
 
-  /// Checks if label search is fresh (from today).
-  Future<bool> isLabelSearchFresh(String labelName) async {
-    final search = await (select(
-      cachedLabelSearches,
-    )..where((s) => s.labelName.equals(labelName))).getSingleOrNull();
-
-    if (search == null) return false;
-
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      search.cachedAt.year,
-      search.cachedAt.month,
-      search.cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
-
   /// Inserts or updates a label search with its tracks.
   Future<void> upsertLabelSearch({
     required String labelName,
@@ -323,43 +227,6 @@ class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
         batch.insertAll(cachedLabelTracks, tracks);
       });
     });
-  }
-}
-
-/// DAO for cache metadata operations.
-@DriftAccessor(tables: [CacheMetadata])
-class MetadataDao extends DatabaseAccessor<AppDatabase>
-    with _$MetadataDaoMixin {
-  MetadataDao(super.attachedDatabase);
-
-  /// Gets the cache metadata.
-  Future<CacheMetadataData?> getMetadata() {
-    return (select(
-      cacheMetadata,
-    )..where((m) => m.id.equals(1))).getSingleOrNull();
-  }
-
-  /// Updates the last updated timestamp.
-  Future<void> updateLastUpdated() {
-    return (update(cacheMetadata)..where((m) => m.id.equals(1))).write(
-      CacheMetadataCompanion(
-        lastUpdated: Value(DateTime.now()),
-      ),
-    );
-  }
-
-  /// Initializes metadata if it doesn't exist.
-  Future<void> initializeMetadata() async {
-    final existing = await getMetadata();
-    if (existing == null) {
-      await into(cacheMetadata).insert(
-        CacheMetadataCompanion.insert(
-          id: const Value(1),
-          created: Value(DateTime.now()),
-          lastUpdated: Value(DateTime.now()),
-        ),
-      );
-    }
   }
 }
 
@@ -410,20 +277,6 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
       for (final result in results)
         SpotifyTrackId(result.spotifyTrackId): result.rekordboxSongId,
     };
-  }
-
-  /// Sets a mapping.
-  Future<void> setMapping(
-    SpotifyTrackId spotifyTrackId,
-    String rekordboxSongId,
-  ) async {
-    await into(syncTrackMappings).insertOnConflictUpdate(
-      SyncTrackMappingsCompanion.insert(
-        spotifyTrackId: spotifyTrackId.toString(),
-        rekordboxSongId: rekordboxSongId,
-        createdAt: DateTime.now(),
-      ),
-    );
   }
 
   /// Batch sets multiple mappings from Spotify track IDs to Rekordbox song IDs.

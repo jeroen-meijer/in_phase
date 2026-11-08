@@ -1,3 +1,4 @@
+import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -152,17 +153,7 @@ class CachedArtistAlbums {
   final DateTime cachedAt;
 
   /// Returns true if the cache was created today.
-  bool get isFreshToday {
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      cachedAt.year,
-      cachedAt.month,
-      cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
+  bool get isFreshToday => isToday(cachedAt);
 }
 
 /// Cached track from label search.
@@ -222,17 +213,7 @@ class CachedLabelSearch {
   final DateTime cachedAt;
 
   /// Returns true if the cache was created today.
-  bool get isFreshToday {
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      cachedAt.year,
-      cachedAt.month,
-      cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
+  bool get isFreshToday => isToday(cachedAt);
 }
 
 // Conversion functions for extension types

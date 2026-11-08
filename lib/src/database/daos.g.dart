@@ -37,23 +37,6 @@ class AlbumsDaoManager {
       $$CachedAlbumsTableTableManager(_db.attachedDatabase, _db.cachedAlbums);
 }
 
-mixin _$TrackAlbumMappingsDaoMixin on DatabaseAccessor<AppDatabase> {
-  $TrackAlbumMappingsTable get trackAlbumMappings =>
-      attachedDatabase.trackAlbumMappings;
-  TrackAlbumMappingsDaoManager get managers =>
-      TrackAlbumMappingsDaoManager(this);
-}
-
-class TrackAlbumMappingsDaoManager {
-  final _$TrackAlbumMappingsDaoMixin _db;
-  TrackAlbumMappingsDaoManager(this._db);
-  $$TrackAlbumMappingsTableTableManager get trackAlbumMappings =>
-      $$TrackAlbumMappingsTableTableManager(
-        _db.attachedDatabase,
-        _db.trackAlbumMappings,
-      );
-}
-
 mixin _$ArtistsDaoMixin on DatabaseAccessor<AppDatabase> {
   $CachedArtistsTable get cachedArtists => attachedDatabase.cachedArtists;
   ArtistsDaoManager get managers => ArtistsDaoManager(this);
@@ -113,18 +96,6 @@ class LabelSearchesDaoManager {
         _db.attachedDatabase,
         _db.cachedLabelTracks,
       );
-}
-
-mixin _$MetadataDaoMixin on DatabaseAccessor<AppDatabase> {
-  $CacheMetadataTable get cacheMetadata => attachedDatabase.cacheMetadata;
-  MetadataDaoManager get managers => MetadataDaoManager(this);
-}
-
-class MetadataDaoManager {
-  final _$MetadataDaoMixin _db;
-  MetadataDaoManager(this._db);
-  $$CacheMetadataTableTableManager get cacheMetadata =>
-      $$CacheMetadataTableTableManager(_db.attachedDatabase, _db.cacheMetadata);
 }
 
 mixin _$SyncMappingsDaoMixin on DatabaseAccessor<AppDatabase> {

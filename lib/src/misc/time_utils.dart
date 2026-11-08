@@ -17,3 +17,12 @@ int? parsePositionToMs(String s) {
   if (minutes == null || seconds == null) return null;
   return minutes * 60000 + seconds * 1000;
 }
+
+/// Whether [dateTime] falls on today's local calendar date.
+bool isToday(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final now = DateTime.now();
+  return local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day;
+}
