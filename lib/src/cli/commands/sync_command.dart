@@ -1,10 +1,8 @@
 import 'dart:convert';
-import 'dart:isolate';
 
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:dcli/dcli.dart';
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:in_phase/src/cli/commands/sync/sync_validate_command.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart';
@@ -38,13 +36,8 @@ class SyncCommand extends Command<int> {
       'Rekordbox custom tracks). '
       'Pass playlist IDs to sync only those playlists.';
 
-  /// Regex for Camelot keys (4A, 12B, etc.)
-  ///
-  /// Anywhere in the given string:
-  /// - One digit (1-9)
-  /// - Optionally one digit (0-2)
-  /// - One of two letters: A or B
-  static final _camelotKeyRegex = RegExp('([1-9]|1[0-2])[AB]');
+  /// A whole word that is a Camelot key: 1A to 12B.
+  static final _camelotKeyRegex = RegExp(r'^(1[0-2]|[1-9])[AB]$');
 
   static Future<List<DjmdPlaylistData>> rbPlaylists(
     RekordboxDatabase rbDb,
@@ -147,6 +140,12 @@ class SyncCommand extends Command<int> {
             ),
           )
           .get();
+
+      final rbMatchIndex = RekordboxMatchIndex(rbAllSongsAndArtists);
+      final rbSongsById = {
+        for (final entry in rbAllSongsAndArtists) entry.song.id!: entry,
+      };
+      final mappings = await syncDb.syncMappingsDao.getAllMappings();
 
       final rbKeys = await rbDb.select(rbDb.djmdKey).get();
       final rbCamelotKeys = rbKeys
@@ -320,20 +319,14 @@ class SyncCommand extends Command<int> {
             first: true,
           );
 
-          // Check if we have a cached mapping for this track
-          final cachedMappingId = await syncDb.syncMappingsDao.getMapping(
-            cachedTrack.id,
-          );
-          final cachedMapping = cachedMappingId != null
-              ? RekordboxSongId(cachedMappingId)
-              : null;
+          final cachedMappingId = mappings[cachedTrack.id];
 
           var rbSong = await _findTrack(
-            spTrackId: cachedTrack.id,
             spTrackName: cachedTrack.name,
             spArtistNames: cachedTrack.artistNames,
-            rbSongsAndArtists: rbAllSongsAndArtists,
-            cachedMapping: cachedMapping,
+            rbMatchIndex: rbMatchIndex,
+            rbSongsById: rbSongsById,
+            cachedMappingId: cachedMappingId,
           );
 
           if (rbSong != null) {
@@ -413,12 +406,14 @@ class SyncCommand extends Command<int> {
             'Removing ${invalidMappingIds.length} invalid mapping(s)...',
           );
           await syncDb.syncMappingsDao.deleteMappings(invalidMappingIds);
+          invalidMappingIds.forEach(mappings.remove);
         }
 
         // Bulk insert mappings for this playlist.
         if (newMappings.isNotEmpty) {
           logPlaylist('Saving ${newMappings.length} track mapping(s)...');
           await syncDb.syncMappingsDao.setMappingsBatch(newMappings);
+          mappings.addAll(newMappings);
         }
 
         // Apply custom tracks if configured
@@ -426,14 +421,10 @@ class SyncCommand extends Command<int> {
         if (customTracks.isNotEmpty) {
           logPlaylist('Applying ${customTracks.length} custom track(s)...');
 
-          final rbPlaylistTracksById = <String, _TracklistEntry>{
-            for (final entry in rbPlaylistSongQueue) entry.trackId.value: entry,
-          };
-
-          final updatedTracklist = await _applyCustomTracks(
+          final updatedTracklist = _applyCustomTracks(
             customTracks: customTracks,
-            initialTracklist: rbPlaylistTracksById.values.toList(),
-            rbAllSongsAndArtists: rbAllSongsAndArtists,
+            initialTracklist: rbPlaylistSongQueue,
+            rbSongsById: rbSongsById,
             logPlaylist: logPlaylist,
           );
 
@@ -443,9 +434,7 @@ class SyncCommand extends Command<int> {
 
           // Track custom tracks for report
           for (final entry in updatedTracklist.where((e) => e.isCustom)) {
-            final rbSongData = rbAllSongsAndArtists.firstWhereOrNull(
-              (s) => s.song.id == entry.trackId.value,
-            );
+            final rbSongData = rbSongsById[entry.trackId.value];
             if (rbSongData != null) {
               playlistTrackEntries.add(
                 SyncTrackCustom(
@@ -579,38 +568,29 @@ class SyncCommand extends Command<int> {
   }
 
   static Future<DjmdContentData?> _findTrack({
-    required SpotifyTrackId spTrackId,
     required String spTrackName,
     required List<String> spArtistNames,
-    required List<RbArtistAndSong> rbSongsAndArtists,
-    required RekordboxSongId? cachedMapping,
+    required RekordboxMatchIndex rbMatchIndex,
+    required Map<String, RbArtistAndSong> rbSongsById,
+    required String? cachedMappingId,
     int threshold = 80,
   }) async {
-    // Check cached mapping first
-    if (cachedMapping case final rbSongId?) {
-      if (rbSongsAndArtists.firstWhereOrNull((e) => e.song.id == rbSongId)
-          case RbArtistAndSong(song: final rbSong)?) {
-        return rbSong;
-      } else {
-        log.warning(
-          'Sync cache contains an invalid Rekordbox song ID: $rbSongId',
-        );
+    if (cachedMappingId != null) {
+      if (rbSongsById[cachedMappingId] case RbArtistAndSong(:final song)) {
+        return song;
       }
+      log.warning(
+        'Sync cache contains an invalid Rekordbox song ID: $cachedMappingId',
+      );
     }
 
-    const threads = 4;
-
-    log.info('Finding fuzzy match for $spTrackName ($threads threads)');
-    final fuzzyMatch = await _findFuzzyMatch(
-      spTrackName: spTrackName,
-      spArtistNames: spArtistNames,
-      rbSongsAndArtists: rbSongsAndArtists,
-      // ignore: avoid_redundant_argument_values
-      threads: threads,
-    );
+    log.info('Finding fuzzy match for $spTrackName');
+    final fuzzyMatch = await rbMatchIndex.bestMatch(spArtistNames, spTrackName);
+    if (fuzzyMatch == null) {
+      return null;
+    }
 
     final RbArtistAndSong(:artist, :song) = fuzzyMatch.value;
-
     log.info(
       'Best match: "${artist?.name ?? 'Unknown artist'} - ${song.title}" '
       '(score: ${fuzzyMatch.score})',
@@ -620,7 +600,6 @@ class SyncCommand extends Command<int> {
       return null;
     }
 
-    log.info('Returning match');
     return song;
   }
 
@@ -632,69 +611,6 @@ class SyncCommand extends Command<int> {
         .expand((e) => e.split(' '))
         .where((e) => e.isNotEmpty)
         .firstWhereOrNull(_camelotKeyRegex.hasMatch);
-  }
-
-  static Future<FuzzyFindMatch<RbArtistAndSong>> _findFuzzyMatch({
-    required String spTrackName,
-    required List<String> spArtistNames,
-    required List<RbArtistAndSong> rbSongsAndArtists,
-    int threads = 4,
-  }) async {
-    if (rbSongsAndArtists.isEmpty) {
-      throw Exception('No Rekordbox songs and artists to find match for');
-    }
-
-    FuzzyFindMatch<RbArtistAndSong> findFuzzyMatchForChunk(
-      List<RbArtistAndSong> rbSongsAndArtists,
-    ) {
-      final query = _normalizeQuery(
-        spArtistNames,
-        spTrackName,
-      );
-
-      var bestScore = 0;
-      var bestMatch = rbSongsAndArtists.first;
-
-      for (final rbSongAndArtist in rbSongsAndArtists) {
-        final target = _normalizeQuery(
-          [rbSongAndArtist.artist?.name ?? ''],
-          rbSongAndArtist.song.title!,
-        );
-        final score = tokenSortRatio(query, target);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = rbSongAndArtist;
-        }
-      }
-
-      return FuzzyFindMatch(value: bestMatch, score: bestScore);
-    }
-
-    if (threads == 1) {
-      return findFuzzyMatchForChunk(rbSongsAndArtists);
-    }
-
-    final itemsPerThread = (rbSongsAndArtists.length / threads).ceil();
-    final chunks = rbSongsAndArtists.slices(itemsPerThread);
-
-    final results = await Future.wait([
-      for (final chunk in chunks)
-        Isolate.run(() => findFuzzyMatchForChunk(chunk)),
-    ]);
-
-    return maxBy<FuzzyFindMatch<RbArtistAndSong>, int>(
-      results,
-      (e) => e.score,
-    )!;
-  }
-
-  static String _normalizeQuery(List<String> artists, String title) {
-    return '${artists.join(' ')} $title'
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 }
 
@@ -712,21 +628,19 @@ class _TracklistEntry {
 
 /// Applies custom tracks (insert and replace operations) to the initial
 /// tracklist.
-Future<List<_TracklistEntry>> _applyCustomTracks({
+List<_TracklistEntry> _applyCustomTracks({
   required List<CustomTrack> customTracks,
   required List<_TracklistEntry> initialTracklist,
-  required List<RbArtistAndSong> rbAllSongsAndArtists,
+  required Map<String, RbArtistAndSong> rbSongsById,
   required void Function(String) logPlaylist,
-}) async {
+}) {
   // Separate inserts and replaces
   final insertsToProcess = <CustomTrack>[];
   final replacesToProcess = <CustomTrack>[];
 
   for (final customTrack in customTracks) {
     // Validate that the rekordbox track exists
-    final rbSong = rbAllSongsAndArtists.firstWhereOrNull(
-      (e) => e.song.id == customTrack.rekordboxId,
-    );
+    final rbSong = rbSongsById[customTrack.rekordboxId];
 
     if (rbSong == null) {
       logPlaylist(
@@ -751,7 +665,7 @@ Future<List<_TracklistEntry>> _applyCustomTracks({
     workingTracklist = _processInserts(
       inserts: insertsToProcess,
       tracklist: workingTracklist,
-      rbAllSongsAndArtists: rbAllSongsAndArtists,
+      rbSongsById: rbSongsById,
       logPlaylist: logPlaylist,
     );
   }
@@ -761,7 +675,7 @@ Future<List<_TracklistEntry>> _applyCustomTracks({
     workingTracklist = _processReplacements(
       replacements: replacesToProcess,
       tracklist: workingTracklist,
-      rbAllSongsAndArtists: rbAllSongsAndArtists,
+      rbSongsById: rbSongsById,
       logPlaylist: logPlaylist,
     );
   }
@@ -781,7 +695,7 @@ String _formatTrackName(RbArtistAndSong? rbSong) {
 List<_TracklistEntry> _processInserts({
   required List<CustomTrack> inserts,
   required List<_TracklistEntry> tracklist,
-  required List<RbArtistAndSong> rbAllSongsAndArtists,
+  required Map<String, RbArtistAndSong> rbSongsById,
   required void Function(String) logPlaylist,
 }) {
   final result = List<_TracklistEntry>.from(tracklist);
@@ -814,9 +728,7 @@ List<_TracklistEntry> _processInserts({
 
       if (targetIndex == null) {
         final customTrackName = _formatTrackName(
-          rbAllSongsAndArtists.firstWhereOrNull(
-            (e) => e.song.id == insert.rekordboxId,
-          ),
+          rbSongsById[insert.rekordboxId],
         );
         logPlaylist(
           '  ⚠️  WARNING: Custom track '
@@ -835,9 +747,7 @@ List<_TracklistEntry> _processInserts({
     if (targetIndex != null &&
         (targetIndex < 0 || targetIndex > result.length)) {
       final customTrackName = _formatTrackName(
-        rbAllSongsAndArtists.firstWhereOrNull(
-          (e) => e.song.id == insert.rekordboxId,
-        ),
+        rbSongsById[insert.rekordboxId],
       );
       logPlaylist(
         '  ⚠️  WARNING: Custom track '
@@ -858,9 +768,7 @@ List<_TracklistEntry> _processInserts({
   final tracksToAppend = insertsByIndex.remove(null) ?? [];
   for (final entry in tracksToAppend) {
     final customTrackName = _formatTrackName(
-      rbAllSongsAndArtists.firstWhereOrNull(
-        (e) => e.song.id == entry.insert.rekordboxId,
-      ),
+      rbSongsById[entry.insert.rekordboxId],
     );
     logPlaylist(
       '  ├ Appending custom track '
@@ -904,9 +812,7 @@ List<_TracklistEntry> _processInserts({
     int? relativeOffset;
     for (final entry in insertsToProcess) {
       if (entry.targetId != null) {
-        final targetRbSong = rbAllSongsAndArtists.firstWhereOrNull(
-          (e) => e.song.id == entry.targetId,
-        );
+        final targetRbSong = rbSongsById[entry.targetId];
         if (targetRbSong != null) {
           targetTrackName = _formatTrackName(targetRbSong);
           relativeOffset = entry.offset;
@@ -919,9 +825,7 @@ List<_TracklistEntry> _processInserts({
     final trackNames = insertsToProcess
         .map((entry) {
           final customTrackName = _formatTrackName(
-            rbAllSongsAndArtists.firstWhereOrNull(
-              (e) => e.song.id == entry.insert.rekordboxId,
-            ),
+            rbSongsById[entry.insert.rekordboxId],
           );
           return '"$customTrackName" [${entry.insert.rekordboxId}]';
         })
@@ -951,9 +855,7 @@ List<_TracklistEntry> _processInserts({
           '($trackNames) $positionStr "$targetTrackName"';
     } else if (targetEntry != null) {
       final entryTrackName = _formatTrackName(
-        rbAllSongsAndArtists.firstWhereOrNull(
-          (e) => e.song.id == targetEntry!.trackId.value,
-        ),
+        rbSongsById[targetEntry.trackId.value],
       );
       logMessage =
           '  ├ Inserting ${insertsToProcess.length} custom track(s) '
@@ -986,7 +888,7 @@ List<_TracklistEntry> _processInserts({
 List<_TracklistEntry> _processReplacements({
   required List<CustomTrack> replacements,
   required List<_TracklistEntry> tracklist,
-  required List<RbArtistAndSong> rbAllSongsAndArtists,
+  required Map<String, RbArtistAndSong> rbSongsById,
   required void Function(String) logPlaylist,
 }) {
   final result = List<_TracklistEntry>.from(tracklist);
@@ -1000,14 +902,10 @@ List<_TracklistEntry> _processReplacements({
         if (result[i].trackId.value == replacement.target &&
             !result[i].isCustom) {
           final targetTrackName = _formatTrackName(
-            rbAllSongsAndArtists.firstWhereOrNull(
-              (e) => e.song.id == result[i].trackId.value,
-            ),
+            rbSongsById[result[i].trackId.value],
           );
           final customTrackName = _formatTrackName(
-            rbAllSongsAndArtists.firstWhereOrNull(
-              (e) => e.song.id == replacement.rekordboxId,
-            ),
+            rbSongsById[replacement.rekordboxId],
           );
           logPlaylist(
             '  ├ Replacing "$targetTrackName" [${result[i].trackId.value}] '
@@ -1033,14 +931,10 @@ List<_TracklistEntry> _processReplacements({
           if (result[i].originalIndex == targetIndex + 1 &&
               !result[i].isCustom) {
             final targetTrackName = _formatTrackName(
-              rbAllSongsAndArtists.firstWhereOrNull(
-                (e) => e.song.id == result[i].trackId.value,
-              ),
+              rbSongsById[result[i].trackId.value],
             );
             final customTrackName = _formatTrackName(
-              rbAllSongsAndArtists.firstWhereOrNull(
-                (e) => e.song.id == replacement.rekordboxId,
-              ),
+              rbSongsById[replacement.rekordboxId],
             );
             logPlaylist(
               '  ├ Replacing "$targetTrackName" [${result[i].trackId.value}] '
@@ -1061,9 +955,7 @@ List<_TracklistEntry> _processReplacements({
 
     if (!replaced) {
       final customTrackName = _formatTrackName(
-        rbAllSongsAndArtists.firstWhereOrNull(
-          (e) => e.song.id == replacement.rekordboxId,
-        ),
+        rbSongsById[replacement.rekordboxId],
       );
       if (replacement.target != null) {
         logPlaylist(

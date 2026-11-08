@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:in_phase/src/misc/fuzzy_search.dart';
+
 /// iTunes Store URL helpers and lightweight lookup.
 class ItunesStore {
   /// Looks up a track URL in the iTunes Search API and returns an `itmss://`
@@ -74,8 +76,8 @@ class ItunesStore {
     required String title,
     required List<dynamic> rawResults,
   }) {
-    final normalizedArtist = _normalizeForMatch(artist);
-    final normalizedTitle = _normalizeForMatch(title);
+    final normalizedArtist = normalizeForMatch(artist);
+    final normalizedTitle = normalizeForMatch(title);
 
     var bestScore = -1;
     String? bestUrl;
@@ -86,10 +88,10 @@ class ItunesStore {
       final trackViewUrl = result['trackViewUrl'] as String?;
       if (trackViewUrl == null || trackViewUrl.isEmpty) continue;
 
-      final candidateArtist = _normalizeForMatch(
+      final candidateArtist = normalizeForMatch(
         (result['artistName'] as String?) ?? '',
       );
-      final candidateTitle = _normalizeForMatch(
+      final candidateTitle = normalizeForMatch(
         (result['trackName'] as String?) ?? '',
       );
 
@@ -122,13 +124,5 @@ class ItunesStore {
     if (idSegment == null) return null;
     final value = idSegment.replaceFirst('id', '');
     return value.isEmpty ? null : value;
-  }
-
-  static String _normalizeForMatch(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 }

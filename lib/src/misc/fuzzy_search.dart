@@ -1,4 +1,5 @@
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
@@ -6,17 +7,21 @@ import 'package:rekorddart/rekorddart.dart';
 
 typedef RbArtistAndSong = ({DjmdArtistData? artist, DjmdContentData song});
 
-/// Normalizes a query string for fuzzy matching.
-///
-/// Combines artist names and title, converts to lowercase, removes
-/// punctuation, and normalizes whitespace.
-String normalizeQuery(List<String> artists, String title) {
-  return '${artists.join(' ')} $title'
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^\w\s]'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-}
+final _nonWordCharacters = RegExp(r'[^\w\s]');
+final _whitespace = RegExp(r'\s+');
+
+/// Lowercases [input], turns punctuation into spaces and collapses
+/// whitespace, so `S.P.Y - Rock Da House` and `s p y rock da house` compare
+/// equal.
+String normalizeForMatch(String input) => input
+    .toLowerCase()
+    .replaceAll(_nonWordCharacters, ' ')
+    .replaceAll(_whitespace, ' ')
+    .trim();
+
+/// Normalized `artists title` string for fuzzy matching.
+String normalizeQuery(List<String> artists, String title) =>
+    normalizeForMatch('${artists.join(' ')} $title');
 
 /// Represents a fuzzy match result with a score.
 class FuzzyFindMatch<T> {
@@ -29,60 +34,62 @@ class FuzzyFindMatch<T> {
   final int score;
 }
 
-/// Finds the best fuzzy match for a query against a list of tracks.
+/// Rekordbox songs prepared for many fuzzy lookups.
 ///
-/// Uses token sort ratio for matching. Supports multi-threaded search
-/// for large libraries.
-Future<FuzzyFindMatch<RbArtistAndSong>> findFuzzyTrackMatch({
-  required String query,
-  required List<RbArtistAndSong> tracks,
-  int threads = 4,
-}) async {
-  if (tracks.isEmpty) {
-    throw Exception('No tracks to search');
-  }
+/// Normalizes every song once; each lookup only sends the normalized strings
+/// to the worker isolates.
+class RekordboxMatchIndex {
+  RekordboxMatchIndex(this.songs)
+    : _targets = [
+        for (final song in songs)
+          normalizeQuery([song.artist?.name ?? ''], song.song.title ?? ''),
+      ];
 
-  FuzzyFindMatch<RbArtistAndSong> findFuzzyMatchForChunk(
-    List<RbArtistAndSong> tracks,
-  ) {
-    final normalizedQuery = query.toLowerCase().trim();
+  final List<RbArtistAndSong> songs;
+  final List<String> _targets;
 
-    var bestScore = 0;
-    var bestMatch = tracks.first;
-
-    for (final track in tracks) {
-      final target = normalizeQuery(
-        [track.artist?.name ?? ''],
-        track.song.title ?? '',
-      );
-      final score = tokenSortRatio(normalizedQuery, target);
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = track;
-      }
+  /// The song that best matches [artists] and [title] by token sort ratio,
+  /// or null when the library is empty.
+  Future<FuzzyFindMatch<RbArtistAndSong>?> bestMatch(
+    List<String> artists,
+    String title, {
+    int threads = 4,
+  }) async {
+    if (_targets.isEmpty) {
+      return null;
     }
 
-    return FuzzyFindMatch(value: bestMatch, score: bestScore);
+    final query = normalizeQuery(artists, title);
+    final chunkSize = (_targets.length / threads).ceil();
+    final results = await Future.wait([
+      for (var start = 0; start < _targets.length; start += chunkSize)
+        _bestTargetInIsolate(
+          query,
+          _targets.sublist(start, min(start + chunkSize, _targets.length)),
+          start,
+        ),
+    ]);
+
+    final best = maxBy(results, (result) => result.score)!;
+    return FuzzyFindMatch(value: songs[best.index], score: best.score);
   }
-
-  if (threads == 1) {
-    return findFuzzyMatchForChunk(tracks);
-  }
-
-  final itemsPerThread = (tracks.length / threads).ceil();
-  final chunks = tracks.slices(itemsPerThread);
-
-  final results = await Future.wait([
-    for (final chunk in chunks)
-      Isolate.run(() => findFuzzyMatchForChunk(chunk)),
-  ]);
-
-  return maxBy<FuzzyFindMatch<RbArtistAndSong>, int>(
-    results,
-    (e) => e.score,
-  )!;
 }
+
+/// Top-level so the isolate closure only captures its arguments.
+Future<({int index, int score})> _bestTargetInIsolate(
+  String query,
+  List<String> targets,
+  int offset,
+) => Isolate.run(() {
+  var best = (index: offset, score: -1);
+  for (final (i, target) in targets.indexed) {
+    final score = tokenSortRatio(query, target);
+    if (score > best.score) {
+      best = (index: offset + i, score: score);
+    }
+  }
+  return best;
+});
 
 /// Finds multiple fuzzy matches for a query, sorted by score descending.
 ///
@@ -97,7 +104,7 @@ Future<List<FuzzyFindMatch<RbArtistAndSong>>> findFuzzyTrackMatches({
     return [];
   }
 
-  final normalizedQuery = query.toLowerCase().trim();
+  final normalizedQuery = normalizeForMatch(query);
   final matches = <FuzzyFindMatch<RbArtistAndSong>>[];
 
   // Split query into individual terms for multi-term matching

@@ -260,16 +260,6 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMappingsDaoMixin {
   SyncMappingsDao(super.attachedDatabase);
 
-  /// Gets a Rekordbox song ID for a Spotify track ID.
-  Future<String?> getMapping(SpotifyTrackId spotifyTrackId) async {
-    final result =
-        await (select(
-              syncTrackMappings,
-            )..where((t) => t.spotifyTrackId.equals(spotifyTrackId.toString())))
-            .getSingleOrNull();
-    return result?.rekordboxSongId;
-  }
-
   /// Gets all mappings as a map of SpotifyTrackId -> RekordboxSongId.
   Future<Map<SpotifyTrackId, String>> getAllMappings() async {
     final results = await select(syncTrackMappings).get();
