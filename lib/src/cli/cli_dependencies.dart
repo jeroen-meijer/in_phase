@@ -10,7 +10,6 @@ Future<T> runWithCliDependencies<T>(FutureOr<T> Function() fn) async {
   try {
     return await Zonable.injectMany(
       [
-        Env.fromHostEnvironment(),
         Doos(
           adapter: await DoosJsonStorageAdapter.create(
             file: Constants.cacheFile,

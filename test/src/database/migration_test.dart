@@ -19,7 +19,7 @@ Future<File> _createV3Database({required bool handPatched}) async {
   await fresh.customSelect('SELECT 1').get();
   await fresh.close();
 
-  final raw = sqlite3.open(file.path)
+  sqlite3.open(file.path)
     ..execute('DROP TABLE sync_missing_tracks')
     ..execute('DROP TABLE sync_playlist_tracks')
     ..execute(
@@ -51,8 +51,8 @@ Future<File> _createV3Database({required bool handPatched}) async {
       "INSERT INTO sync_missing_tracks VALUES ('wipe', 'Gydra', 'Wipe', "
       "'itmss://example.test/wipe', '2025-08-23T14:12:27.000Z')",
     )
-    ..execute('PRAGMA user_version = 3');
-  raw.dispose();
+    ..execute('PRAGMA user_version = 3')
+    ..dispose();
   return file;
 }
 

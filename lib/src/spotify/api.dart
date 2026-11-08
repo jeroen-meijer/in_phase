@@ -32,7 +32,7 @@ const _scopes = [
   'user-read-private',
 ];
 
-final DoosStorageEntry<_SavedClientCredentials> _credentialsEntry =
+DoosStorageEntry<_SavedClientCredentials> _credentialsEntry() =>
     Zonable.fromZone<Doos>().getEntry<_SavedClientCredentials>(
       _credentialsKey,
       deserializer: (value) =>
@@ -41,7 +41,7 @@ final DoosStorageEntry<_SavedClientCredentials> _credentialsEntry =
 
 Future<void> _writeCredentials(SpotifyApiCredentials credentials) async {
   log.debug('Writing credentials to cache');
-  await _credentialsEntry.write(
+  await _credentialsEntry().write(
     _SavedClientCredentials.fromSpotifyApiCredentials(credentials),
   );
 }
@@ -51,18 +51,20 @@ Future<SpotifyApi> spotifyLogin({
       spotifyOpenBrowserAndAskForPasteUrl,
   bool useCache = true,
 }) async {
-  final env = Zonable.fromZone<Env>();
+  final env = Env.fromHostEnvironment();
 
-  try {
-    if (await _attemptCachedCredentialsLogin() case final api? when useCache) {
-      return api;
+  if (useCache) {
+    try {
+      if (await _attemptCachedCredentialsLogin(env) case final api?) {
+        return api;
+      }
+    } on AuthorizationException {
+      log.debug(
+        'Stored access and refresh tokens have expired -- '
+        'logging in instead',
+      );
+      await spotifyLogout();
     }
-  } on AuthorizationException {
-    log.debug(
-      'Stored access and refresh tokens have expired -- '
-      'logging in instead',
-    );
-    await spotifyLogout();
   }
 
   final credentials = SpotifyApiCredentials(
@@ -90,9 +92,8 @@ Future<SpotifyApi> spotifyLogin({
   return api;
 }
 
-Future<SpotifyApi?> _attemptCachedCredentialsLogin() async {
-  final env = Zonable.fromZone<Env>();
-  final credentialsDataResult = await _credentialsEntry.readOrNull();
+Future<SpotifyApi?> _attemptCachedCredentialsLogin(Env env) async {
+  final credentialsDataResult = await _credentialsEntry().readOrNull();
 
   final _SavedClientCredentials credentialsData;
 
@@ -129,7 +130,7 @@ Future<String> spotifyOpenBrowserAndAskForPasteUrl(Uri uri) async {
 
 Future<void> spotifyLogout() async {
   log.debug('Removing credentials from cache');
-  await _credentialsEntry.remove();
+  await _credentialsEntry().remove();
 }
 
 @JsonSerializable()
