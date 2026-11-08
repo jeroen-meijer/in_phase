@@ -230,3 +230,28 @@ Order of work. Each step ends with format, analyze and tests passing, and gets i
 9. M8, L8: backups out of `build/`, negatable cue flag.
 10. M9, M10: crawl source helper and template context; crawl uses the convert matcher.
 11. Remaining low items: L1, L2 code, L3, L7, L9, L10, L12, L14.
+
+## Status
+
+All findings above are fixed on branch `fix/code-review-2026-11-08`. After the last step, `dart analyze --fatal-infos --fatal-warnings .` is clean and 131 tests pass (111 before).
+
+| Step | Findings | Commit |
+| --- | --- | --- |
+| 1 | H1, L2 tables, L10 | `5f7ba6c` |
+| 2 | H2, L5, L11 | `be2ffb8` |
+| 3, 4 | H3, H4, H5, M1, M6, M9, L6 | `9bf6580` |
+| 5 | M2, L13 | `bf6fb8e` |
+| 6 | M4, M5, L3, L9 | `3b81634` |
+| 7 | M3, L4 | `88730b5` |
+| 8 | M7 | `4043515` |
+| 9 | M8, L8 | `97e1261` |
+| 10 | M10 | `9e07021` |
+| 11 | L1, L2 code, L7, L12, L14 | `9febed8` |
+
+Changes from the plan:
+
+- L7 compares versions with `pub_semver` instead of `PubUpdater.isUpToDate`. `isUpToDate` fetches the latest version a second time and only returns a bool, while the command also prints the version.
+- A crawl or collect source that fails now fails that job or collection, and the command exits with a non-zero code. Other jobs still run.
+- Crawl's YouTube matching goes through the request pool like convert. A Spotify search error now fails the source instead of skipping that video.
+
+Not checked against live services: no `sync`, `crawl`, `collect`, `convert`, `sort` or `library sync engine` run was made during the fixes. The schema 4 migration was run on a copy of a real cache, not on the cache in `~/.in_phase`. Run `sort --dry-run` and `crawl --dry-run` once before the first real run.
