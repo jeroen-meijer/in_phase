@@ -33,8 +33,9 @@ class Constants {
     path.join(appDataDir.path, 'engine_sync_config.yaml'),
   );
 
+  /// Kept outside [buildDir] so `cache clean` never removes backups.
   static final engineSyncBackupsDir = Directory(
-    path.join(buildDir.path, 'engine_sync_backups'),
+    path.join(appDataDir.path, 'backups', 'engine'),
   );
 
   static final buildDir = Directory(

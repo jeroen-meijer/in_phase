@@ -11,6 +11,8 @@
 - perf(sync): matching new Spotify tracks against a large Rekordbox library is faster
 - fix(sync): a playlist name only sets song keys when a whole word is a Camelot key (`4A`), so names like `4AM` no longer change keys
 - fix(sort): sorting moves tracks within the playlist, so each track keeps its added date and local files stay in the playlist
+- fix(library): Engine DJ backups are saved in `~/.in_phase/backups/engine`, so `cache clean` no longer deletes them
+- fix(library): `--no-memory-cues-to-hot-cues` turns the config setting off for one run
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1
