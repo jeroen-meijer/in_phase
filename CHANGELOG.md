@@ -13,6 +13,7 @@
 - fix(sort): sorting moves tracks within the playlist, so each track keeps its added date and local files stay in the playlist
 - fix(library): Engine DJ backups are saved in `~/.in_phase/backups/engine`, so `cache clean` no longer deletes them
 - fix(library): `--no-memory-cues-to-hot-cues` turns the config setting off for one run
+- fix(crawl): YouTube channel videos are matched to Spotify the same way as in `convert`, so Topic channels and titles with featured artists find the right track
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1
