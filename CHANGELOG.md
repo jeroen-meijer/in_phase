@@ -2,6 +2,7 @@
 
 - feat(curate): preview and organize tracks from multiple playlists, with previous-track navigation and reliable custom start positions
 - fix(buy): show recently added source-playlist tracks first, even after a collected playlist is refreshed
+- fix(buy): only open an iTunes page when both artist and title match, and let `o` reopen the page as often as you like
 - fix: `--help`, `library`, `buy`, `cues`, `cache` and `config` work without the Spotify environment variables; only commands that talk to Spotify need them
 - fix(sync): playlists that contain Spotify local files sync instead of stopping with an error
 - fix(collect,crawl): when a source playlist, artist or label cannot be read, the collection or job fails and its playlist stays as it was, instead of being refilled without those tracks
