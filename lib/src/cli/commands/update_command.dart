@@ -5,6 +5,7 @@ import 'package:dcli/dcli.dart';
 import 'package:in_phase/src/logger/logger.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:io/io.dart';
+import 'package:pub_semver/pub_semver.dart';
 import 'package:pub_updater/pub_updater.dart';
 
 class UpdateCommand extends Command<int> {
@@ -30,7 +31,8 @@ class UpdateCommand extends Command<int> {
       return ExitCode.software.code;
     }
 
-    final isUpToDate = Constants.version == latestVersion;
+    final isUpToDate =
+        Version.parse(Constants.version) >= Version.parse(latestVersion);
     if (isUpToDate) {
       log.info(
         '${green('✔︎')} InPhase is already at the latest version '

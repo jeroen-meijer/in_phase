@@ -3,6 +3,4 @@ extension StringExtensions on String {
     '' => null,
     final content => content,
   };
-
-  bool get hasContent => contentOrNull != null;
 }

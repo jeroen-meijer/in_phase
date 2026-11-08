@@ -191,10 +191,11 @@ class SearchCommand extends Command<int> {
       final formattedCues = _formatCues(cues);
       final indexStr = (i + 1).toString().padLeft(2);
 
-      final keyDisplay = key?.scaleName
-          .let(mapKeyToCamelot)
-          .let((camelotKey) => ' ${magenta('[$camelotKey]')}')
-          .or('');
+      final keyDisplay =
+          key?.scaleName
+              .let(mapKeyToCamelot)
+              .let((camelotKey) => ' ${magenta('[$camelotKey]')}') ??
+          '';
 
       log.info(
         '${grey(indexStr)}. [ ${blue(idStr)} ] $artistName - '

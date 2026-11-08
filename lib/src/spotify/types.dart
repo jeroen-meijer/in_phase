@@ -34,41 +34,14 @@ extension type SpotifyPlaylistId(String _value) implements String {
 }
 
 extension type const SpotifyArtistId(String _value) implements String {
-  static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
-
-  static SpotifyPlaylistId? tryParse(String value) {
-    if (_regex.hasMatch(value)) {
-      return SpotifyPlaylistId(value);
-    }
-    return null;
-  }
-
   String get uri => 'spotify:artist:$_value';
 }
 
 extension type const SpotifyAlbumId(String _value) implements String {
-  static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
-
-  static SpotifyPlaylistId? tryParse(String value) {
-    if (_regex.hasMatch(value)) {
-      return SpotifyPlaylistId(value);
-    }
-    return null;
-  }
-
   String get uri => 'spotify:album:$_value';
 }
 
 extension type const SpotifyTrackId(String _value) implements String {
-  static final _regex = RegExp(r'^[a-zA-Z0-9]{22}$');
-
-  static SpotifyPlaylistId? tryParse(String value) {
-    if (_regex.hasMatch(value)) {
-      return SpotifyPlaylistId(value);
-    }
-    return null;
-  }
-
   String get uri => 'spotify:track:$_value';
 }
 
