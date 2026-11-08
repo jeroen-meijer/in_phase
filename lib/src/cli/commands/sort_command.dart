@@ -87,11 +87,7 @@ class SortCommand extends Command<int> {
         playlistId: playlistId,
       );
 
-      final tracks = playlistTracks
-          .where((entry) => entry.track?.id != null && entry.track!.uri != null)
-          .toList();
-
-      if (tracks.isEmpty) {
+      if (playlistTracks.isEmpty) {
         log.info('Playlist is empty, nothing to sort.');
         return ExitCode.success.code;
       }
@@ -103,14 +99,17 @@ class SortCommand extends Command<int> {
       var unmappedCount = 0;
       var noKeyCount = 0;
 
-      for (final (index, playlistTrack) in tracks.indexed) {
-        final track = playlistTrack.track!;
-        final trackId = SpotifyTrackId(track.id!);
+      // Local files and unavailable items have no Spotify id; they sort last
+      // with the unmapped tracks and are never removed.
+      for (final (index, playlistTrack) in playlistTracks.indexed) {
+        final track = playlistTrack.track;
         final artistNames =
-            track.artists?.map((a) => a.name ?? '').toList() ??
+            track?.artists?.map((a) => a.name ?? '').toList() ??
             const <String>[];
 
-        final mappedSongId = mappings[trackId];
+        final mappedSongId = track?.id.let(
+          (id) => mappings[SpotifyTrackId(id)],
+        );
         final keyName = mappedSongId != null ? rbSongKeys[mappedSongId] : null;
 
         if (mappedSongId == null) {
@@ -125,8 +124,7 @@ class SortCommand extends Command<int> {
             : null;
         entries.add(
           _SortEntry(
-            uri: track.uri!,
-            trackName: track.name ?? 'Unknown',
+            trackName: track?.name ?? 'Unknown',
             artistNames: artistNames,
             camelotKey: camelotKey?.title,
             sortOrder:
@@ -142,10 +140,10 @@ class SortCommand extends Command<int> {
         return a.originalIndex.compareTo(b.originalIndex);
       });
 
-      final alreadySorted = const ListEquality<String>().equals(
-        entries.map((e) => e.uri).toList(),
-        sortedEntries.map((e) => e.uri).toList(),
+      final moves = sortReorderMoves(
+        sortedEntries.map((e) => e.originalIndex).toList(),
       );
+      final alreadySorted = moves.isEmpty;
 
       _logSortedPreview(
         playlistName: playlistName,
@@ -170,12 +168,17 @@ class SortCommand extends Command<int> {
         return ExitCode.success.code;
       }
 
-      log.debug('Updating playlist order...');
-      await api.playlists.clear(playlistId);
-      final uris = sortedEntries.map((e) => e.uri).toList();
-      for (var i = 0; i < uris.length; i += 100) {
-        final batch = uris.skip(i).take(100).toList();
-        await api.playlists.addTracks(batch, playlistId);
+      log.info('Moving ${moves.length} track(s)...');
+      var snapshotId = targetPlaylist.snapshotId;
+      for (final move in moves) {
+        snapshotId = await requestPool.request(
+          () => api.playlists.reorder(
+            playlistId,
+            rangeStart: move.rangeStart,
+            insertBefore: move.insertBefore,
+            snapshotId: snapshotId,
+          ),
+        );
       }
 
       log.info('Done. ${green(playlistName)} sorted by Camelot key.');
@@ -206,7 +209,6 @@ class SortCommand extends Command<int> {
 
 class _SortEntry {
   const _SortEntry({
-    required this.uri,
     required this.trackName,
     required this.artistNames,
     required this.camelotKey,
@@ -214,7 +216,6 @@ class _SortEntry {
     required this.originalIndex,
   });
 
-  final String uri;
   final String trackName;
   final List<String> artistNames;
   final String? camelotKey;
@@ -275,7 +276,8 @@ void _logSortedPreview({
       '(↑/↓); grey tracks kept relative order.',
     )
     ..info(
-      'Will clear playlist and re-add $trackCount tracks in the order above.',
+      'Will move $relativeMoveCount track(s) in place; added dates and '
+      'local files stay as they are.',
     );
 }
 

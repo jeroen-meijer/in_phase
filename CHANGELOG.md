@@ -10,6 +10,7 @@
 - fix: an empty or comment-only crawl, collect or curate config no longer crashes; a config path that does not exist now fails with a clear message instead of creating a new file
 - perf(sync): matching new Spotify tracks against a large Rekordbox library is faster
 - fix(sync): a playlist name only sets song keys when a whole word is a Camelot key (`4A`), so names like `4AM` no longer change keys
+- fix(sort): sorting moves tracks within the playlist, so each track keeps its added date and local files stay in the playlist
 - docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
 
 ## 1.5.1

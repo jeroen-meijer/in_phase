@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:in_phase/src/cli/commands/sort/sort_relative_moves.dart';
 import 'package:test/test.dart';
 
@@ -23,6 +25,51 @@ void main() {
 
     test('empty', () {
       expect(relativeStablePositions([]), isEmpty);
+    });
+  });
+
+  group('sortReorderMoves', () {
+    /// Applies [moves] the way Spotify's reorder endpoint does.
+    List<int> apply(
+      int length,
+      List<({int rangeStart, int insertBefore})> moves,
+    ) {
+      final playlist = List.generate(length, (i) => i);
+      for (final move in moves) {
+        final track = playlist.removeAt(move.rangeStart);
+        playlist.insert(
+          move.rangeStart < move.insertBefore
+              ? move.insertBefore - 1
+              : move.insertBefore,
+          track,
+        );
+      }
+      return playlist;
+    }
+
+    test('already sorted needs no moves', () {
+      expect(sortReorderMoves([0, 1, 2, 3]), isEmpty);
+    });
+
+    test('rotation moves only the last track to the front', () {
+      expect(sortReorderMoves([3, 0, 1, 2]), [
+        (rangeStart: 3, insertBefore: 0),
+      ]);
+    });
+
+    test('random orders end up sorted with one move per relative move', () {
+      final random = Random(42);
+      for (var run = 0; run < 200; run++) {
+        final sorted = List.generate(random.nextInt(40), (i) => i)
+          ..shuffle(random);
+        final moves = sortReorderMoves(sorted);
+
+        expect(apply(sorted.length, moves), sorted);
+        expect(
+          moves.length,
+          sorted.length - relativeStablePositions(sorted).length,
+        );
+      }
     });
   });
 }

@@ -35,3 +35,40 @@ Set<int> relativeStablePositions(List<int> originalIndicesInSortedOrder) {
   }
   return stable;
 }
+
+/// Spotify reorder requests that turn the current playlist order into the
+/// sorted order, applied one after another.
+///
+/// [originalIndicesInSortedOrder] has the same meaning as in
+/// [relativeStablePositions]. Tracks on that longest increasing subsequence
+/// stay where they are; every other track moves once, to just after the
+/// track that precedes it in the sorted order. Positions refer to the
+/// playlist as it is right before each move.
+List<({int rangeStart, int insertBefore})> sortReorderMoves(
+  List<int> originalIndicesInSortedOrder,
+) {
+  final stable = relativeStablePositions(originalIndicesInSortedOrder);
+  final current = List.generate(
+    originalIndicesInSortedOrder.length,
+    (i) => i,
+  );
+  final moves = <({int rangeStart, int insertBefore})>[];
+
+  for (final (k, originalIndex) in originalIndicesInSortedOrder.indexed) {
+    if (stable.contains(k)) continue;
+
+    final from = current.indexOf(originalIndex);
+    final insertBefore = k == 0
+        ? 0
+        : current.indexOf(originalIndicesInSortedOrder[k - 1]) + 1;
+    moves.add((rangeStart: from, insertBefore: insertBefore));
+
+    current
+      ..removeAt(from)
+      ..insert(
+        from < insertBefore ? insertBefore - 1 : insertBefore,
+        originalIndex,
+      );
+  }
+  return moves;
+}
