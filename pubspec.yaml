@@ -12,41 +12,41 @@ dependencies:
   args: ^2.7.0
   clix: ^1.2.0
   collection: ^1.19.1
-  crypto: ^3.0.7
-  dart_console: ^4.1.1
-  dcli: ^8.3.0
+  crypto: ^3.0.8
+  dart_console: ^5.1.2
+  dcli: ^10.3.0
   doos: ^0.0.1
-  drift: ^2.30.1
+  drift: ^2.31.0
   equatable: ^2.1.0
   fuzzywuzzy: ^1.2.0
-  glob: ^2.1.3
-  image: ^4.7.2
-  intl: ^0.20.2
-  io: ^1.0.5
-  json_annotation: ^4.9.0
-  meta: ^1.16.0
-  nocterm: ^0.6.0
+  glob: ^2.2.0
+  image: ^4.12.0
+  intl: ^0.20.3
+  io: ^1.1.0
+  json_annotation: ^4.12.0
+  meta: ^1.19.0
+  nocterm: ^0.9.0
   oauth2: ^2.0.5
   oxidized: ^6.2.0
   path: ^1.9.1
   pub_semver: ^2.2.1
-  pub_updater: ^0.5.0
+  pub_updater: ^0.6.0
   rekorddart: ^1.1.1
   simple_date: ^1.1.2
   spotify: ^0.16.1
   sqlite3: ^2.9.4
   tilde_expansion: ^1.1.0
-  uuid: ^4.5.2
-  yaml: ^3.1.3
+  uuid: ^4.6.0
+  yaml: ^3.1.4
   yaml_codec: ^1.0.0
-  youtube_explode_dart: ^3.0.5
+  youtube_explode_dart: ^3.1.0
 
 dev_dependencies:
-  build_runner: ^2.10.5
-  drift_dev: ^2.30.1
-  json_serializable: ^6.11.4
-  test: ^1.29.0
-  very_good_analysis: ^10.2.0
+  build_runner: ^2.15.1
+  drift_dev: ^2.31.0
+  json_serializable: ^6.15.2
+  test: ^1.31.1
+  very_good_analysis: ^11.0.0
 
 executables:
   in_phase:

@@ -171,6 +171,16 @@ class CrawlCommand extends Command<int> {
         }
       }
 
+      final jobsWithFailedSources = jobReports.where(
+        (report) => report.failedSources.isNotEmpty,
+      );
+      if (jobsWithFailedSources.isNotEmpty) {
+        log.warning(
+          '⚠️  Some sources failed and were left out: '
+          '${jobsWithFailedSources.map((r) => r.jobName).join(', ')}',
+        );
+      }
+
       if (failedJobs.isNotEmpty) {
         log.error(
           '❌ ${failedJobs.length} job(s) failed: ${failedJobs.join(', ')}',
@@ -196,8 +206,9 @@ class CrawlCommand extends Command<int> {
 
   /// Collects tracks for [job] and writes them to its output playlist.
   ///
-  /// Throws when a source or the output playlist cannot be read, before
-  /// anything is written to Spotify.
+  /// Sources that fail are left out and listed in the report. Throws when
+  /// every source or the output playlist cannot be read, before anything is
+  /// written to Spotify.
   Future<CrawlJobReport> _processJob({
     required SpotifyApi api,
     required CrawlJob job,
@@ -240,7 +251,7 @@ class CrawlCommand extends Command<int> {
     }
     log.info('');
 
-    final allTracks = await _collectTracks(
+    final (tracks: allTracks, :failedSources) = await _collectTracks(
       job: job,
       collector: TrackCollector(
         api: api,
@@ -343,6 +354,7 @@ class CrawlCommand extends Command<int> {
       startTime: jobStartTime,
       endTime: DateTime.now(),
       trackEntries: _buildTrackEntries(dedupedTracks, job),
+      failedSources: failedSources,
     );
 
     PlaylistSimple? targetPlaylist;
@@ -461,9 +473,8 @@ class CrawlCommand extends Command<int> {
 
   /// Collects tracks from every input of [job] concurrently.
   ///
-  /// Throws after all sources finished when any of them failed, so a job
-  /// never writes a playlist from partial input.
-  Future<List<CollectedTrack>> _collectTracks({
+  /// See [collectFromSources] for how failing sources are handled.
+  Future<CrawlSourcesResult> _collectTracks({
     required CrawlJob job,
     required TrackCollector collector,
     required SimpleDate inclusiveStart,
@@ -474,61 +485,50 @@ class CrawlCommand extends Command<int> {
         PlaylistTrackDateMode.releaseDate;
     final includeAppearances = job.options?.includeArtistAppearances ?? true;
 
-    final sources =
-        <
-          ({
-            String label,
-            Future<List<CollectedTrack>> Function(
-              CrawlProgressReporter? progress,
-            )
-            collect,
-          })
-        >[
-          for (final id in job.inputs.playlists ?? <String>[])
-            (
-              label: 'playlist $id',
-              collect: (progress) => collector.collectFromPlaylist(
-                id,
-                inclusiveStart,
-                inclusiveEnd,
-                dateMode,
-                progress: progress,
-              ),
-            ),
-          for (final id in job.inputs.artists ?? <String>[])
-            (
-              label: 'artist $id',
-              collect: (progress) => collector.collectFromArtist(
-                id,
-                inclusiveStart,
-                inclusiveEnd,
-                includeAppearances: includeAppearances,
-                progress: progress,
-              ),
-            ),
-          for (final name in job.inputs.labels ?? <String>[])
-            (
-              label: 'label $name',
-              collect: (progress) => collector.collectFromLabel(
-                name,
-                inclusiveStart,
-                inclusiveEnd,
-                progress: progress,
-              ),
-            ),
-          for (final id in job.inputs.youtubeChannels ?? <String>[])
-            (
-              label: 'YouTube channel $id',
-              collect: (progress) => collector.collectFromYoutubeChannel(
-                id,
-                inclusiveStart,
-                inclusiveEnd,
-                progress: progress,
-              ),
-            ),
-        ];
-    if (sources.isEmpty) return [];
-
+    final sources = <CrawlSource>[
+      for (final id in job.inputs.playlists ?? <String>[])
+        (
+          label: 'playlist $id',
+          collect: (progress) => collector.collectFromPlaylist(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            dateMode,
+            progress: progress,
+          ),
+        ),
+      for (final id in job.inputs.artists ?? <String>[])
+        (
+          label: 'artist $id',
+          collect: (progress) => collector.collectFromArtist(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            includeAppearances: includeAppearances,
+            progress: progress,
+          ),
+        ),
+      for (final name in job.inputs.labels ?? <String>[])
+        (
+          label: 'label $name',
+          collect: (progress) => collector.collectFromLabel(
+            name,
+            inclusiveStart,
+            inclusiveEnd,
+            progress: progress,
+          ),
+        ),
+      for (final id in job.inputs.youtubeChannels ?? <String>[])
+        (
+          label: 'YouTube channel $id',
+          collect: (progress) => collector.collectFromYoutubeChannel(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            progress: progress,
+          ),
+        ),
+    ];
     final display = CrawlProgressDisplay(
       identifiers: [
         ...?job.inputs.playlists,
@@ -538,29 +538,17 @@ class CrawlCommand extends Command<int> {
       ],
     )..start();
 
-    final failures = <String>[];
-    final results = await Future.wait([
-      for (final (index, source) in sources.indexed)
-        source
-            .collect(display.reporterFor(index))
-            .then((tracks) {
-              display.setDone(index, tracks.length);
-              return tracks;
-            })
-            .catchError((Object e) {
-              display.setError(index);
-              failures.add('${source.label}: $e');
-              return <CollectedTrack>[];
-            }),
-    ]);
-    display.stop();
-
-    if (failures.isNotEmpty) {
-      throw Exception(
-        '${failures.length} source(s) failed:\n  ${failures.join('\n  ')}',
-      );
+    final CrawlSourcesResult result;
+    try {
+      result = await collectFromSources(sources, display: display);
+    } finally {
+      display.stop();
     }
-    return results.expand((tracks) => tracks).toList();
+
+    for (final failure in result.failedSources) {
+      log.warning('  ⚠️  Skipped $failure');
+    }
+    return result;
   }
 
   /// Builds track entries for the report from collected tracks.

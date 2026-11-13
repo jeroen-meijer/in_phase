@@ -21,5 +21,3 @@ Thumbs.db
 # Project specific
 in_phase.code-workspace
 .cursor/**/*.log
-.graphify.env
-graphify-out/

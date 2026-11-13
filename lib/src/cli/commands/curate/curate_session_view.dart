@@ -28,6 +28,7 @@ final class CurateSessionView extends StatefulComponent {
 final class _CurateSessionViewState extends State<CurateSessionView> {
   late final CurateKeyHandler _keyHandler;
   late final CurateRuntimeState _runtime;
+  late final _playback = CuratePlayback(_ctx.api.player);
   var _trackIndex = 0;
   late TrackPlaybackState _playbackState;
   var _busy = false;
@@ -117,39 +118,15 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       return;
     }
     final sourceTrack = _ctx.tracksToCurate[_trackIndex];
-    final trackId = sourceTrack.id;
-    if (trackId == null) {
+    if (sourceTrack.id == null) {
       _logActivity('✗ Playback failed: current track has no Spotify ID');
       return;
     }
-    final trackUri = 'spotify:track:$trackId';
     setState(() => _startingPlayback = true);
     try {
-      final albumUri = sourceTrack.track.album?.uri;
-      if (albumUri != null && albumUri.isNotEmpty) {
-        await _ctx.api.player.startWithContext(
-          albumUri,
-          offset: UriOffset(trackUri),
-          retrievePlaybackState: false,
-        );
-      } else {
-        await _ctx.api.player.startWithTracks(
-          [trackUri],
-          positionMs: _playbackState.positionMs,
-          retrievePlaybackState: false,
-        );
-      }
-      // Album-context playback works around Spotify desktop's current behavior
-      // of accepting bare track-URI requests without starting the requested
-      // track. Acknowledge the API response immediately; poll only to update
-      // the UI's playback clock, never as a fallback that launches the app.
-      unawaited(
-        _confirmPlayback(
-          trackId,
-          startPositionMs: albumUri == null || albumUri.isEmpty
-              ? 0
-              : _playbackState.positionMs,
-        ),
+      await _playback.start(
+        sourceTrack.track,
+        positionMs: _playbackState.positionMs,
       );
     } catch (e) {
       _logActivity(
@@ -160,29 +137,6 @@ final class _CurateSessionViewState extends State<CurateSessionView> {
       if (mounted) {
         setState(() => _startingPlayback = false);
       }
-    }
-  }
-
-  Future<void> _confirmPlayback(
-    String trackId, {
-    required int startPositionMs,
-  }) async {
-    for (var attempt = 0; attempt < 10; attempt++) {
-      try {
-        final playback = await _ctx.api.player.currentlyPlaying();
-        if (playback.isPlaying == true && playback.item?.id == trackId) {
-          if (startPositionMs > 0) {
-            await _ctx.api.player.seek(
-              startPositionMs,
-              retrievePlaybackState: false,
-            );
-          }
-          return;
-        }
-      } catch (_) {
-        // The player can briefly report no state while changing tracks.
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
 

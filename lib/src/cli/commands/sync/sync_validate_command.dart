@@ -60,7 +60,9 @@ Future<int> runSyncValidate({String? customConfigPath}) async {
     final api = await spotifyLogin();
     addTeardown(() => closeSpotifyApi(api));
 
-    final rbDb = await RekordboxDatabase.connect();
+    final rbDb = await RekordboxDatabase.connect(
+      allowConnectionWhenRunning: true,
+    );
     addTeardown(rbDb.close);
 
     final playlistEntries = syncConfig.customTracks.entries.toList();

@@ -26,29 +26,29 @@ Map<String, dynamic> _$CachedPlaylistToJson(CachedPlaylist instance) =>
 
 CachedPlaylistTrack _$CachedPlaylistTrackFromJson(Map<String, dynamic> json) =>
     CachedPlaylistTrack(
-      trackId: _spotifyTrackIdFromJson(json['track_id'] as Object),
+      trackId: json['track_id'] as SpotifyTrackId,
       uri: json['uri'] as String,
       name: json['name'] as String,
       artistNames: (json['artist_names'] as List<dynamic>)
           .map((e) => e as String)
           .toList(),
       addedAt: DateTime.parse(json['added_at'] as String),
-      albumId: _spotifyAlbumIdFromJson(json['album_id']),
+      albumId: json['album_id'] as SpotifyAlbumId?,
     );
 
 Map<String, dynamic> _$CachedPlaylistTrackToJson(
   CachedPlaylistTrack instance,
 ) => <String, dynamic>{
-  'track_id': _spotifyTrackIdToJson(instance.trackId),
+  'track_id': instance.trackId,
   'uri': instance.uri,
   'name': instance.name,
   'artist_names': instance.artistNames,
   'added_at': instance.addedAt.toIso8601String(),
-  'album_id': ?_spotifyAlbumIdToJson(instance.albumId),
+  'album_id': ?instance.albumId,
 };
 
 CachedAlbum _$CachedAlbumFromJson(Map<String, dynamic> json) => CachedAlbum(
-  id: _spotifyAlbumIdFromJsonRequired(json['id'] as Object),
+  id: json['id'] as SpotifyAlbumId,
   name: json['name'] as String,
   cachedAt: DateTime.parse(json['cached_at'] as String),
   releaseDate: json['release_date'] as String?,
@@ -60,7 +60,7 @@ CachedAlbum _$CachedAlbumFromJson(Map<String, dynamic> json) => CachedAlbum(
 
 Map<String, dynamic> _$CachedAlbumToJson(CachedAlbum instance) =>
     <String, dynamic>{
-      'id': _spotifyAlbumIdToJsonRequired(instance.id),
+      'id': instance.id,
       'name': instance.name,
       'cached_at': instance.cachedAt.toIso8601String(),
       'release_date': ?instance.releaseDate,
@@ -69,52 +69,54 @@ Map<String, dynamic> _$CachedAlbumToJson(CachedAlbum instance) =>
     };
 
 CachedArtist _$CachedArtistFromJson(Map<String, dynamic> json) => CachedArtist(
-  id: _spotifyArtistIdFromJsonRequired(json['id'] as Object),
+  id: json['id'] as SpotifyArtistId,
   name: json['name'] as String,
   cachedAt: DateTime.parse(json['cached_at'] as String),
 );
 
 Map<String, dynamic> _$CachedArtistToJson(CachedArtist instance) =>
     <String, dynamic>{
-      'id': _spotifyArtistIdToJsonRequired(instance.id),
+      'id': instance.id,
       'name': instance.name,
       'cached_at': instance.cachedAt.toIso8601String(),
     };
 
 CachedArtistAlbums _$CachedArtistAlbumsFromJson(Map<String, dynamic> json) =>
     CachedArtistAlbums(
-      artistId: _spotifyArtistIdFromJsonRequired(json['artist_id'] as Object),
-      albumIds: _albumIdListFromJson(json['album_ids'] as List),
+      artistId: json['artist_id'] as SpotifyArtistId,
+      albumIds: (json['album_ids'] as List<dynamic>)
+          .map((e) => e as SpotifyAlbumId)
+          .toList(),
       cachedAt: DateTime.parse(json['cached_at'] as String),
     );
 
 Map<String, dynamic> _$CachedArtistAlbumsToJson(CachedArtistAlbums instance) =>
     <String, dynamic>{
-      'artist_id': _spotifyArtistIdToJsonRequired(instance.artistId),
-      'album_ids': _albumIdListToJson(instance.albumIds),
+      'artist_id': instance.artistId,
+      'album_ids': instance.albumIds,
       'cached_at': instance.cachedAt.toIso8601String(),
     };
 
 CachedLabelTrack _$CachedLabelTrackFromJson(Map<String, dynamic> json) =>
     CachedLabelTrack(
-      trackId: _spotifyTrackIdFromJsonRequired(json['track_id'] as Object),
+      trackId: json['track_id'] as SpotifyTrackId,
       uri: json['uri'] as String,
       name: json['name'] as String,
       artistNames: (json['artist_names'] as List<dynamic>)
           .map((e) => e as String)
           .toList(),
-      albumId: _spotifyAlbumIdFromJson(json['album_id']),
+      albumId: json['album_id'] as SpotifyAlbumId?,
       albumName: json['album_name'] as String?,
       releaseDate: json['release_date'] as String?,
     );
 
 Map<String, dynamic> _$CachedLabelTrackToJson(CachedLabelTrack instance) =>
     <String, dynamic>{
-      'track_id': _spotifyTrackIdToJsonRequired(instance.trackId),
+      'track_id': instance.trackId,
       'uri': instance.uri,
       'name': instance.name,
       'artist_names': instance.artistNames,
-      'album_id': _spotifyAlbumIdToJson(instance.albumId),
+      'album_id': instance.albumId,
       'album_name': instance.albumName,
       'release_date': instance.releaseDate,
     };

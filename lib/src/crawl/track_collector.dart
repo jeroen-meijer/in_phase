@@ -1194,10 +1194,11 @@ class TrackCollector {
         log.info(tag: tag, '    Channel: $channelName');
       }
 
-      final videosInRange = await _getVideosInDateRange(
-        yt.channels.getUploads(channel.id),
-        rangeStart,
-        rangeEnd,
+      final videosInRange = await uploadsInDateRange(
+        pages: _uploadPages(yt, channel.id),
+        fetchVideo: yt.videos.get,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
       );
 
       if (progress == null) {
@@ -1232,8 +1233,8 @@ class TrackCollector {
             uri: track.uri!,
             name: track.name!,
             artistNames: artistNames ?? [],
-            // _getVideosInDateRange only returns videos with a date.
-            addedAt: _getVideoDate(video)!,
+            // uploadsInDateRange only returns videos with a date.
+            addedAt: uploadDateOf(video)!,
             source: CollectedTrackSourceYoutubeChannel(
               id: channelId,
               name: channelName,
@@ -1273,34 +1274,16 @@ class TrackCollector {
         : await yt.channels.get(identifier);
   }
 
-  /// Filters YouTube videos to those within the date range.
-  Future<List<Video>> _getVideosInDateRange(
-    Stream<Video> uploads,
-    SimpleDate rangeStart,
-    SimpleDate rangeEnd,
-  ) async {
-    final videosInRange = <Video>[];
-
-    await for (final video in uploads) {
-      final videoDate = _getVideoDate(video);
-      if (videoDate == null) continue;
-
-      final vd = simpleDateFromLocalDateTime(videoDate);
-
-      // Uploads are reverse chronological; stop when older than range.
-      if (vd.isBefore(rangeStart)) break;
-
-      if (!vd.isAfter(rangeEnd)) {
-        videosInRange.add(video);
-      }
+  /// Yields the upload ids of [channelId], newest first, one page at a time.
+  Stream<List<VideoId>> _uploadPages(
+    YoutubeExplode yt,
+    ChannelId channelId,
+  ) async* {
+    ChannelUploadsList? page = await yt.channels.getUploadsFromPage(channelId);
+    while (page != null && page.isNotEmpty) {
+      yield [for (final upload in page) upload.id];
+      page = await page.nextPage();
     }
-
-    return videosInRange;
-  }
-
-  /// Gets the publish or upload date from a YouTube video.
-  DateTime? _getVideoDate(Video video) {
-    return video.publishDate ?? video.uploadDate;
   }
 
   Future<List<CollectedTrack>> _filterPlaylistTracksByDate(
