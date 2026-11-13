@@ -1,6 +1,6 @@
 ## Upcoming
 
-- feat(curate): preview and organize tracks from multiple playlists, with previous-track navigation and reliable custom start positions
+- feat(curate): preview and organize tracks from multiple playlists, with previous-track navigation, and each track starts right away at your custom start position
 - fix(buy): show recently added source-playlist tracks first, even after a collected playlist is refreshed
 - fix(buy): only open an iTunes page when both artist and title match, and let `o` reopen the page as often as you like
 - fix: `--help`, `library`, `buy`, `cues`, `cache` and `config` work without the Spotify environment variables; only commands that talk to Spotify need them
