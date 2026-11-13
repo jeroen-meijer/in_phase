@@ -4,8 +4,6 @@ import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:simple_date/simple_date.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_codec/yaml_codec.dart';
 
 part 'crawl_config.g.dart';
 
@@ -27,31 +25,11 @@ class CrawlConfig {
 
   Map<String, dynamic> toJson() => _$CrawlConfigToJson(this);
 
-  static Future<CrawlConfig> fromFile(
-    File file, {
-    bool createFileIfNotExists = true,
-  }) async {
-    // ignore: avoid_slow_async_io
-    if (!await file.exists()) {
-      if (createFileIfNotExists) {
-        await file.create(recursive: true);
-        const config = CrawlConfig.empty();
-        await config.write(file);
-        return config;
-      } else {
-        throw Exception('Crawl config file not found at ${file.path}');
-      }
-    }
-
-    final content = await file.readAsString();
-    final yaml = yamlDecode(content) as YamlMap;
-    return CrawlConfig.fromJson(yaml.toMap());
-  }
-
-  Future<void> write(File file) async {
-    await file.create(recursive: true);
-    await file.writeAsString(yamlEncode(toJson()));
-  }
+  static Future<CrawlConfig> fromFile(File file) => readYamlConfig(
+    file,
+    fromJson: CrawlConfig.fromJson,
+    defaults: const CrawlConfig.empty(),
+  );
 
   final List<CrawlJob> jobs;
 }

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:in_phase/src/convert/convert.dart';
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/entities/entities.dart' as entities;
@@ -129,17 +130,6 @@ class CollectedTrackSourceYoutubeChannel extends CollectedTrackSource {
   List<Object?> get props => [id, name, videoTitle, videoId];
 }
 
-/// Parsed YouTube video title containing artists and track name.
-class _ParsedTitle {
-  const _ParsedTitle({
-    required this.artists,
-    required this.trackName,
-  });
-
-  final List<String> artists;
-  final String trackName;
-}
-
 /// {@template track_collector}
 /// Collects tracks from various Spotify sources (playlists, artists, labels,
 /// YouTube channels).
@@ -217,30 +207,27 @@ class TrackCollector {
     if (progress == null) {
       log.info(tag: tag, '    🔄 Fetching tracks from Spotify...');
     }
-    final playlistTracks = await requestPool.fetchAllPages(
-      api.playlists.getPlaylistTracks(playlistId),
-      limit: 50,
-      pageIdentifier: (offset) =>
-          SpotifyCacheIdentifier.playlistTracksPage(spotifyPlaylistId, offset),
-    );
+    // Tracks without an added date cannot be cached or filtered by date.
+    final playlistTracks = (await fetchPlaylistTracks(
+      api: api,
+      requestPool: requestPool,
+      playlistId: spotifyPlaylistId,
+    )).spotifyTracks.where((pt) => pt.addedAt != null).toList();
 
     // Cache the playlist
-    final cachedTracks = playlistTracks
-        .where((pt) => pt.track?.id != null && pt.addedAt != null)
-        .map((playlistTrack) {
-          final track = playlistTrack.track!;
-          return entities.CachedPlaylistTrack(
-            trackId: SpotifyTrackId(track.id!),
-            uri: track.uri!,
-            name: track.name!,
-            artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
-            addedAt: playlistTrack.addedAt!,
-            albumId: track.album?.id != null
-                ? SpotifyAlbumId(track.album!.id!)
-                : null,
-          );
-        })
-        .toList();
+    final cachedTracks = playlistTracks.map((playlistTrack) {
+      final track = playlistTrack.track!;
+      return entities.CachedPlaylistTrack(
+        trackId: SpotifyTrackId(track.id!),
+        uri: track.uri!,
+        name: track.name!,
+        artistNames: track.artists?.map((a) => a.name ?? '').toList() ?? [],
+        addedAt: playlistTrack.addedAt!,
+        albumId: track.album?.id != null
+            ? SpotifyAlbumId(track.album!.id!)
+            : null,
+      );
+    }).toList();
 
     await cacheAdapter.cachePlaylist(
       spotifyPlaylistId,
@@ -296,8 +283,6 @@ class TrackCollector {
     final collectedTracks = <CollectedTrack>[];
 
     for (final playlistTrack in playlistTracks) {
-      if (playlistTrack.track?.id == null) continue;
-
       final track = playlistTrack.track!;
       late final DateTime addedAtForCollected;
       late final String dateLog;
@@ -1222,48 +1207,47 @@ class TrackCollector {
         );
       }
 
-      // Batch Spotify searches for request pool utilization
-      final searchFutures = videosInRange.map(
-        (video) => _searchSpotifyForVideo(video, tag: tag),
+      final matchJobs = await matchSpotifyTracksForVideos(
+        api: api,
+        requestPool: requestPool,
+        videos: videosInRange.map(YoutubeVideoRef.fromVideo).toList(),
       );
-      final spotifyTracks = await Future.wait(searchFutures);
 
       final collectedTracks = <CollectedTrack>[];
-      for (var i = 0; i < videosInRange.length; i++) {
-        try {
-          final video = videosInRange[i];
-          final spotifyTrack = spotifyTracks[i];
-          final videoDate = _getVideoDate(video);
-          if (spotifyTrack != null && videoDate != null) {
-            collectedTracks.add(
-              _createCollectedTrackFromSpotify(
-                spotifyTrack,
-                videoDate,
-                channelId,
-                channelName,
-                video.title,
-                video.id.toString(),
-              ),
-            );
-
-            final artistNames = _formatArtistNames(spotifyTrack.artists);
-            log.debug(
-              tag: tag,
-              '    ✓ $artistNames - ${spotifyTrack.name} '
-              '(from YouTube: ${video.title})',
-            );
-          } else {
-            log.debug(
-              tag: tag,
-              '    ⚠️  No Spotify match found for: ${video.title}',
-            );
-          }
-        } catch (e) {
-          log.warning(
+      for (final (index, job) in matchJobs.indexed) {
+        final video = videosInRange[index];
+        final track = job.match?.track;
+        if (track == null) {
+          log.debug(
             tag: tag,
-            '    ⚠️  Error processing video ${videosInRange[i].id}: $e',
+            '    ⚠️  No Spotify match found for: ${video.title}',
           );
+          continue;
         }
+
+        final artistNames = track.artists?.map((a) => a.name).nonNulls.toList();
+        collectedTracks.add(
+          CollectedTrack(
+            id: SpotifyTrackId(track.id!),
+            uri: track.uri!,
+            name: track.name!,
+            artistNames: artistNames ?? [],
+            // _getVideosInDateRange only returns videos with a date.
+            addedAt: _getVideoDate(video)!,
+            source: CollectedTrackSourceYoutubeChannel(
+              id: channelId,
+              name: channelName,
+              videoTitle: video.title,
+              videoId: video.id.value,
+            ),
+            albumId: track.album?.id.let(SpotifyAlbumId.new),
+          ),
+        );
+        log.debug(
+          tag: tag,
+          '    ✓ ${artistNames?.join(', ')} - ${track.name} '
+          '(from YouTube: ${video.title})',
+        );
       }
 
       if (progress == null) {
@@ -1317,168 +1301,6 @@ class TrackCollector {
   /// Gets the publish or upload date from a YouTube video.
   DateTime? _getVideoDate(Video video) {
     return video.publishDate ?? video.uploadDate;
-  }
-
-  /// Creates a CollectedTrack from a Spotify track and YouTube video metadata.
-  CollectedTrack _createCollectedTrackFromSpotify(
-    Track spotifyTrack,
-    DateTime? addedAt,
-    String channelId,
-    String channelName,
-    String videoTitle,
-    String videoId,
-  ) {
-    if (addedAt == null) {
-      throw ArgumentError('Video date cannot be null');
-    }
-    return CollectedTrack(
-      id: SpotifyTrackId(spotifyTrack.id!),
-      uri: spotifyTrack.uri!,
-      name: spotifyTrack.name!,
-      artistNames: _extractArtistNames(spotifyTrack.artists),
-      addedAt: addedAt,
-      source: CollectedTrackSourceYoutubeChannel(
-        id: channelId,
-        name: channelName,
-        videoTitle: videoTitle,
-        videoId: videoId,
-      ),
-      albumId: spotifyTrack.album?.id != null
-          ? SpotifyAlbumId(spotifyTrack.album!.id!)
-          : null,
-    );
-  }
-
-  /// Extracts artist names from Spotify track artists.
-  List<String> _extractArtistNames(List<dynamic>? artists) {
-    return artists
-            ?.map((a) => (a as dynamic).name as String? ?? '')
-            .where((n) => n.isNotEmpty)
-            .toList() ??
-        [];
-  }
-
-  /// Formats artist names for display.
-  String _formatArtistNames(List<dynamic>? artists) {
-    final names = _extractArtistNames(artists);
-    return names.isEmpty ? 'Unknown Artist' : names.join(', ');
-  }
-
-  /// Searches Spotify for a track matching the YouTube video.
-  Future<Track?> _searchSpotifyForVideo(Video video, {String tag = ''}) async {
-    final title = video.title;
-    final parsed = _parseVideoTitle(title);
-
-    if (parsed == null) {
-      return _searchSpotifyQuery(title, tag: tag);
-    }
-
-    // Try multiple search strategies in order of preference
-    final searchStrategies = <String Function()>[
-      // Strategy 1: Exact match with first artist
-      () => _buildExactQuery([parsed.artists.first], parsed.trackName),
-      // Strategy 2: Exact match with all artists (if multiple)
-      if (parsed.artists.length > 1)
-        () => _buildExactQuery(parsed.artists, parsed.trackName),
-      // Strategy 3: Fuzzy search with all artists
-      () => '${parsed.artists.join(' ')} ${parsed.trackName}',
-      // Strategy 4: Fallback to full title
-      () => title,
-    ];
-
-    for (final strategy in searchStrategies) {
-      final query = strategy();
-      final track = await _searchSpotifyQuery(query, tag: tag);
-      if (track != null && _validateArtistMatch(track, parsed.artists)) {
-        return track;
-      }
-    }
-
-    return null;
-  }
-
-  /// Parses a YouTube video title into artists and track name.
-  /// Returns null if the title doesn't match the expected format.
-  _ParsedTitle? _parseVideoTitle(String title) {
-    final parts = title.split(' - ');
-    if (parts.length < 2) return null;
-
-    final artistPart = parts[0].trim();
-    final trackPart = parts.sublist(1).join(' - ').trim();
-
-    if (trackPart.isEmpty) return null;
-
-    final artists = _parseArtists(artistPart);
-    if (artists.isEmpty) return null;
-
-    return _ParsedTitle(artists: artists, trackName: trackPart);
-  }
-
-  /// Parses artist names from a string, handling "&" and "and" separators.
-  List<String> _parseArtists(String artistPart) {
-    return artistPart
-        .split(RegExp(r'\s+&\s+|\s+and\s+', caseSensitive: false))
-        .map((a) => a.trim())
-        .where((a) => a.isNotEmpty)
-        .toList();
-  }
-
-  /// Builds an exact Spotify search query with artist and track filters.
-  String _buildExactQuery(List<String> artists, String trackName) {
-    final artistFilters = artists
-        .map((a) => 'artist:"${_escapeSpotifyQuery(a)}"')
-        .join(' ');
-    return '$artistFilters track:"${_escapeSpotifyQuery(trackName)}"';
-  }
-
-  /// Performs a Spotify search with the given query string.
-  Future<Track?> _searchSpotifyQuery(String query, {String tag = ''}) async {
-    try {
-      final searchResults = await requestPool.request(
-        () => api.search.get(query, types: [SearchType.track]).first(5),
-        identifier: 'youtube-search:$query',
-      );
-
-      final tracks = searchResults
-          .expand((page) => page.items?.whereType<Track>() ?? <Track>[])
-          .toList();
-
-      return tracks.firstOrNull;
-    } catch (e) {
-      log.debug(tag: tag, '    Search query failed: $query ($e)');
-      return null;
-    }
-  }
-
-  /// Validates that the Spotify track's artists match the expected artists.
-  /// Uses fuzzy matching with an 80% similarity threshold.
-  bool _validateArtistMatch(Track track, List<String> expectedArtists) {
-    final trackArtists =
-        track.artists
-            ?.map((a) => (a.name ?? '').toLowerCase())
-            .where((n) => n.isNotEmpty)
-            .toList() ??
-        [];
-
-    if (trackArtists.isEmpty) return false;
-
-    const similarityThreshold = 80;
-
-    for (final expectedArtist in expectedArtists) {
-      final expectedLower = expectedArtist.toLowerCase();
-      for (final trackArtist in trackArtists) {
-        if (ratio(expectedLower, trackArtist) >= similarityThreshold) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  /// Escapes special characters in Spotify search queries.
-  String _escapeSpotifyQuery(String query) {
-    return query.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
   }
 
   Future<List<CollectedTrack>> _filterPlaylistTracksByDate(

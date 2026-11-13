@@ -22,12 +22,4 @@ extension NullableExtensions<T> on T? {
     final value? => f(value),
     _ => null,
   };
-
-  /// Returns this value if it is non-null, otherwise returns the given default
-  /// value.
-  T? or(T defaultValue) => this ?? defaultValue;
-
-  /// Returns this value if it is non-null, otherwise returns the result of
-  /// applying [f] to the value.
-  T? orElse(T Function() f) => this ?? f();
 }

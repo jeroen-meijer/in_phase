@@ -8,20 +8,16 @@ import 'package:in_phase/src/misc/misc.dart';
 /// This runs on every command startup to ensure users have working configs.
 Future<void> ensureDefaultConfigs() async {
   final appDataDir = Constants.appDataDir;
-  final appDataDirPath = appDataDir.path;
-
-  // Check if .in_phase exists as a file (not a directory) and remove it
-  if (await File(appDataDirPath).exists()) {
-    final entityType = await FileSystemEntity.type(appDataDirPath);
-    if (entityType != FileSystemEntityType.directory) {
-      await File(appDataDirPath).delete();
-    }
+  final existingType = await FileSystemEntity.type(appDataDir.path);
+  if (existingType != FileSystemEntityType.notFound &&
+      existingType != FileSystemEntityType.directory) {
+    throw FileSystemException(
+      'Expected a folder for InPhase settings, but found a file. Move or '
+      'rename it and run the command again',
+      appDataDir.path,
+    );
   }
-
-  // Ensure app data directory exists
-  if (!await appDataDir.exists()) {
-    await appDataDir.create(recursive: true);
-  }
+  await appDataDir.create(recursive: true);
 
   await _ensureConfig(Constants.syncConfigFile, DefaultConfigs.syncConfig);
   await _ensureConfig(Constants.crawlConfigFile, DefaultConfigs.crawlConfig);

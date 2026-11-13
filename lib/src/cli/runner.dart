@@ -71,8 +71,11 @@ Future<int> runInPhaseCli(List<String> arguments) async {
           return await runner.run(arguments);
         } on UsageException {
           rethrow;
-        } catch (e) {
+        } catch (e, stackTrace) {
           printerr(e);
+          if (log.debugMode) {
+            printerr(stackTrace);
+          }
           return ExitCode.software.code;
         }
       },
@@ -82,8 +85,11 @@ Future<int> runInPhaseCli(List<String> arguments) async {
     printerr(e.message);
     printerr(e.usage);
     return ExitCode.usage.code;
-  } catch (e) {
+  } catch (e, stackTrace) {
     printerr('Unexpected error: $e');
+    if (log.debugMode) {
+      printerr(stackTrace);
+    }
     return ExitCode.software.code;
   }
 }

@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_codec/yaml_codec.dart';
 
 part 'curate_config.g.dart';
 
@@ -31,31 +29,11 @@ class CurateConfig {
 
   Map<String, dynamic> toJson() => _$CurateConfigToJson(this);
 
-  static Future<CurateConfig> fromFile(
-    File file, {
-    bool createFileIfNotExists = true,
-  }) async {
-    // ignore: avoid_slow_async_io
-    if (!await file.exists()) {
-      if (createFileIfNotExists) {
-        await file.create(recursive: true);
-        const config = CurateConfig.empty();
-        await config.write(file);
-        return config;
-      } else {
-        throw Exception('Curate config file not found at ${file.path}');
-      }
-    }
-
-    final content = await file.readAsString();
-    final yaml = yamlDecode(content) as YamlMap;
-    return CurateConfig.fromJson(yaml.toMap());
-  }
-
-  Future<void> write(File file) async {
-    await file.create(recursive: true);
-    await file.writeAsString(yamlEncode(toJson()));
-  }
+  static Future<CurateConfig> fromFile(File file) => readYamlConfig(
+    file,
+    fromJson: CurateConfig.fromJson,
+    defaults: const CurateConfig.empty(),
+  );
 
   /// Parsed start position in milliseconds.
   int get startPositionMs =>

@@ -1,6 +1,7 @@
 import 'package:in_phase/src/cli/commands/curate/curate_liked_cache.dart';
 import 'package:in_phase/src/cli/commands/curate/curate_user_playlists_cache.dart';
 import 'package:in_phase/src/entities/entities.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:spotify/spotify.dart';
 
 /// Thrown to exit the curate command with a specific exit code (setup phase).
@@ -159,10 +160,7 @@ class CurateSession {
       return;
     }
     _disposed = true;
-    // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-    // ignore: invalid_use_of_visible_for_testing_member
-    final client = await context.api.client;
-    client.close();
+    await closeSpotifyApi(context.api);
   }
 }
 

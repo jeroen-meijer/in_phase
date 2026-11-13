@@ -5,12 +5,11 @@ import 'package:in_phase/src/database/database.exports.dart';
 import 'package:in_phase/src/misc/misc.dart';
 
 Future<T> runWithCliDependencies<T>(FutureOr<T> Function() fn) async {
-  final database = await createDatabase();
+  final database = AppDatabase.fromCacheDbFile();
 
   try {
     return await Zonable.injectMany(
       [
-        Env.fromHostEnvironment(),
         Doos(
           adapter: await DoosJsonStorageAdapter.create(
             file: Constants.cacheFile,

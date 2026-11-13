@@ -29,8 +29,8 @@ class LibrarySyncEngineCommand extends Command<int> {
         'memory-cues-to-hot-cues',
         help:
             'Spill memory cues into empty hot cue slots (Engine has no '
-            'memory cue concept).',
-        negatable: false,
+            'memory cue concept). Overrides memory_cues_to_hot_cues in the '
+            'config.',
       )
       ..addOption(
         'config',
@@ -60,8 +60,9 @@ class LibrarySyncEngineCommand extends Command<int> {
     final prune = args.wasParsed('prune')
         ? args['prune'] == true
         : config.prune;
-    final memoryCuesToHotCues =
-        args['memory-cues-to-hot-cues'] == true || config.memoryCuesToHotCues;
+    final memoryCuesToHotCues = args.wasParsed('memory-cues-to-hot-cues')
+        ? args['memory-cues-to-hot-cues'] == true
+        : config.memoryCuesToHotCues;
 
     // Locate Rekordbox.
     final rekordboxConfig = getMostRecentRekordboxConfig();
@@ -87,7 +88,8 @@ class LibrarySyncEngineCommand extends Command<int> {
       return ExitCode.unavailable.code;
     }
 
-    // Never write while either application is running.
+    // Never write while either application is running. RekordboxDatabase
+    // .connect() below refuses to open while Rekordbox runs.
     if (await checkIsEngineDjRunning()) {
       log.error('Engine DJ is running. Please close it before syncing.');
       return ExitCode.tempFail.code;

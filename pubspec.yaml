@@ -29,6 +29,7 @@ dependencies:
   oauth2: ^2.0.5
   oxidized: ^6.2.0
   path: ^1.9.1
+  pub_semver: ^2.2.1
   pub_updater: ^0.5.0
   rekorddart: ^1.1.1
   simple_date: ^1.1.2
@@ -49,10 +50,3 @@ dev_dependencies:
 
 executables:
   in_phase:
-
-pubspec_extract:
-  class_name: Pubspec
-  source: pubspec.yaml
-  destination: lib/src/misc/pubspec.dart
-  extract-name: true
-  extract-version: true

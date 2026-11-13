@@ -599,7 +599,7 @@ Future<List<SpotifyTrackMatchJob>> matchSpotifyTracksForVideos({
     videos.map((video) async {
       final match = await requestPool.request(
         () => matchSpotifyTrackForYoutubeVideo(api: api, video: video),
-        identifier: 'convert-spotify-match-${video.id}',
+        identifier: 'youtube-spotify-match-${video.id}',
       );
       return SpotifyTrackMatchJob(video: video, match: match);
     }),
