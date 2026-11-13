@@ -106,6 +106,10 @@ class CurateKeyHandler {
       return KeyResultNext();
     }
 
+    if (ch == 'p') {
+      return KeyResultPrevious();
+    }
+
     if (ch == 'r') {
       final newState = TrackPlaybackState(
         positionMs: config.startPositionMs.clamp(0, currentTrack.durationMs),

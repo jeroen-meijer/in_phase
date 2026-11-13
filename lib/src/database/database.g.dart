@@ -3591,17 +3591,17 @@ class $SyncMissingTracksTable extends SyncMissingTracks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _lastInsertedAtMeta = const VerificationMeta(
-    'lastInsertedAt',
+  static const VerificationMeta _sourceAddedAtMeta = const VerificationMeta(
+    'sourceAddedAt',
   );
   @override
-  late final GeneratedColumn<DateTime> lastInsertedAt =
+  late final GeneratedColumn<DateTime> sourceAddedAt =
       GeneratedColumn<DateTime>(
-        'last_inserted_at',
+        'source_added_at',
         aliasedName,
-        false,
+        true,
         type: DriftSqlType.dateTime,
-        requiredDuringInsert: true,
+        requiredDuringInsert: false,
       );
   @override
   List<GeneratedColumn> get $columns => [
@@ -3609,7 +3609,7 @@ class $SyncMissingTracksTable extends SyncMissingTracks
     artist,
     title,
     itunesUrl,
-    lastInsertedAt,
+    sourceAddedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3656,16 +3656,14 @@ class $SyncMissingTracksTable extends SyncMissingTracks
         itunesUrl.isAcceptableOrUnknown(data['itunes_url']!, _itunesUrlMeta),
       );
     }
-    if (data.containsKey('last_inserted_at')) {
+    if (data.containsKey('source_added_at')) {
       context.handle(
-        _lastInsertedAtMeta,
-        lastInsertedAt.isAcceptableOrUnknown(
-          data['last_inserted_at']!,
-          _lastInsertedAtMeta,
+        _sourceAddedAtMeta,
+        sourceAddedAt.isAcceptableOrUnknown(
+          data['source_added_at']!,
+          _sourceAddedAtMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_lastInsertedAtMeta);
     }
     return context;
   }
@@ -3692,10 +3690,10 @@ class $SyncMissingTracksTable extends SyncMissingTracks
         DriftSqlType.string,
         data['${effectivePrefix}itunes_url'],
       ),
-      lastInsertedAt: attachedDatabase.typeMapping.read(
+      sourceAddedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
-        data['${effectivePrefix}last_inserted_at'],
-      )!,
+        data['${effectivePrefix}source_added_at'],
+      ),
     );
   }
 
@@ -3719,14 +3717,14 @@ class SyncMissingTrack extends DataClass
   /// iTunes URL (nullable).
   final String? itunesUrl;
 
-  /// Latest Spotify playlist-added date seen while this track was missing.
-  final DateTime lastInsertedAt;
+  /// Latest addition to a source playlist (excluding collect targets).
+  final DateTime? sourceAddedAt;
   const SyncMissingTrack({
     required this.spotifyTrackId,
     required this.artist,
     required this.title,
     this.itunesUrl,
-    required this.lastInsertedAt,
+    this.sourceAddedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3737,7 +3735,9 @@ class SyncMissingTrack extends DataClass
     if (!nullToAbsent || itunesUrl != null) {
       map['itunes_url'] = Variable<String>(itunesUrl);
     }
-    map['last_inserted_at'] = Variable<DateTime>(lastInsertedAt);
+    if (!nullToAbsent || sourceAddedAt != null) {
+      map['source_added_at'] = Variable<DateTime>(sourceAddedAt);
+    }
     return map;
   }
 
@@ -3749,7 +3749,9 @@ class SyncMissingTrack extends DataClass
       itunesUrl: itunesUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(itunesUrl),
-      lastInsertedAt: Value(lastInsertedAt),
+      sourceAddedAt: sourceAddedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceAddedAt),
     );
   }
 
@@ -3763,7 +3765,7 @@ class SyncMissingTrack extends DataClass
       artist: serializer.fromJson<String>(json['artist']),
       title: serializer.fromJson<String>(json['title']),
       itunesUrl: serializer.fromJson<String?>(json['itunesUrl']),
-      lastInsertedAt: serializer.fromJson<DateTime>(json['lastInsertedAt']),
+      sourceAddedAt: serializer.fromJson<DateTime?>(json['sourceAddedAt']),
     );
   }
   @override
@@ -3774,7 +3776,7 @@ class SyncMissingTrack extends DataClass
       'artist': serializer.toJson<String>(artist),
       'title': serializer.toJson<String>(title),
       'itunesUrl': serializer.toJson<String?>(itunesUrl),
-      'lastInsertedAt': serializer.toJson<DateTime>(lastInsertedAt),
+      'sourceAddedAt': serializer.toJson<DateTime?>(sourceAddedAt),
     };
   }
 
@@ -3783,13 +3785,15 @@ class SyncMissingTrack extends DataClass
     String? artist,
     String? title,
     Value<String?> itunesUrl = const Value.absent(),
-    DateTime? lastInsertedAt,
+    Value<DateTime?> sourceAddedAt = const Value.absent(),
   }) => SyncMissingTrack(
     spotifyTrackId: spotifyTrackId ?? this.spotifyTrackId,
     artist: artist ?? this.artist,
     title: title ?? this.title,
     itunesUrl: itunesUrl.present ? itunesUrl.value : this.itunesUrl,
-    lastInsertedAt: lastInsertedAt ?? this.lastInsertedAt,
+    sourceAddedAt: sourceAddedAt.present
+        ? sourceAddedAt.value
+        : this.sourceAddedAt,
   );
   SyncMissingTrack copyWithCompanion(SyncMissingTracksCompanion data) {
     return SyncMissingTrack(
@@ -3799,9 +3803,9 @@ class SyncMissingTrack extends DataClass
       artist: data.artist.present ? data.artist.value : this.artist,
       title: data.title.present ? data.title.value : this.title,
       itunesUrl: data.itunesUrl.present ? data.itunesUrl.value : this.itunesUrl,
-      lastInsertedAt: data.lastInsertedAt.present
-          ? data.lastInsertedAt.value
-          : this.lastInsertedAt,
+      sourceAddedAt: data.sourceAddedAt.present
+          ? data.sourceAddedAt.value
+          : this.sourceAddedAt,
     );
   }
 
@@ -3812,14 +3816,14 @@ class SyncMissingTrack extends DataClass
           ..write('artist: $artist, ')
           ..write('title: $title, ')
           ..write('itunesUrl: $itunesUrl, ')
-          ..write('lastInsertedAt: $lastInsertedAt')
+          ..write('sourceAddedAt: $sourceAddedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(spotifyTrackId, artist, title, itunesUrl, lastInsertedAt);
+      Object.hash(spotifyTrackId, artist, title, itunesUrl, sourceAddedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3828,7 +3832,7 @@ class SyncMissingTrack extends DataClass
           other.artist == this.artist &&
           other.title == this.title &&
           other.itunesUrl == this.itunesUrl &&
-          other.lastInsertedAt == this.lastInsertedAt);
+          other.sourceAddedAt == this.sourceAddedAt);
 }
 
 class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
@@ -3836,14 +3840,14 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
   final Value<String> artist;
   final Value<String> title;
   final Value<String?> itunesUrl;
-  final Value<DateTime> lastInsertedAt;
+  final Value<DateTime?> sourceAddedAt;
   final Value<int> rowid;
   const SyncMissingTracksCompanion({
     this.spotifyTrackId = const Value.absent(),
     this.artist = const Value.absent(),
     this.title = const Value.absent(),
     this.itunesUrl = const Value.absent(),
-    this.lastInsertedAt = const Value.absent(),
+    this.sourceAddedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncMissingTracksCompanion.insert({
@@ -3851,18 +3855,17 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     required String artist,
     required String title,
     this.itunesUrl = const Value.absent(),
-    required DateTime lastInsertedAt,
+    this.sourceAddedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : spotifyTrackId = Value(spotifyTrackId),
        artist = Value(artist),
-       title = Value(title),
-       lastInsertedAt = Value(lastInsertedAt);
+       title = Value(title);
   static Insertable<SyncMissingTrack> custom({
     Expression<String>? spotifyTrackId,
     Expression<String>? artist,
     Expression<String>? title,
     Expression<String>? itunesUrl,
-    Expression<DateTime>? lastInsertedAt,
+    Expression<DateTime>? sourceAddedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3870,7 +3873,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
       if (artist != null) 'artist': artist,
       if (title != null) 'title': title,
       if (itunesUrl != null) 'itunes_url': itunesUrl,
-      if (lastInsertedAt != null) 'last_inserted_at': lastInsertedAt,
+      if (sourceAddedAt != null) 'source_added_at': sourceAddedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3880,7 +3883,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     Value<String>? artist,
     Value<String>? title,
     Value<String?>? itunesUrl,
-    Value<DateTime>? lastInsertedAt,
+    Value<DateTime?>? sourceAddedAt,
     Value<int>? rowid,
   }) {
     return SyncMissingTracksCompanion(
@@ -3888,7 +3891,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
       artist: artist ?? this.artist,
       title: title ?? this.title,
       itunesUrl: itunesUrl ?? this.itunesUrl,
-      lastInsertedAt: lastInsertedAt ?? this.lastInsertedAt,
+      sourceAddedAt: sourceAddedAt ?? this.sourceAddedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3908,8 +3911,8 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     if (itunesUrl.present) {
       map['itunes_url'] = Variable<String>(itunesUrl.value);
     }
-    if (lastInsertedAt.present) {
-      map['last_inserted_at'] = Variable<DateTime>(lastInsertedAt.value);
+    if (sourceAddedAt.present) {
+      map['source_added_at'] = Variable<DateTime>(sourceAddedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -3924,7 +3927,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
           ..write('artist: $artist, ')
           ..write('title: $title, ')
           ..write('itunesUrl: $itunesUrl, ')
-          ..write('lastInsertedAt: $lastInsertedAt, ')
+          ..write('sourceAddedAt: $sourceAddedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4319,6 +4322,17 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     playlistId,
@@ -4326,6 +4340,7 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     name,
     artistNames,
     orderIndex,
+    addedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4382,6 +4397,12 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     } else if (isInserting) {
       context.missing(_orderIndexMeta);
     }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -4411,6 +4432,10 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
         DriftSqlType.int,
         data['${effectivePrefix}order_index'],
       )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      ),
     );
   }
 
@@ -4436,12 +4461,16 @@ class SyncPlaylistTrack extends DataClass
 
   /// Position in the playlist.
   final int orderIndex;
+
+  /// When Spotify added the track to this playlist.
+  final DateTime? addedAt;
   const SyncPlaylistTrack({
     required this.playlistId,
     required this.trackId,
     required this.name,
     required this.artistNames,
     required this.orderIndex,
+    this.addedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4451,6 +4480,9 @@ class SyncPlaylistTrack extends DataClass
     map['name'] = Variable<String>(name);
     map['artist_names'] = Variable<String>(artistNames);
     map['order_index'] = Variable<int>(orderIndex);
+    if (!nullToAbsent || addedAt != null) {
+      map['added_at'] = Variable<DateTime>(addedAt);
+    }
     return map;
   }
 
@@ -4461,6 +4493,9 @@ class SyncPlaylistTrack extends DataClass
       name: Value(name),
       artistNames: Value(artistNames),
       orderIndex: Value(orderIndex),
+      addedAt: addedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(addedAt),
     );
   }
 
@@ -4475,6 +4510,7 @@ class SyncPlaylistTrack extends DataClass
       name: serializer.fromJson<String>(json['name']),
       artistNames: serializer.fromJson<String>(json['artistNames']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      addedAt: serializer.fromJson<DateTime?>(json['addedAt']),
     );
   }
   @override
@@ -4486,6 +4522,7 @@ class SyncPlaylistTrack extends DataClass
       'name': serializer.toJson<String>(name),
       'artistNames': serializer.toJson<String>(artistNames),
       'orderIndex': serializer.toJson<int>(orderIndex),
+      'addedAt': serializer.toJson<DateTime?>(addedAt),
     };
   }
 
@@ -4495,12 +4532,14 @@ class SyncPlaylistTrack extends DataClass
     String? name,
     String? artistNames,
     int? orderIndex,
+    Value<DateTime?> addedAt = const Value.absent(),
   }) => SyncPlaylistTrack(
     playlistId: playlistId ?? this.playlistId,
     trackId: trackId ?? this.trackId,
     name: name ?? this.name,
     artistNames: artistNames ?? this.artistNames,
     orderIndex: orderIndex ?? this.orderIndex,
+    addedAt: addedAt.present ? addedAt.value : this.addedAt,
   );
   SyncPlaylistTrack copyWithCompanion(SyncPlaylistTracksCompanion data) {
     return SyncPlaylistTrack(
@@ -4515,6 +4554,7 @@ class SyncPlaylistTrack extends DataClass
       orderIndex: data.orderIndex.present
           ? data.orderIndex.value
           : this.orderIndex,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
     );
   }
 
@@ -4525,14 +4565,15 @@ class SyncPlaylistTrack extends DataClass
           ..write('trackId: $trackId, ')
           ..write('name: $name, ')
           ..write('artistNames: $artistNames, ')
-          ..write('orderIndex: $orderIndex')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('addedAt: $addedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(playlistId, trackId, name, artistNames, orderIndex);
+      Object.hash(playlistId, trackId, name, artistNames, orderIndex, addedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4541,7 +4582,8 @@ class SyncPlaylistTrack extends DataClass
           other.trackId == this.trackId &&
           other.name == this.name &&
           other.artistNames == this.artistNames &&
-          other.orderIndex == this.orderIndex);
+          other.orderIndex == this.orderIndex &&
+          other.addedAt == this.addedAt);
 }
 
 class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
@@ -4550,6 +4592,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
   final Value<String> name;
   final Value<String> artistNames;
   final Value<int> orderIndex;
+  final Value<DateTime?> addedAt;
   final Value<int> rowid;
   const SyncPlaylistTracksCompanion({
     this.playlistId = const Value.absent(),
@@ -4557,6 +4600,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     this.name = const Value.absent(),
     this.artistNames = const Value.absent(),
     this.orderIndex = const Value.absent(),
+    this.addedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncPlaylistTracksCompanion.insert({
@@ -4565,6 +4609,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     required String name,
     required String artistNames,
     required int orderIndex,
+    this.addedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : playlistId = Value(playlistId),
        trackId = Value(trackId),
@@ -4577,6 +4622,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     Expression<String>? name,
     Expression<String>? artistNames,
     Expression<int>? orderIndex,
+    Expression<DateTime>? addedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4585,6 +4631,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
       if (name != null) 'name': name,
       if (artistNames != null) 'artist_names': artistNames,
       if (orderIndex != null) 'order_index': orderIndex,
+      if (addedAt != null) 'added_at': addedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4595,6 +4642,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     Value<String>? name,
     Value<String>? artistNames,
     Value<int>? orderIndex,
+    Value<DateTime?>? addedAt,
     Value<int>? rowid,
   }) {
     return SyncPlaylistTracksCompanion(
@@ -4603,6 +4651,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
       name: name ?? this.name,
       artistNames: artistNames ?? this.artistNames,
       orderIndex: orderIndex ?? this.orderIndex,
+      addedAt: addedAt ?? this.addedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4625,6 +4674,9 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     if (orderIndex.present) {
       map['order_index'] = Variable<int>(orderIndex.value);
     }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4639,6 +4691,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
           ..write('name: $name, ')
           ..write('artistNames: $artistNames, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('addedAt: $addedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6832,7 +6885,7 @@ typedef $$SyncMissingTracksTableCreateCompanionBuilder =
       required String artist,
       required String title,
       Value<String?> itunesUrl,
-      required DateTime lastInsertedAt,
+      Value<DateTime?> sourceAddedAt,
       Value<int> rowid,
     });
 typedef $$SyncMissingTracksTableUpdateCompanionBuilder =
@@ -6841,7 +6894,7 @@ typedef $$SyncMissingTracksTableUpdateCompanionBuilder =
       Value<String> artist,
       Value<String> title,
       Value<String?> itunesUrl,
-      Value<DateTime> lastInsertedAt,
+      Value<DateTime?> sourceAddedAt,
       Value<int> rowid,
     });
 
@@ -6874,8 +6927,8 @@ class $$SyncMissingTracksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  ColumnFilters<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6909,8 +6962,8 @@ class $$SyncMissingTracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  ColumnOrderings<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -6938,8 +6991,8 @@ class $$SyncMissingTracksTableAnnotationComposer
   GeneratedColumn<String> get itunesUrl =>
       $composableBuilder(column: $table.itunesUrl, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  GeneratedColumn<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => column,
   );
 }
@@ -6988,14 +7041,14 @@ class $$SyncMissingTracksTableTableManager
                 Value<String> artist = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String?> itunesUrl = const Value.absent(),
-                Value<DateTime> lastInsertedAt = const Value.absent(),
+                Value<DateTime?> sourceAddedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMissingTracksCompanion(
                 spotifyTrackId: spotifyTrackId,
                 artist: artist,
                 title: title,
                 itunesUrl: itunesUrl,
-                lastInsertedAt: lastInsertedAt,
+                sourceAddedAt: sourceAddedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7004,14 +7057,14 @@ class $$SyncMissingTracksTableTableManager
                 required String artist,
                 required String title,
                 Value<String?> itunesUrl = const Value.absent(),
-                required DateTime lastInsertedAt,
+                Value<DateTime?> sourceAddedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMissingTracksCompanion.insert(
                 spotifyTrackId: spotifyTrackId,
                 artist: artist,
                 title: title,
                 itunesUrl: itunesUrl,
-                lastInsertedAt: lastInsertedAt,
+                sourceAddedAt: sourceAddedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7235,6 +7288,7 @@ typedef $$SyncPlaylistTracksTableCreateCompanionBuilder =
       required String name,
       required String artistNames,
       required int orderIndex,
+      Value<DateTime?> addedAt,
       Value<int> rowid,
     });
 typedef $$SyncPlaylistTracksTableUpdateCompanionBuilder =
@@ -7244,6 +7298,7 @@ typedef $$SyncPlaylistTracksTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> artistNames,
       Value<int> orderIndex,
+      Value<DateTime?> addedAt,
       Value<int> rowid,
     });
 
@@ -7278,6 +7333,11 @@ class $$SyncPlaylistTracksTableFilterComposer
 
   ColumnFilters<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7315,6 +7375,11 @@ class $$SyncPlaylistTracksTableOrderingComposer
     column: $table.orderIndex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncPlaylistTracksTableAnnotationComposer
@@ -7346,6 +7411,9 @@ class $$SyncPlaylistTracksTableAnnotationComposer
     column: $table.orderIndex,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
 }
 
 class $$SyncPlaylistTracksTableTableManager
@@ -7393,6 +7461,7 @@ class $$SyncPlaylistTracksTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> artistNames = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
+                Value<DateTime?> addedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncPlaylistTracksCompanion(
                 playlistId: playlistId,
@@ -7400,6 +7469,7 @@ class $$SyncPlaylistTracksTableTableManager
                 name: name,
                 artistNames: artistNames,
                 orderIndex: orderIndex,
+                addedAt: addedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7409,6 +7479,7 @@ class $$SyncPlaylistTracksTableTableManager
                 required String name,
                 required String artistNames,
                 required int orderIndex,
+                Value<DateTime?> addedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncPlaylistTracksCompanion.insert(
                 playlistId: playlistId,
@@ -7416,6 +7487,7 @@ class $$SyncPlaylistTracksTableTableManager
                 name: name,
                 artistNames: artistNames,
                 orderIndex: orderIndex,
+                addedAt: addedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

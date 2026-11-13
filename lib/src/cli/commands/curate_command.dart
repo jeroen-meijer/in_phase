@@ -40,7 +40,7 @@ class CurateCommand extends Command<int> {
   @override
   final String description =
       'Preview playlist tracks, add to target playlists or go to next. '
-      'Playlist: ID, URI, URL, or name. '
+      'One or more playlists: ID, URI, URL, or name. '
       'Requires Spotify Premium and an active device.';
 
   @override
@@ -86,23 +86,20 @@ class CurateCommand extends Command<int> {
   // ---------------------------------------------------------------------------
 
   ({
-    String playlistInput,
+    List<String> playlistInputs,
     int skipCount,
     File configFile,
     bool usesCustomConfigPath,
   })
   _parseArgs() {
-    final playlistArg = argResults!.rest.isNotEmpty
-        ? argResults!.rest.first
-        : null;
-    if (playlistArg == null) {
+    final playlistInputs = argResults!.rest
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (playlistInputs.isEmpty) {
       usageException(
-        'A playlist is required (ID, URI, share URL, or name).',
+        'At least one playlist is required (ID, URI, share URL, or name).',
       );
-    }
-    final arg = playlistArg.trim();
-    if (arg.isEmpty) {
-      usageException('A playlist is required.');
     }
 
     final skipStr = argResults!['skip'] as String? ?? '0';
@@ -118,7 +115,7 @@ class CurateCommand extends Command<int> {
         : Constants.curateConfigFile;
 
     return (
-      playlistInput: arg,
+      playlistInputs: playlistInputs,
       skipCount: skipCount,
       configFile: configFile,
       usesCustomConfigPath: usesCustomConfigPath,
@@ -131,7 +128,7 @@ class CurateCommand extends Command<int> {
 
   Future<CurateSession> _loadSession(
     ({
-      String playlistInput,
+      List<String> playlistInputs,
       int skipCount,
       File configFile,
       bool usesCustomConfigPath,
@@ -184,31 +181,31 @@ class CurateCommand extends Command<int> {
         targetPlaylists.loaded = true;
       }
 
-      log.info('Resolving playlist to curate: "${args.playlistInput}"');
-      final sourcePlaylist = await _resolveSourcePlaylist(
-        api: api,
-        input: args.playlistInput,
-        userPlaylists: userPlaylists.savedPlaylists,
-      );
-      final playlistId = SpotifyPlaylistId(sourcePlaylist.playlistId);
-      final resolvedName = sourcePlaylist.name;
+      final sourcePlaylists = <CurateResolvedTarget>[];
+      for (final input in args.playlistInputs) {
+        log.info('Resolving playlist to curate: "$input"');
+        final source = await _resolveSourcePlaylist(
+          api: api,
+          input: input,
+          userPlaylists: userPlaylists.savedPlaylists,
+        );
+        sourcePlaylists.add(
+          CurateResolvedTarget(
+            input: input,
+            playlistId: source.playlistId,
+            name: source.name,
+          ),
+        );
+      }
 
-      final playlistTracks = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(playlistId.toString()),
-        limit: _maxPlaylistTracksPerPage,
-        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-          playlistId,
-          offset,
-        ),
+      final tracks = await _loadAndDeduplicateTracks(
+        api: api,
+        requestPool: requestPool,
+        sourcePlaylists: sourcePlaylists,
       );
-      final tracks = playlistTracks
-          .map((pt) => pt.track)
-          .whereType<Track>()
-          .where((t) => t.id != null)
-          .toList();
 
       if (tracks.isEmpty) {
-        log.error('No tracks in playlist.');
+        log.error('No tracks in playlist(s).');
         throw CurateExit(ExitCode.noInput.code);
       }
 
@@ -224,8 +221,7 @@ class CurateCommand extends Command<int> {
         context: CurateContext(
           api: api,
           config: config,
-          sourcePlaylistId: playlistId.toString(),
-          playlistName: resolvedName,
+          sourcePlaylists: sourcePlaylists,
           resolvedTargets: resolvedTargets,
           tracks: tracks,
           tracksToCurate: tracksToCurate,
@@ -257,6 +253,59 @@ class CurateCommand extends Command<int> {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /// Loads tracks from [sourcePlaylists] in order and deduplicates by
+  /// normalized artist+title (crawl `on_match` style). First occurrence is
+  /// kept; later matches only append origin playlists.
+  Future<List<CurateSourceTrack>> _loadAndDeduplicateTracks({
+    required SpotifyApi api,
+    required RequestPool requestPool,
+    required List<CurateResolvedTarget> sourcePlaylists,
+  }) async {
+    final byMatchKey = <String, CurateSourceTrack>{};
+    final order = <String>[];
+
+    for (final source in sourcePlaylists) {
+      final playlistId = SpotifyPlaylistId(source.playlistId);
+      log.info('Loading tracks from "${source.name}"…');
+      final playlistTracks = await requestPool.fetchAllPages(
+        api.playlists.getPlaylistTracks(playlistId.toString()),
+        limit: _maxPlaylistTracksPerPage,
+        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
+          playlistId,
+          offset,
+        ),
+      );
+
+      for (final pt in playlistTracks) {
+        final track = pt.track;
+        if (track is! Track || track.id == null) {
+          continue;
+        }
+        final artists =
+            track.artists?.map((a) => a.name).nonNulls.toList() ?? [];
+        final matchKey = normalizeQuery(artists, track.name ?? '');
+        final existing = byMatchKey[matchKey];
+        if (existing == null) {
+          byMatchKey[matchKey] = CurateSourceTrack(
+            track: track,
+            origins: [source],
+          );
+          order.add(matchKey);
+          continue;
+        }
+        if (existing.origins.any((o) => o.playlistId == source.playlistId)) {
+          continue;
+        }
+        byMatchKey[matchKey] = CurateSourceTrack(
+          track: existing.track,
+          origins: [...existing.origins, source],
+        );
+      }
+    }
+
+    return [for (final key in order) byMatchKey[key]!];
+  }
 
   Future<void> _waitForPlayback(
     SpotifyApi api, {
