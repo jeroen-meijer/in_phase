@@ -102,7 +102,7 @@ class EngineDatabase {
       }
       return EngineDatabase._(db, row['uuid'] as String, version);
     } catch (_) {
-      db.dispose();
+      db.close();
       rethrow;
     }
   }
@@ -394,7 +394,7 @@ class EngineDatabase {
     }
   }
 
-  void close() => _db.dispose();
+  void close() => _db.close();
 }
 
 /// Formats a timestamp the way Engine stores playlist `lastEditTime`

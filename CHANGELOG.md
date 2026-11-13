@@ -17,9 +17,11 @@
 - fix(library): `--no-memory-cues-to-hot-cues` turns the config setting off for one run
 - fix(crawl): YouTube channel sources find the channel's new uploads instead of always coming up empty, and their videos are matched to Spotify the same way as in `convert`, so Topic channels and titles with featured artists find the right track
 - fix(update): `in_phase update` no longer installs an older published version over a newer local build
-- chore(deps): upgrade dependencies to their latest versions, except drift, sqlite3 and equatable
+- feat!: Rekordbox commands no longer need SQLCipher installed, because InPhase downloads it when it builds. Install with `dart install in_phase`, and remove an older copy with `dart pub global deactivate in_phase`, since `dart pub global activate` skips that download. `in_phase update` now uses `dart install`
+- chore(deps): upgrade dependencies to their latest versions, including rekorddart 2, doos 0.1, drift 2.35 and sqlite3 3, and drop the unused oxidized. equatable and dcli stay a version behind until nocterm supports equatable 3
 - chore: remove unused cache code and helpers; a test now fails when `pubspec.yaml` and the version in the CLI differ
 - docs: every PR updates Upcoming, the draft for the next release; bullets say what the user sees, unshipped work gets merged into existing bullets, and bullets stay consecutive (no blank lines between them)
+- docs: add an example to the pub.dev page that walks through a first session
 
 ## 1.5.1
 

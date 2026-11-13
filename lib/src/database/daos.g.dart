@@ -50,29 +50,32 @@ class ArtistsDaoManager {
 }
 
 mixin _$ArtistAlbumsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $CachedArtistsTable get cachedArtists => attachedDatabase.cachedArtists;
   $CachedArtistAlbumListsTable get cachedArtistAlbumLists =>
       attachedDatabase.cachedArtistAlbumLists;
+  $CachedAlbumsTable get cachedAlbums => attachedDatabase.cachedAlbums;
   $ArtistAlbumRelationshipsTable get artistAlbumRelationships =>
       attachedDatabase.artistAlbumRelationships;
-  $CachedArtistsTable get cachedArtists => attachedDatabase.cachedArtists;
   ArtistAlbumsDaoManager get managers => ArtistAlbumsDaoManager(this);
 }
 
 class ArtistAlbumsDaoManager {
   final _$ArtistAlbumsDaoMixin _db;
   ArtistAlbumsDaoManager(this._db);
+  $$CachedArtistsTableTableManager get cachedArtists =>
+      $$CachedArtistsTableTableManager(_db.attachedDatabase, _db.cachedArtists);
   $$CachedArtistAlbumListsTableTableManager get cachedArtistAlbumLists =>
       $$CachedArtistAlbumListsTableTableManager(
         _db.attachedDatabase,
         _db.cachedArtistAlbumLists,
       );
+  $$CachedAlbumsTableTableManager get cachedAlbums =>
+      $$CachedAlbumsTableTableManager(_db.attachedDatabase, _db.cachedAlbums);
   $$ArtistAlbumRelationshipsTableTableManager get artistAlbumRelationships =>
       $$ArtistAlbumRelationshipsTableTableManager(
         _db.attachedDatabase,
         _db.artistAlbumRelationships,
       );
-  $$CachedArtistsTableTableManager get cachedArtists =>
-      $$CachedArtistsTableTableManager(_db.attachedDatabase, _db.cachedArtists);
 }
 
 mixin _$LabelSearchesDaoMixin on DatabaseAccessor<AppDatabase> {

@@ -52,7 +52,7 @@ Future<File> _createV3Database({required bool handPatched}) async {
       "'itmss://example.test/wipe', '2025-08-23T14:12:27.000Z')",
     )
     ..execute('PRAGMA user_version = 3')
-    ..dispose();
+    ..close();
   return file;
 }
 

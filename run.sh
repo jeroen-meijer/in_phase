@@ -36,7 +36,7 @@ else
 fi
 
 # Check if binary exists
-BINARY_PATH="build/in_phase"
+BINARY_PATH="build/cli/bundle/bin/in_phase"
 BINARY_EXISTS=false
 if [ -f "$BINARY_PATH" ]; then
     BINARY_EXISTS=true
@@ -47,7 +47,7 @@ if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "
     print_grey "Compiling in_phase..."
 
     dart pub get
-    dart compile exe bin/in_phase.dart -o "$BINARY_PATH"
+    dart build cli -o build/cli
 
     # Save the current hash
     echo "$CURRENT_HASH" > "$BUILD_HASH_FILE"

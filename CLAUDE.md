@@ -6,7 +6,7 @@ A music library management CLI for creating and syncing playlists between Spotif
 
 - **Dart 3.10+** — primary language
 - **Drift** — SQLite/Database (rekordbox cache)
-- **rekorddart** — Rekordbox database access (SQLCipher-encrypted)
+- **rekorddart** — Rekordbox database access (SQLCipher-encrypted; `pubspec.yaml` sets `hooks: user_defines: sqlite3: source: sqlcipher`, so build with `dart build cli` / `dart install`, not `dart compile exe` or `dart pub global activate`)
 - **spotify** ([pub.dev](https://pub.dev/packages/spotify)) — Spotify Web API client
 - **doos** — local storage (credentials, config)
 - **args** — CLI argument parsing

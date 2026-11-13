@@ -14,7 +14,7 @@ in_phase library doctor                 # check both libraries are ready
 ## Requirements
 
 - Rekordbox 6/7 with a local `master.db` (same requirements as other
-  `in_phase` Rekordbox commands, including SQLCipher).
+  `in_phase` Rekordbox commands).
 - Engine DJ 4.x or 5.x desktop with an existing library (database schema
   3.0.x). Launch Engine DJ once so it creates `~/Music/Engine Library`.
 - Both Rekordbox and Engine DJ must be closed while syncing.
