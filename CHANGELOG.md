@@ -5,7 +5,8 @@
 - fix(buy): only open an iTunes page when both artist and title match, and let `o` reopen the page as often as you like
 - fix: `--help`, `library`, `buy`, `cues`, `cache` and `config` work without the Spotify environment variables; only commands that talk to Spotify need them
 - fix(sync): playlists that contain Spotify local files sync instead of stopping with an error
-- fix(collect,crawl): when a source playlist, artist or label cannot be read, the collection or job fails and its playlist stays as it was, instead of being refilled without those tracks
+- fix(collect): when a source playlist, artist or label cannot be read, the collection fails and its playlist stays as it was, instead of being refilled without those tracks
+- feat(crawl): when a source cannot be read, the job still builds its playlist from the other sources and lists the failed source in the console and the crawl report; the job only fails when every source fails
 - fix(collect,crawl,convert): replacing a playlist's tracks no longer leaves it empty when a later request fails
 - fix: an empty or comment-only crawl, collect or curate config no longer crashes; a config path that does not exist now fails with a clear message instead of creating a new file
 - perf(sync): matching new Spotify tracks against a large Rekordbox library is faster
@@ -13,7 +14,7 @@
 - fix(sort): sorting moves tracks within the playlist, so each track keeps its added date and local files stay in the playlist
 - fix(library): Engine DJ backups are saved in `~/.in_phase/backups/engine`, so `cache clean` no longer deletes them
 - fix(library): `--no-memory-cues-to-hot-cues` turns the config setting off for one run
-- fix(crawl): YouTube channel videos are matched to Spotify the same way as in `convert`, so Topic channels and titles with featured artists find the right track
+- fix(crawl): YouTube channel sources find the channel's new uploads instead of always coming up empty, and their videos are matched to Spotify the same way as in `convert`, so Topic channels and titles with featured artists find the right track
 - fix(update): `in_phase update` no longer installs an older published version over a newer local build
 - chore(deps): upgrade dependencies to their latest versions, except drift, sqlite3 and equatable
 - chore: remove unused cache code and helpers; a test now fails when `pubspec.yaml` and the version in the CLI differ

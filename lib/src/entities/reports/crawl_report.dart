@@ -34,6 +34,7 @@ class CrawlJobReport {
     required this.startTime,
     required this.endTime,
     required this.trackEntries,
+    this.failedSources = const [],
   });
 
   /// Name of the job.
@@ -47,6 +48,9 @@ class CrawlJobReport {
 
   /// All tracks that were added in this job.
   final List<CrawlTrackEntry> trackEntries;
+
+  /// Sources that failed and were left out of the playlist, with their error.
+  final List<String> failedSources;
 
   /// Runtime for this specific job.
   Duration get runtime => endTime.difference(startTime);
