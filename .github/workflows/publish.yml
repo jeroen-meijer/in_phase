@@ -61,7 +61,7 @@ jobs:
         id: setup-dart
         uses: dart-lang/setup-dart@v1
         with:
-          sdk: 3.12.2
+          sdk: 3.13.7
 
       - name: Install pub.dev credentials
         env:
