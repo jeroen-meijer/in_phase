@@ -19,7 +19,7 @@
 - fix(update): `in_phase update` no longer installs an older published version over a newer local build
 - chore(deps): upgrade dependencies to their latest versions, except drift, sqlite3 and equatable
 - chore: remove unused cache code and helpers; a test now fails when `pubspec.yaml` and the version in the CLI differ
-- docs: treat Upcoming as a user-facing release draft; edit or merge unshipped bullets; keep changelog bullets consecutive (no blank lines between them)
+- docs: every PR updates Upcoming, the draft for the next release; bullets say what the user sees, unshipped work gets merged into existing bullets, and bullets stay consecutive (no blank lines between them)
 
 ## 1.5.1
 
