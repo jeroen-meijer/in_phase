@@ -5,7 +5,7 @@ A first session with InPhase: install it, log in to Spotify, and get your Spotif
 ## Install
 
 ```bash
-dart pub global activate in_phase
+dart install in_phase
 ```
 
 ## Log in to Spotify

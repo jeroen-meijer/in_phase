@@ -22,40 +22,43 @@ dart --version
 
 ### Option 1: Install from pub.dev (Recommended)
 
-The easiest way to install InPhase is using Dart's package manager:
-
 ```bash
-dart pub global activate in_phase
+dart install in_phase
 ```
 
-After installation, you can use the tool from any directory:
+The first time, `dart install` prints the folder it installs to. Add that folder to your PATH, then use the tool from any directory:
 
 ```bash
 in_phase login
 in_phase sync
 ```
 
-**Note**: Make sure `~/.pub-cache/bin` (or `%LOCALAPPDATA%\Pub\Cache\bin` on Windows) is in your system PATH.
+Installed InPhase with `dart pub global activate` before? Remove that copy with `dart pub global deactivate in_phase`. Global activation skips the build step that downloads SQLCipher, so Rekordbox commands fail in that copy.
 
 ### Option 2: Build from Source
 
 If you want to build from source or contribute to the project:
 
 1. **Clone the Repository**
-  ```bash
+
+   ```bash
    git clone https://github.com/jeroen-meijer/in_phase.git
    cd in_phase
-  ```
-2. **Install Dependencies**
-  ```bash
-   dart pub get
-  ```
-3. **Activate the Tool**
-  ```bash
-   dart pub global activate --source path .
-  ```
-   Or use the run script directly:
-   **Note for Windows users**: You'll need to use Git Bash or WSL (Windows Subsystem for Linux) to run `.sh` scripts, or use `dart pub global activate` instead.
+   ```
+
+2. **Install the Tool**
+
+   ```bash
+   dart install 'in_phase@{path: .}'
+   ```
+
+   Or run it straight from the clone. `./run.sh` builds `in_phase` with `dart build cli` when the code changed, then runs it:
+
+   ```bash
+   ./run.sh sync
+   ```
+
+   **Note for Windows users**: You'll need to use Git Bash or WSL (Windows Subsystem for Linux) to run `.sh` scripts, or use `dart install` instead.
 
 ### Set Up Rekordbox (Optional)
 
@@ -63,31 +66,13 @@ If you want to build from source or contribute to the project:
 
 #### Prerequisites
 
-1. **Install Rekordbox 6.0.0+**
-  - Download from [rekordbox.com/en/download](https://rekordbox.com/en/download/)
-  - Make sure Rekordbox is installed and you have a library set up
-2. **Install SQLCipher 4.0.0+**
-  SQLCipher is required to access the encrypted Rekordbox database. Install it for your platform:
-   **macOS (Homebrew):**
-   **Windows:**
-  - Download pre-compiled binaries from [zetetic.net/sqlcipher/downloads](https://www.zetetic.net/sqlcipher/downloads/)
-  - Extract and add to your system PATH
-   **Linux:**
-   The library will automatically detect SQLCipher in common installation locations. If you have a custom installation, you can set the path manually (see below).
+- **Rekordbox 6.0.0+**: download it from [rekordbox.com/en/download](https://rekordbox.com/en/download/) and set up a library.
+
+InPhase downloads SQLCipher, which it needs to read the encrypted Rekordbox database, when it builds. You don't need to install it yourself.
 
 #### Environment Variables (Optional)
 
-InPhase uses the `rekorddart` package to access your Rekordbox database. Most users won't need to set these, but they're available if needed:
-
-**SQLCIPHER_DYLIB** (Optional - only needed for custom SQLCipher installations):
-
-```bash
-# macOS/Linux
-export SQLCIPHER_DYLIB=/path/to/your/libsqlcipher.dylib
-
-# Windows PowerShell
-[System.Environment]::SetEnvironmentVariable('SQLCIPHER_DYLIB', 'C:\path\to\libsqlcipher.dll', 'User')
-```
+InPhase uses the `rekorddart` package to access your Rekordbox database. Most users won't need to set this, but it's available if needed:
 
 **REKORDBOX_DB_KEY** (Optional - defaults to a standard key):
 

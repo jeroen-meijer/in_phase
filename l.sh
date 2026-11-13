@@ -30,7 +30,7 @@ else
     PREVIOUS_HASH=""
 fi
 
-BINARY_PATH="build/playlist_length"
+BINARY_PATH="build/playlist_length/bundle/bin/playlist_length"
 BINARY_EXISTS=false
 if [ -f "$BINARY_PATH" ]; then
     BINARY_EXISTS=true
@@ -40,7 +40,7 @@ if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ] || [ ! -f "$BUILD_HASH_FILE" ] || [ "
     print_grey "Compiling playlist_length..."
 
     dart pub get
-    dart compile exe tool/playlist_length.dart -o "$BINARY_PATH"
+    dart build cli -t tool/playlist_length.dart -o build/playlist_length
 
     echo "$CURRENT_HASH" > "$BUILD_HASH_FILE"
 

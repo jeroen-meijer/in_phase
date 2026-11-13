@@ -50,10 +50,11 @@ class UpdateCommand extends Command<int> {
 
     late ProcessResult result;
     try {
-      result = await _pubUpdater.update(
-        packageName: Constants.packageName,
-        versionConstraint: latestVersion,
-      );
+      // `dart pub global activate` skips build hooks, which load SQLCipher.
+      result = await Process.run('dart', [
+        'install',
+        '${Constants.packageName}@$latestVersion',
+      ]);
     } catch (error) {
       log.error('Failed to update InPhase: $error');
       return ExitCode.software.code;

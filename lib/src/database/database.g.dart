@@ -347,6 +347,9 @@ class $CachedPlaylistTracksTable extends CachedPlaylistTracks
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cached_playlists (id)',
+    ),
   );
   static const VerificationMeta _uriMeta = const VerificationMeta('uri');
   @override
@@ -1518,6 +1521,9 @@ class $CachedArtistAlbumListsTable extends CachedArtistAlbumLists
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cached_artists (id)',
+    ),
   );
   static const VerificationMeta _cachedAtMeta = const VerificationMeta(
     'cachedAt',
@@ -1743,6 +1749,9 @@ class $ArtistAlbumRelationshipsTable extends ArtistAlbumRelationships
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cached_artists (id)',
+    ),
   );
   static const VerificationMeta _albumIdMeta = const VerificationMeta(
     'albumId',
@@ -1754,6 +1763,9 @@ class $ArtistAlbumRelationshipsTable extends ArtistAlbumRelationships
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cached_albums (id)',
+    ),
   );
   static const VerificationMeta _orderIndexMeta = const VerificationMeta(
     'orderIndex',
@@ -2259,6 +2271,9 @@ class $CachedLabelTracksTable extends CachedLabelTracks
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cached_label_searches (label_name)',
+    ),
   );
   static const VerificationMeta _uriMeta = const VerificationMeta('uri');
   @override
@@ -4299,6 +4314,41 @@ typedef $$CachedPlaylistsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$CachedPlaylistsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $CachedPlaylistsTable, CachedPlaylist> {
+  $$CachedPlaylistsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $CachedPlaylistTracksTable,
+    List<CachedPlaylistTrack>
+  >
+  _cachedPlaylistTracksRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.cachedPlaylistTracks,
+        aliasName: 'cached_playlists__id__cached_playlist_tracks__playlist_id',
+      );
+
+  $$CachedPlaylistTracksTableProcessedTableManager
+  get cachedPlaylistTracksRefs {
+    final manager = $$CachedPlaylistTracksTableTableManager(
+      $_db,
+      $_db.cachedPlaylistTracks,
+    ).filter((f) => f.playlistId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _cachedPlaylistTracksRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$CachedPlaylistsTableFilterComposer
     extends Composer<_$AppDatabase, $CachedPlaylistsTable> {
   $$CachedPlaylistsTableFilterComposer({
@@ -4327,6 +4377,31 @@ class $$CachedPlaylistsTableFilterComposer
     column: $table.cachedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> cachedPlaylistTracksRefs(
+    Expression<bool> Function($$CachedPlaylistTracksTableFilterComposer f) f,
+  ) {
+    final $$CachedPlaylistTracksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.cachedPlaylistTracks,
+      getReferencedColumn: (t) => t.playlistId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedPlaylistTracksTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedPlaylistTracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CachedPlaylistsTableOrderingComposer
@@ -4381,6 +4456,32 @@ class $$CachedPlaylistsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  Expression<T> cachedPlaylistTracksRefs<T extends Object>(
+    Expression<T> Function($$CachedPlaylistTracksTableAnnotationComposer a) f,
+  ) {
+    final $$CachedPlaylistTracksTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.cachedPlaylistTracks,
+          getReferencedColumn: (t) => t.playlistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedPlaylistTracksTableAnnotationComposer(
+                $db: $db,
+                $table: $db.cachedPlaylistTracks,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedPlaylistsTableTableManager
@@ -4394,16 +4495,9 @@ class $$CachedPlaylistsTableTableManager
           $$CachedPlaylistsTableAnnotationComposer,
           $$CachedPlaylistsTableCreateCompanionBuilder,
           $$CachedPlaylistsTableUpdateCompanionBuilder,
-          (
-            CachedPlaylist,
-            BaseReferences<
-              _$AppDatabase,
-              $CachedPlaylistsTable,
-              CachedPlaylist
-            >,
-          ),
+          (CachedPlaylist, $$CachedPlaylistsTableReferences),
           CachedPlaylist,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool cachedPlaylistTracksRefs})
         > {
   $$CachedPlaylistsTableTableManager(
     _$AppDatabase db,
@@ -4447,9 +4541,46 @@ class $$CachedPlaylistsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedPlaylistsTable, CachedPlaylist>(table),
+                  $$CachedPlaylistsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({cachedPlaylistTracksRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (cachedPlaylistTracksRefs) db.cachedPlaylistTracks,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (cachedPlaylistTracksRefs)
+                    await $_getPrefetchedDataByColumns<
+                      CachedPlaylist,
+                      $CachedPlaylistsTable,
+                      CachedPlaylistTrack,
+                      $CachedPlaylistTracksTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$CachedPlaylistsTableReferences
+                          ._cachedPlaylistTracksRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$CachedPlaylistsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).cachedPlaylistTracksRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'playlist_id',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -4464,12 +4595,9 @@ typedef $$CachedPlaylistsTableProcessedTableManager =
       $$CachedPlaylistsTableAnnotationComposer,
       $$CachedPlaylistsTableCreateCompanionBuilder,
       $$CachedPlaylistsTableUpdateCompanionBuilder,
-      (
-        CachedPlaylist,
-        BaseReferences<_$AppDatabase, $CachedPlaylistsTable, CachedPlaylist>,
-      ),
+      (CachedPlaylist, $$CachedPlaylistsTableReferences),
       CachedPlaylist,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool cachedPlaylistTracksRefs})
     >;
 typedef $$CachedPlaylistTracksTableCreateCompanionBuilder =
     CachedPlaylistTracksCompanion Function({
@@ -4494,6 +4622,38 @@ typedef $$CachedPlaylistTracksTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$CachedPlaylistTracksTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CachedPlaylistTracksTable,
+          CachedPlaylistTrack
+        > {
+  $$CachedPlaylistTracksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CachedPlaylistsTable _playlistIdTable(_$AppDatabase db) => db
+      .cachedPlaylists
+      .createAlias('cached_playlist_tracks__playlist_id__cached_playlists__id');
+
+  $$CachedPlaylistsTableProcessedTableManager get playlistId {
+    final $_column = $_itemColumn<String>('playlist_id')!;
+
+    final manager = $$CachedPlaylistsTableTableManager(
+      $_db,
+      $_db.cachedPlaylists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_playlistIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$CachedPlaylistTracksTableFilterComposer
     extends Composer<_$AppDatabase, $CachedPlaylistTracksTable> {
   $$CachedPlaylistTracksTableFilterComposer({
@@ -4505,11 +4665,6 @@ class $$CachedPlaylistTracksTableFilterComposer
   });
   ColumnFilters<String> get trackId => $composableBuilder(
     column: $table.trackId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get playlistId => $composableBuilder(
-    column: $table.playlistId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4537,6 +4692,29 @@ class $$CachedPlaylistTracksTableFilterComposer
     column: $table.albumId,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$CachedPlaylistsTableFilterComposer get playlistId {
+    final $$CachedPlaylistsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.cachedPlaylists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedPlaylistsTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedPlaylists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedPlaylistTracksTableOrderingComposer
@@ -4550,11 +4728,6 @@ class $$CachedPlaylistTracksTableOrderingComposer
   });
   ColumnOrderings<String> get trackId => $composableBuilder(
     column: $table.trackId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get playlistId => $composableBuilder(
-    column: $table.playlistId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4582,6 +4755,29 @@ class $$CachedPlaylistTracksTableOrderingComposer
     column: $table.albumId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$CachedPlaylistsTableOrderingComposer get playlistId {
+    final $$CachedPlaylistsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.cachedPlaylists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedPlaylistsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cachedPlaylists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedPlaylistTracksTableAnnotationComposer
@@ -4595,11 +4791,6 @@ class $$CachedPlaylistTracksTableAnnotationComposer
   });
   GeneratedColumn<String> get trackId =>
       $composableBuilder(column: $table.trackId, builder: (column) => column);
-
-  GeneratedColumn<String> get playlistId => $composableBuilder(
-    column: $table.playlistId,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get uri =>
       $composableBuilder(column: $table.uri, builder: (column) => column);
@@ -4617,6 +4808,29 @@ class $$CachedPlaylistTracksTableAnnotationComposer
 
   GeneratedColumn<String> get albumId =>
       $composableBuilder(column: $table.albumId, builder: (column) => column);
+
+  $$CachedPlaylistsTableAnnotationComposer get playlistId {
+    final $$CachedPlaylistsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.cachedPlaylists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedPlaylistsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cachedPlaylists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedPlaylistTracksTableTableManager
@@ -4630,16 +4844,9 @@ class $$CachedPlaylistTracksTableTableManager
           $$CachedPlaylistTracksTableAnnotationComposer,
           $$CachedPlaylistTracksTableCreateCompanionBuilder,
           $$CachedPlaylistTracksTableUpdateCompanionBuilder,
-          (
-            CachedPlaylistTrack,
-            BaseReferences<
-              _$AppDatabase,
-              $CachedPlaylistTracksTable,
-              CachedPlaylistTrack
-            >,
-          ),
+          (CachedPlaylistTrack, $$CachedPlaylistTracksTableReferences),
           CachedPlaylistTrack,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool playlistId})
         > {
   $$CachedPlaylistTracksTableTableManager(
     _$AppDatabase db,
@@ -4701,9 +4908,58 @@ class $$CachedPlaylistTracksTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedPlaylistTracksTable, CachedPlaylistTrack>(
+                    table,
+                  ),
+                  $$CachedPlaylistTracksTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({playlistId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (playlistId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.playlistId,
+                                referencedTable:
+                                    $$CachedPlaylistTracksTableReferences
+                                        ._playlistIdTable(db),
+                                referencedColumn:
+                                    $$CachedPlaylistTracksTableReferences
+                                        ._playlistIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -4718,16 +4974,9 @@ typedef $$CachedPlaylistTracksTableProcessedTableManager =
       $$CachedPlaylistTracksTableAnnotationComposer,
       $$CachedPlaylistTracksTableCreateCompanionBuilder,
       $$CachedPlaylistTracksTableUpdateCompanionBuilder,
-      (
-        CachedPlaylistTrack,
-        BaseReferences<
-          _$AppDatabase,
-          $CachedPlaylistTracksTable,
-          CachedPlaylistTrack
-        >,
-      ),
+      (CachedPlaylistTrack, $$CachedPlaylistTracksTableReferences),
       CachedPlaylistTrack,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool playlistId})
     >;
 typedef $$CachedAlbumsTableCreateCompanionBuilder =
     CachedAlbumsCompanion Function({
@@ -4749,6 +4998,36 @@ typedef $$CachedAlbumsTableUpdateCompanionBuilder =
       Value<DateTime> cachedAt,
       Value<int> rowid,
     });
+
+final class $$CachedAlbumsTableReferences
+    extends BaseReferences<_$AppDatabase, $CachedAlbumsTable, CachedAlbum> {
+  $$CachedAlbumsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<
+    $ArtistAlbumRelationshipsTable,
+    List<ArtistAlbumRelationship>
+  >
+  _artistAlbumRelationshipsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.artistAlbumRelationships,
+        aliasName: 'cached_albums__id__artist_album_relationships__album_id',
+      );
+
+  $$ArtistAlbumRelationshipsTableProcessedTableManager
+  get artistAlbumRelationshipsRefs {
+    final manager = $$ArtistAlbumRelationshipsTableTableManager(
+      $_db,
+      $_db.artistAlbumRelationships,
+    ).filter((f) => f.albumId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _artistAlbumRelationshipsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$CachedAlbumsTableFilterComposer
     extends Composer<_$AppDatabase, $CachedAlbumsTable> {
@@ -4788,6 +5067,33 @@ class $$CachedAlbumsTableFilterComposer
     column: $table.cachedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> artistAlbumRelationshipsRefs(
+    Expression<bool> Function($$ArtistAlbumRelationshipsTableFilterComposer f)
+    f,
+  ) {
+    final $$ArtistAlbumRelationshipsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.artistAlbumRelationships,
+          getReferencedColumn: (t) => t.albumId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ArtistAlbumRelationshipsTableFilterComposer(
+                $db: $db,
+                $table: $db.artistAlbumRelationships,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedAlbumsTableOrderingComposer
@@ -4860,6 +5166,33 @@ class $$CachedAlbumsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  Expression<T> artistAlbumRelationshipsRefs<T extends Object>(
+    Expression<T> Function($$ArtistAlbumRelationshipsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$ArtistAlbumRelationshipsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.artistAlbumRelationships,
+          getReferencedColumn: (t) => t.albumId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ArtistAlbumRelationshipsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.artistAlbumRelationships,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedAlbumsTableTableManager
@@ -4873,12 +5206,9 @@ class $$CachedAlbumsTableTableManager
           $$CachedAlbumsTableAnnotationComposer,
           $$CachedAlbumsTableCreateCompanionBuilder,
           $$CachedAlbumsTableUpdateCompanionBuilder,
-          (
-            CachedAlbum,
-            BaseReferences<_$AppDatabase, $CachedAlbumsTable, CachedAlbum>,
-          ),
+          (CachedAlbum, $$CachedAlbumsTableReferences),
           CachedAlbum,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool artistAlbumRelationshipsRefs})
         > {
   $$CachedAlbumsTableTableManager(_$AppDatabase db, $CachedAlbumsTable table)
     : super(
@@ -4928,9 +5258,46 @@ class $$CachedAlbumsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedAlbumsTable, CachedAlbum>(table),
+                  $$CachedAlbumsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({artistAlbumRelationshipsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (artistAlbumRelationshipsRefs) db.artistAlbumRelationships,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (artistAlbumRelationshipsRefs)
+                    await $_getPrefetchedDataByColumns<
+                      CachedAlbum,
+                      $CachedAlbumsTable,
+                      ArtistAlbumRelationship,
+                      $ArtistAlbumRelationshipsTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$CachedAlbumsTableReferences
+                          ._artistAlbumRelationshipsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$CachedAlbumsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).artistAlbumRelationshipsRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'album_id',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -4945,12 +5312,9 @@ typedef $$CachedAlbumsTableProcessedTableManager =
       $$CachedAlbumsTableAnnotationComposer,
       $$CachedAlbumsTableCreateCompanionBuilder,
       $$CachedAlbumsTableUpdateCompanionBuilder,
-      (
-        CachedAlbum,
-        BaseReferences<_$AppDatabase, $CachedAlbumsTable, CachedAlbum>,
-      ),
+      (CachedAlbum, $$CachedAlbumsTableReferences),
       CachedAlbum,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool artistAlbumRelationshipsRefs})
     >;
 typedef $$CachedArtistsTableCreateCompanionBuilder =
     CachedArtistsCompanion Function({
@@ -4966,6 +5330,65 @@ typedef $$CachedArtistsTableUpdateCompanionBuilder =
       Value<DateTime> cachedAt,
       Value<int> rowid,
     });
+
+final class $$CachedArtistsTableReferences
+    extends BaseReferences<_$AppDatabase, $CachedArtistsTable, CachedArtist> {
+  $$CachedArtistsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $CachedArtistAlbumListsTable,
+    List<CachedArtistAlbumList>
+  >
+  _cachedArtistAlbumListsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.cachedArtistAlbumLists,
+        aliasName: 'cached_artists__id__cached_artist_album_lists__artist_id',
+      );
+
+  $$CachedArtistAlbumListsTableProcessedTableManager
+  get cachedArtistAlbumListsRefs {
+    final manager = $$CachedArtistAlbumListsTableTableManager(
+      $_db,
+      $_db.cachedArtistAlbumLists,
+    ).filter((f) => f.artistId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _cachedArtistAlbumListsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ArtistAlbumRelationshipsTable,
+    List<ArtistAlbumRelationship>
+  >
+  _artistAlbumRelationshipsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.artistAlbumRelationships,
+        aliasName: 'cached_artists__id__artist_album_relationships__artist_id',
+      );
+
+  $$ArtistAlbumRelationshipsTableProcessedTableManager
+  get artistAlbumRelationshipsRefs {
+    final manager = $$ArtistAlbumRelationshipsTableTableManager(
+      $_db,
+      $_db.artistAlbumRelationships,
+    ).filter((f) => f.artistId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _artistAlbumRelationshipsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$CachedArtistsTableFilterComposer
     extends Composer<_$AppDatabase, $CachedArtistsTable> {
@@ -4990,6 +5413,59 @@ class $$CachedArtistsTableFilterComposer
     column: $table.cachedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> cachedArtistAlbumListsRefs(
+    Expression<bool> Function($$CachedArtistAlbumListsTableFilterComposer f) f,
+  ) {
+    final $$CachedArtistAlbumListsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.cachedArtistAlbumLists,
+          getReferencedColumn: (t) => t.artistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedArtistAlbumListsTableFilterComposer(
+                $db: $db,
+                $table: $db.cachedArtistAlbumLists,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> artistAlbumRelationshipsRefs(
+    Expression<bool> Function($$ArtistAlbumRelationshipsTableFilterComposer f)
+    f,
+  ) {
+    final $$ArtistAlbumRelationshipsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.artistAlbumRelationships,
+          getReferencedColumn: (t) => t.artistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ArtistAlbumRelationshipsTableFilterComposer(
+                $db: $db,
+                $table: $db.artistAlbumRelationships,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedArtistsTableOrderingComposer
@@ -5034,6 +5510,59 @@ class $$CachedArtistsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  Expression<T> cachedArtistAlbumListsRefs<T extends Object>(
+    Expression<T> Function($$CachedArtistAlbumListsTableAnnotationComposer a) f,
+  ) {
+    final $$CachedArtistAlbumListsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.cachedArtistAlbumLists,
+          getReferencedColumn: (t) => t.artistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedArtistAlbumListsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.cachedArtistAlbumLists,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> artistAlbumRelationshipsRefs<T extends Object>(
+    Expression<T> Function($$ArtistAlbumRelationshipsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$ArtistAlbumRelationshipsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.artistAlbumRelationships,
+          getReferencedColumn: (t) => t.artistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ArtistAlbumRelationshipsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.artistAlbumRelationships,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedArtistsTableTableManager
@@ -5047,12 +5576,12 @@ class $$CachedArtistsTableTableManager
           $$CachedArtistsTableAnnotationComposer,
           $$CachedArtistsTableCreateCompanionBuilder,
           $$CachedArtistsTableUpdateCompanionBuilder,
-          (
-            CachedArtist,
-            BaseReferences<_$AppDatabase, $CachedArtistsTable, CachedArtist>,
-          ),
+          (CachedArtist, $$CachedArtistsTableReferences),
           CachedArtist,
-          PrefetchHooks Function()
+          PrefetchHooks Function({
+            bool cachedArtistAlbumListsRefs,
+            bool artistAlbumRelationshipsRefs,
+          })
         > {
   $$CachedArtistsTableTableManager(_$AppDatabase db, $CachedArtistsTable table)
     : super(
@@ -5090,9 +5619,72 @@ class $$CachedArtistsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedArtistsTable, CachedArtist>(table),
+                  $$CachedArtistsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({
+                cachedArtistAlbumListsRefs = false,
+                artistAlbumRelationshipsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (cachedArtistAlbumListsRefs) db.cachedArtistAlbumLists,
+                    if (artistAlbumRelationshipsRefs)
+                      db.artistAlbumRelationships,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (cachedArtistAlbumListsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          CachedArtist,
+                          $CachedArtistsTable,
+                          CachedArtistAlbumList,
+                          $CachedArtistAlbumListsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CachedArtistsTableReferences
+                              ._cachedArtistAlbumListsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CachedArtistsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).cachedArtistAlbumListsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'artist_id',
+                          typedResults: items,
+                        ),
+                      if (artistAlbumRelationshipsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          CachedArtist,
+                          $CachedArtistsTable,
+                          ArtistAlbumRelationship,
+                          $ArtistAlbumRelationshipsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CachedArtistsTableReferences
+                              ._artistAlbumRelationshipsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CachedArtistsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).artistAlbumRelationshipsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'artist_id',
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
         ),
       );
 }
@@ -5107,12 +5699,12 @@ typedef $$CachedArtistsTableProcessedTableManager =
       $$CachedArtistsTableAnnotationComposer,
       $$CachedArtistsTableCreateCompanionBuilder,
       $$CachedArtistsTableUpdateCompanionBuilder,
-      (
-        CachedArtist,
-        BaseReferences<_$AppDatabase, $CachedArtistsTable, CachedArtist>,
-      ),
+      (CachedArtist, $$CachedArtistsTableReferences),
       CachedArtist,
-      PrefetchHooks Function()
+      PrefetchHooks Function({
+        bool cachedArtistAlbumListsRefs,
+        bool artistAlbumRelationshipsRefs,
+      })
     >;
 typedef $$CachedArtistAlbumListsTableCreateCompanionBuilder =
     CachedArtistAlbumListsCompanion Function({
@@ -5127,6 +5719,38 @@ typedef $$CachedArtistAlbumListsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$CachedArtistAlbumListsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CachedArtistAlbumListsTable,
+          CachedArtistAlbumList
+        > {
+  $$CachedArtistAlbumListsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CachedArtistsTable _artistIdTable(_$AppDatabase db) => db
+      .cachedArtists
+      .createAlias('cached_artist_album_lists__artist_id__cached_artists__id');
+
+  $$CachedArtistsTableProcessedTableManager get artistId {
+    final $_column = $_itemColumn<String>('artist_id')!;
+
+    final manager = $$CachedArtistsTableTableManager(
+      $_db,
+      $_db.cachedArtists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_artistIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$CachedArtistAlbumListsTableFilterComposer
     extends Composer<_$AppDatabase, $CachedArtistAlbumListsTable> {
   $$CachedArtistAlbumListsTableFilterComposer({
@@ -5136,15 +5760,33 @@ class $$CachedArtistAlbumListsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get artistId => $composableBuilder(
-    column: $table.artistId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get cachedAt => $composableBuilder(
     column: $table.cachedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$CachedArtistsTableFilterComposer get artistId {
+    final $$CachedArtistsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedArtistAlbumListsTableOrderingComposer
@@ -5156,15 +5798,33 @@ class $$CachedArtistAlbumListsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get artistId => $composableBuilder(
-    column: $table.artistId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
     column: $table.cachedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$CachedArtistsTableOrderingComposer get artistId {
+    final $$CachedArtistsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedArtistAlbumListsTableAnnotationComposer
@@ -5176,11 +5836,31 @@ class $$CachedArtistAlbumListsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get artistId =>
-      $composableBuilder(column: $table.artistId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  $$CachedArtistsTableAnnotationComposer get artistId {
+    final $$CachedArtistsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedArtistAlbumListsTableTableManager
@@ -5194,16 +5874,9 @@ class $$CachedArtistAlbumListsTableTableManager
           $$CachedArtistAlbumListsTableAnnotationComposer,
           $$CachedArtistAlbumListsTableCreateCompanionBuilder,
           $$CachedArtistAlbumListsTableUpdateCompanionBuilder,
-          (
-            CachedArtistAlbumList,
-            BaseReferences<
-              _$AppDatabase,
-              $CachedArtistAlbumListsTable,
-              CachedArtistAlbumList
-            >,
-          ),
+          (CachedArtistAlbumList, $$CachedArtistAlbumListsTableReferences),
           CachedArtistAlbumList,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool artistId})
         > {
   $$CachedArtistAlbumListsTableTableManager(
     _$AppDatabase db,
@@ -5248,9 +5921,59 @@ class $$CachedArtistAlbumListsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<
+                    $CachedArtistAlbumListsTable,
+                    CachedArtistAlbumList
+                  >(table),
+                  $$CachedArtistAlbumListsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({artistId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (artistId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.artistId,
+                                referencedTable:
+                                    $$CachedArtistAlbumListsTableReferences
+                                        ._artistIdTable(db),
+                                referencedColumn:
+                                    $$CachedArtistAlbumListsTableReferences
+                                        ._artistIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5265,16 +5988,9 @@ typedef $$CachedArtistAlbumListsTableProcessedTableManager =
       $$CachedArtistAlbumListsTableAnnotationComposer,
       $$CachedArtistAlbumListsTableCreateCompanionBuilder,
       $$CachedArtistAlbumListsTableUpdateCompanionBuilder,
-      (
-        CachedArtistAlbumList,
-        BaseReferences<
-          _$AppDatabase,
-          $CachedArtistAlbumListsTable,
-          CachedArtistAlbumList
-        >,
-      ),
+      (CachedArtistAlbumList, $$CachedArtistAlbumListsTableReferences),
       CachedArtistAlbumList,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool artistId})
     >;
 typedef $$ArtistAlbumRelationshipsTableCreateCompanionBuilder =
     ArtistAlbumRelationshipsCompanion Function({
@@ -5291,6 +6007,55 @@ typedef $$ArtistAlbumRelationshipsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$ArtistAlbumRelationshipsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ArtistAlbumRelationshipsTable,
+          ArtistAlbumRelationship
+        > {
+  $$ArtistAlbumRelationshipsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CachedArtistsTable _artistIdTable(_$AppDatabase db) => db
+      .cachedArtists
+      .createAlias('artist_album_relationships__artist_id__cached_artists__id');
+
+  $$CachedArtistsTableProcessedTableManager get artistId {
+    final $_column = $_itemColumn<String>('artist_id')!;
+
+    final manager = $$CachedArtistsTableTableManager(
+      $_db,
+      $_db.cachedArtists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_artistIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CachedAlbumsTable _albumIdTable(_$AppDatabase db) => db.cachedAlbums
+      .createAlias('artist_album_relationships__album_id__cached_albums__id');
+
+  $$CachedAlbumsTableProcessedTableManager get albumId {
+    final $_column = $_itemColumn<String>('album_id')!;
+
+    final manager = $$CachedAlbumsTableTableManager(
+      $_db,
+      $_db.cachedAlbums,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_albumIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$ArtistAlbumRelationshipsTableFilterComposer
     extends Composer<_$AppDatabase, $ArtistAlbumRelationshipsTable> {
   $$ArtistAlbumRelationshipsTableFilterComposer({
@@ -5300,20 +6065,56 @@ class $$ArtistAlbumRelationshipsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get artistId => $composableBuilder(
-    column: $table.artistId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$CachedArtistsTableFilterComposer get artistId {
+    final $$CachedArtistsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CachedAlbumsTableFilterComposer get albumId {
+    final $$CachedAlbumsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.cachedAlbums,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedAlbumsTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedAlbums,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ArtistAlbumRelationshipsTableOrderingComposer
@@ -5325,20 +6126,56 @@ class $$ArtistAlbumRelationshipsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get artistId => $composableBuilder(
-    column: $table.artistId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$CachedArtistsTableOrderingComposer get artistId {
+    final $$CachedArtistsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CachedAlbumsTableOrderingComposer get albumId {
+    final $$CachedAlbumsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.cachedAlbums,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedAlbumsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cachedAlbums,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ArtistAlbumRelationshipsTableAnnotationComposer
@@ -5350,16 +6187,56 @@ class $$ArtistAlbumRelationshipsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get artistId =>
-      $composableBuilder(column: $table.artistId, builder: (column) => column);
-
-  GeneratedColumn<String> get albumId =>
-      $composableBuilder(column: $table.albumId, builder: (column) => column);
-
   GeneratedColumn<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
     builder: (column) => column,
   );
+
+  $$CachedArtistsTableAnnotationComposer get artistId {
+    final $$CachedArtistsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.artistId,
+      referencedTable: $db.cachedArtists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedArtistsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cachedArtists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CachedAlbumsTableAnnotationComposer get albumId {
+    final $$CachedAlbumsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.albumId,
+      referencedTable: $db.cachedAlbums,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedAlbumsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cachedAlbums,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ArtistAlbumRelationshipsTableTableManager
@@ -5373,16 +6250,9 @@ class $$ArtistAlbumRelationshipsTableTableManager
           $$ArtistAlbumRelationshipsTableAnnotationComposer,
           $$ArtistAlbumRelationshipsTableCreateCompanionBuilder,
           $$ArtistAlbumRelationshipsTableUpdateCompanionBuilder,
-          (
-            ArtistAlbumRelationship,
-            BaseReferences<
-              _$AppDatabase,
-              $ArtistAlbumRelationshipsTable,
-              ArtistAlbumRelationship
-            >,
-          ),
+          (ArtistAlbumRelationship, $$ArtistAlbumRelationshipsTableReferences),
           ArtistAlbumRelationship,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool artistId, bool albumId})
         > {
   $$ArtistAlbumRelationshipsTableTableManager(
     _$AppDatabase db,
@@ -5431,9 +6301,74 @@ class $$ArtistAlbumRelationshipsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<
+                    $ArtistAlbumRelationshipsTable,
+                    ArtistAlbumRelationship
+                  >(table),
+                  $$ArtistAlbumRelationshipsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({artistId = false, albumId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (artistId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.artistId,
+                                referencedTable:
+                                    $$ArtistAlbumRelationshipsTableReferences
+                                        ._artistIdTable(db),
+                                referencedColumn:
+                                    $$ArtistAlbumRelationshipsTableReferences
+                                        ._artistIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (albumId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.albumId,
+                                referencedTable:
+                                    $$ArtistAlbumRelationshipsTableReferences
+                                        ._albumIdTable(db),
+                                referencedColumn:
+                                    $$ArtistAlbumRelationshipsTableReferences
+                                        ._albumIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5448,16 +6383,9 @@ typedef $$ArtistAlbumRelationshipsTableProcessedTableManager =
       $$ArtistAlbumRelationshipsTableAnnotationComposer,
       $$ArtistAlbumRelationshipsTableCreateCompanionBuilder,
       $$ArtistAlbumRelationshipsTableUpdateCompanionBuilder,
-      (
-        ArtistAlbumRelationship,
-        BaseReferences<
-          _$AppDatabase,
-          $ArtistAlbumRelationshipsTable,
-          ArtistAlbumRelationship
-        >,
-      ),
+      (ArtistAlbumRelationship, $$ArtistAlbumRelationshipsTableReferences),
       ArtistAlbumRelationship,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool artistId, bool albumId})
     >;
 typedef $$CachedLabelSearchesTableCreateCompanionBuilder =
     CachedLabelSearchesCompanion Function({
@@ -5471,6 +6399,48 @@ typedef $$CachedLabelSearchesTableUpdateCompanionBuilder =
       Value<DateTime> cachedAt,
       Value<int> rowid,
     });
+
+final class $$CachedLabelSearchesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CachedLabelSearchesTable,
+          CachedLabelSearche
+        > {
+  $$CachedLabelSearchesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$CachedLabelTracksTable, List<CachedLabelTrack>>
+  _cachedLabelTracksRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.cachedLabelTracks,
+    aliasName:
+        'cached_label_searches__label_name__cached_label_tracks__label_name',
+  );
+
+  $$CachedLabelTracksTableProcessedTableManager get cachedLabelTracksRefs {
+    final manager =
+        $$CachedLabelTracksTableTableManager(
+          $_db,
+          $_db.cachedLabelTracks,
+        ).filter(
+          (f) => f.labelName.labelName.sqlEquals(
+            $_itemColumn<String>('label_name')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _cachedLabelTracksRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$CachedLabelSearchesTableFilterComposer
     extends Composer<_$AppDatabase, $CachedLabelSearchesTable> {
@@ -5490,6 +6460,31 @@ class $$CachedLabelSearchesTableFilterComposer
     column: $table.cachedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> cachedLabelTracksRefs(
+    Expression<bool> Function($$CachedLabelTracksTableFilterComposer f) f,
+  ) {
+    final $$CachedLabelTracksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.labelName,
+      referencedTable: $db.cachedLabelTracks,
+      getReferencedColumn: (t) => t.labelName,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedLabelTracksTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedLabelTracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CachedLabelSearchesTableOrderingComposer
@@ -5526,6 +6521,32 @@ class $$CachedLabelSearchesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cachedAt =>
       $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  Expression<T> cachedLabelTracksRefs<T extends Object>(
+    Expression<T> Function($$CachedLabelTracksTableAnnotationComposer a) f,
+  ) {
+    final $$CachedLabelTracksTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.labelName,
+          referencedTable: $db.cachedLabelTracks,
+          getReferencedColumn: (t) => t.labelName,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedLabelTracksTableAnnotationComposer(
+                $db: $db,
+                $table: $db.cachedLabelTracks,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CachedLabelSearchesTableTableManager
@@ -5539,16 +6560,9 @@ class $$CachedLabelSearchesTableTableManager
           $$CachedLabelSearchesTableAnnotationComposer,
           $$CachedLabelSearchesTableCreateCompanionBuilder,
           $$CachedLabelSearchesTableUpdateCompanionBuilder,
-          (
-            CachedLabelSearche,
-            BaseReferences<
-              _$AppDatabase,
-              $CachedLabelSearchesTable,
-              CachedLabelSearche
-            >,
-          ),
+          (CachedLabelSearche, $$CachedLabelSearchesTableReferences),
           CachedLabelSearche,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool cachedLabelTracksRefs})
         > {
   $$CachedLabelSearchesTableTableManager(
     _$AppDatabase db,
@@ -5590,9 +6604,48 @@ class $$CachedLabelSearchesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedLabelSearchesTable, CachedLabelSearche>(
+                    table,
+                  ),
+                  $$CachedLabelSearchesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({cachedLabelTracksRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (cachedLabelTracksRefs) db.cachedLabelTracks,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (cachedLabelTracksRefs)
+                    await $_getPrefetchedDataByColumns<
+                      CachedLabelSearche,
+                      $CachedLabelSearchesTable,
+                      CachedLabelTrack,
+                      $CachedLabelTracksTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$CachedLabelSearchesTableReferences
+                          ._cachedLabelTracksRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$CachedLabelSearchesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).cachedLabelTracksRefs,
+                      currentColumn: 'label_name',
+                      referencedColumn: 'label_name',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -5607,16 +6660,9 @@ typedef $$CachedLabelSearchesTableProcessedTableManager =
       $$CachedLabelSearchesTableAnnotationComposer,
       $$CachedLabelSearchesTableCreateCompanionBuilder,
       $$CachedLabelSearchesTableUpdateCompanionBuilder,
-      (
-        CachedLabelSearche,
-        BaseReferences<
-          _$AppDatabase,
-          $CachedLabelSearchesTable,
-          CachedLabelSearche
-        >,
-      ),
+      (CachedLabelSearche, $$CachedLabelSearchesTableReferences),
       CachedLabelSearche,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool cachedLabelTracksRefs})
     >;
 typedef $$CachedLabelTracksTableCreateCompanionBuilder =
     CachedLabelTracksCompanion Function({
@@ -5643,6 +6689,39 @@ typedef $$CachedLabelTracksTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$CachedLabelTracksTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CachedLabelTracksTable,
+          CachedLabelTrack
+        > {
+  $$CachedLabelTracksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CachedLabelSearchesTable _labelNameTable(_$AppDatabase db) =>
+      db.cachedLabelSearches.createAlias(
+        'cached_label_tracks__label_name__cached_label_searches__label_name',
+      );
+
+  $$CachedLabelSearchesTableProcessedTableManager get labelName {
+    final $_column = $_itemColumn<String>('label_name')!;
+
+    final manager = $$CachedLabelSearchesTableTableManager(
+      $_db,
+      $_db.cachedLabelSearches,
+    ).filter((f) => f.labelName.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_labelNameTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$CachedLabelTracksTableFilterComposer
     extends Composer<_$AppDatabase, $CachedLabelTracksTable> {
   $$CachedLabelTracksTableFilterComposer({
@@ -5654,11 +6733,6 @@ class $$CachedLabelTracksTableFilterComposer
   });
   ColumnFilters<String> get trackId => $composableBuilder(
     column: $table.trackId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get labelName => $composableBuilder(
-    column: $table.labelName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5691,6 +6765,29 @@ class $$CachedLabelTracksTableFilterComposer
     column: $table.releaseDate,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$CachedLabelSearchesTableFilterComposer get labelName {
+    final $$CachedLabelSearchesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.labelName,
+      referencedTable: $db.cachedLabelSearches,
+      getReferencedColumn: (t) => t.labelName,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CachedLabelSearchesTableFilterComposer(
+            $db: $db,
+            $table: $db.cachedLabelSearches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CachedLabelTracksTableOrderingComposer
@@ -5704,11 +6801,6 @@ class $$CachedLabelTracksTableOrderingComposer
   });
   ColumnOrderings<String> get trackId => $composableBuilder(
     column: $table.trackId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get labelName => $composableBuilder(
-    column: $table.labelName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5741,6 +6833,30 @@ class $$CachedLabelTracksTableOrderingComposer
     column: $table.releaseDate,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$CachedLabelSearchesTableOrderingComposer get labelName {
+    final $$CachedLabelSearchesTableOrderingComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.labelName,
+          referencedTable: $db.cachedLabelSearches,
+          getReferencedColumn: (t) => t.labelName,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedLabelSearchesTableOrderingComposer(
+                $db: $db,
+                $table: $db.cachedLabelSearches,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
 }
 
 class $$CachedLabelTracksTableAnnotationComposer
@@ -5754,9 +6870,6 @@ class $$CachedLabelTracksTableAnnotationComposer
   });
   GeneratedColumn<String> get trackId =>
       $composableBuilder(column: $table.trackId, builder: (column) => column);
-
-  GeneratedColumn<String> get labelName =>
-      $composableBuilder(column: $table.labelName, builder: (column) => column);
 
   GeneratedColumn<String> get uri =>
       $composableBuilder(column: $table.uri, builder: (column) => column);
@@ -5779,6 +6892,30 @@ class $$CachedLabelTracksTableAnnotationComposer
     column: $table.releaseDate,
     builder: (column) => column,
   );
+
+  $$CachedLabelSearchesTableAnnotationComposer get labelName {
+    final $$CachedLabelSearchesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.labelName,
+          referencedTable: $db.cachedLabelSearches,
+          getReferencedColumn: (t) => t.labelName,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CachedLabelSearchesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.cachedLabelSearches,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
 }
 
 class $$CachedLabelTracksTableTableManager
@@ -5792,16 +6929,9 @@ class $$CachedLabelTracksTableTableManager
           $$CachedLabelTracksTableAnnotationComposer,
           $$CachedLabelTracksTableCreateCompanionBuilder,
           $$CachedLabelTracksTableUpdateCompanionBuilder,
-          (
-            CachedLabelTrack,
-            BaseReferences<
-              _$AppDatabase,
-              $CachedLabelTracksTable,
-              CachedLabelTrack
-            >,
-          ),
+          (CachedLabelTrack, $$CachedLabelTracksTableReferences),
           CachedLabelTrack,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool labelName})
         > {
   $$CachedLabelTracksTableTableManager(
     _$AppDatabase db,
@@ -5864,9 +6994,56 @@ class $$CachedLabelTracksTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CachedLabelTracksTable, CachedLabelTrack>(table),
+                  $$CachedLabelTracksTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({labelName = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (labelName) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.labelName,
+                                referencedTable:
+                                    $$CachedLabelTracksTableReferences
+                                        ._labelNameTable(db),
+                                referencedColumn:
+                                    $$CachedLabelTracksTableReferences
+                                        ._labelNameTable(db)
+                                        .labelName,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5881,16 +7058,9 @@ typedef $$CachedLabelTracksTableProcessedTableManager =
       $$CachedLabelTracksTableAnnotationComposer,
       $$CachedLabelTracksTableCreateCompanionBuilder,
       $$CachedLabelTracksTableUpdateCompanionBuilder,
-      (
-        CachedLabelTrack,
-        BaseReferences<
-          _$AppDatabase,
-          $CachedLabelTracksTable,
-          CachedLabelTrack
-        >,
-      ),
+      (CachedLabelTrack, $$CachedLabelTracksTableReferences),
       CachedLabelTrack,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool labelName})
     >;
 typedef $$SyncTrackMappingsTableCreateCompanionBuilder =
     SyncTrackMappingsCompanion Function({
@@ -6043,7 +7213,16 @@ class $$SyncTrackMappingsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$SyncTrackMappingsTable, SyncTrackMapping>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncTrackMappingsTable,
+                    SyncTrackMapping
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -6260,7 +7439,16 @@ class $$SyncMissingTracksTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$SyncMissingTracksTable, SyncMissingTrack>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncMissingTracksTable,
+                    SyncMissingTrack
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -6449,7 +7637,16 @@ class $$SyncPlaylistsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$SyncPlaylistsTable, SyncPlaylist>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncPlaylistsTable,
+                    SyncPlaylist
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -6683,7 +7880,18 @@ class $$SyncPlaylistTracksTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$SyncPlaylistTracksTable, SyncPlaylistTrack>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncPlaylistTracksTable,
+                    SyncPlaylistTrack
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
