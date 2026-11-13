@@ -7,10 +7,7 @@ import 'package:in_phase/src/database/database_provider.dart';
 import 'package:in_phase/src/entities/entities.dart' as entities;
 import 'package:in_phase/src/spotify/spotify.dart';
 
-/// Adapter that provides CrawlCache-like interface backed by Drift database.
-///
-/// This allows TrackCollector to work with the database without major
-/// refactoring.
+/// Reads and writes crawl cache entities in the Drift database.
 class CacheAdapter {
   CacheAdapter(this._db);
 
@@ -19,11 +16,9 @@ class CacheAdapter {
   // DAO getters - access from database instance
   PlaylistsDao get playlistsDao => _db.playlistsDao;
   AlbumsDao get albumsDao => _db.albumsDao;
-  TrackAlbumMappingsDao get trackAlbumMappingsDao => _db.trackAlbumMappingsDao;
   ArtistsDao get artistsDao => _db.artistsDao;
   ArtistAlbumsDao get artistAlbumsDao => _db.artistAlbumsDao;
   LabelSearchesDao get labelSearchesDao => _db.labelSearchesDao;
-  MetadataDao get metadataDao => _db.metadataDao;
 
   /// Checks if a playlist has changed by comparing snapshot IDs.
   Future<bool> isPlaylistChanged(
@@ -159,24 +154,18 @@ class CacheAdapter {
     );
   }
 
-  /// Gets cached artist albums list.
+  /// Gets the cached album list for an artist, fresh or not.
   Future<entities.CachedArtistAlbums?> getArtistAlbums(
     SpotifyArtistId artistId,
   ) async {
-    final isFresh = await artistAlbumsDao.isArtistAlbumsFresh(
-      artistId.toString(),
-    );
-
-    if (!isFresh) return null;
-
-    final albumIds = await artistAlbumsDao.getArtistAlbums(
-      artistId.toString(),
-    );
-
     final list = await (_db.select(
       _db.cachedArtistAlbumLists,
     )..where((l) => l.artistId.equals(artistId.toString()))).getSingleOrNull();
     if (list == null) return null;
+
+    final albumIds = await artistAlbumsDao.getArtistAlbums(
+      artistId.toString(),
+    );
 
     return entities.CachedArtistAlbums(
       artistId: artistId,
@@ -202,17 +191,14 @@ class CacheAdapter {
     );
   }
 
-  /// Gets cached label search.
+  /// Gets the cached search results for a label, fresh or not.
   Future<entities.CachedLabelSearch?> getLabelSearch(String labelName) async {
-    final isFresh = await labelSearchesDao.isLabelSearchFresh(labelName);
-    if (!isFresh) return null;
-
-    final tracks = await labelSearchesDao.getLabelTracks(labelName);
     final search = await (_db.select(
       _db.cachedLabelSearches,
     )..where((s) => s.labelName.equals(labelName))).getSingleOrNull();
-
     if (search == null) return null;
+
+    final tracks = await labelSearchesDao.getLabelTracks(labelName);
 
     return entities.CachedLabelSearch(
       labelName: labelName,
@@ -257,11 +243,6 @@ class CacheAdapter {
       labelName: labelName,
       tracks: tracks,
     );
-  }
-
-  /// Updates the last updated timestamp.
-  Future<void> updateMetadata() async {
-    await metadataDao.updateLastUpdated();
   }
 }
 

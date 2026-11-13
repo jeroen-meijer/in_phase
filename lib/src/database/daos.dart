@@ -84,58 +84,11 @@ class AlbumsDao extends DatabaseAccessor<AppDatabase> with _$AlbumsDaoMixin {
     return album != null;
   }
 
-  /// Inserts or updates an album.
-  Future<void> upsertAlbum(CachedAlbumsCompanion album) {
-    return into(cachedAlbums).insertOnConflictUpdate(album);
-  }
-
   /// Inserts or updates multiple albums.
   Future<void> upsertAlbums(List<CachedAlbumsCompanion> albums) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(cachedAlbums, albums);
     });
-  }
-
-  /// Gets albums by release date range.
-  Future<List<CachedAlbum>> getAlbumsByReleaseDate({
-    String? fromDate,
-    String? toDate,
-  }) {
-    final query = select(cachedAlbums);
-
-    if (fromDate != null) {
-      query.where((a) => a.releaseDate.isBiggerOrEqualValue(fromDate));
-    }
-    if (toDate != null) {
-      query.where((a) => a.releaseDate.isSmallerOrEqualValue(toDate));
-    }
-
-    return query.get();
-  }
-}
-
-/// DAO for track-album mappings operations.
-@DriftAccessor(tables: [TrackAlbumMappings])
-class TrackAlbumMappingsDao extends DatabaseAccessor<AppDatabase>
-    with _$TrackAlbumMappingsDaoMixin {
-  TrackAlbumMappingsDao(super.attachedDatabase);
-
-  /// Gets the album ID for a track.
-  Future<String?> getAlbumIdForTrack(String trackId) async {
-    final mapping = await (select(
-      trackAlbumMappings,
-    )..where((m) => m.trackId.equals(trackId))).getSingleOrNull();
-    return mapping?.albumId;
-  }
-
-  /// Inserts or updates a track-album mapping.
-  Future<void> upsertMapping(String trackId, String albumId) {
-    return into(trackAlbumMappings).insertOnConflictUpdate(
-      TrackAlbumMappingsCompanion.insert(
-        trackId: trackId,
-        albumId: albumId,
-      ),
-    );
   }
 }
 
@@ -149,15 +102,6 @@ class ArtistsDao extends DatabaseAccessor<AppDatabase> with _$ArtistsDaoMixin {
     return (select(
       cachedArtists,
     )..where((a) => a.id.equals(artistId))).getSingleOrNull();
-  }
-
-  /// Checks if an artist is stale (older than 1 month).
-  Future<bool> isArtistStale(String artistId) async {
-    final artist = await getArtist(artistId);
-    if (artist == null) return true;
-
-    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
-    return artist.cachedAt.isBefore(oneMonthAgo);
   }
 
   /// Inserts or updates an artist.
@@ -187,26 +131,6 @@ class ArtistAlbumsDao extends DatabaseAccessor<AppDatabase>
             .get();
 
     return results.map((r) => r.albumId).toList();
-  }
-
-  /// Checks if artist albums list is fresh (from today).
-  Future<bool> isArtistAlbumsFresh(String artistId) async {
-    final list = await (select(
-      cachedArtistAlbumLists,
-    )..where((l) => l.artistId.equals(artistId))).getSingleOrNull();
-
-    if (list == null) return false;
-
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      list.cachedAt.year,
-      list.cachedAt.month,
-      list.cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
   }
 
   /// Removes all cached data for an artist.
@@ -279,26 +203,6 @@ class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
     )..where((t) => t.labelName.equals(labelName))).get();
   }
 
-  /// Checks if label search is fresh (from today).
-  Future<bool> isLabelSearchFresh(String labelName) async {
-    final search = await (select(
-      cachedLabelSearches,
-    )..where((s) => s.labelName.equals(labelName))).getSingleOrNull();
-
-    if (search == null) return false;
-
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      search.cachedAt.year,
-      search.cachedAt.month,
-      search.cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
-
   /// Inserts or updates a label search with its tracks.
   Future<void> upsertLabelSearch({
     required String labelName,
@@ -323,43 +227,6 @@ class LabelSearchesDao extends DatabaseAccessor<AppDatabase>
         batch.insertAll(cachedLabelTracks, tracks);
       });
     });
-  }
-}
-
-/// DAO for cache metadata operations.
-@DriftAccessor(tables: [CacheMetadata])
-class MetadataDao extends DatabaseAccessor<AppDatabase>
-    with _$MetadataDaoMixin {
-  MetadataDao(super.attachedDatabase);
-
-  /// Gets the cache metadata.
-  Future<CacheMetadataData?> getMetadata() {
-    return (select(
-      cacheMetadata,
-    )..where((m) => m.id.equals(1))).getSingleOrNull();
-  }
-
-  /// Updates the last updated timestamp.
-  Future<void> updateLastUpdated() {
-    return (update(cacheMetadata)..where((m) => m.id.equals(1))).write(
-      CacheMetadataCompanion(
-        lastUpdated: Value(DateTime.now()),
-      ),
-    );
-  }
-
-  /// Initializes metadata if it doesn't exist.
-  Future<void> initializeMetadata() async {
-    final existing = await getMetadata();
-    if (existing == null) {
-      await into(cacheMetadata).insert(
-        CacheMetadataCompanion.insert(
-          id: const Value(1),
-          created: Value(DateTime.now()),
-          lastUpdated: Value(DateTime.now()),
-        ),
-      );
-    }
   }
 }
 
@@ -393,16 +260,6 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMappingsDaoMixin {
   SyncMappingsDao(super.attachedDatabase);
 
-  /// Gets a Rekordbox song ID for a Spotify track ID.
-  Future<String?> getMapping(SpotifyTrackId spotifyTrackId) async {
-    final result =
-        await (select(
-              syncTrackMappings,
-            )..where((t) => t.spotifyTrackId.equals(spotifyTrackId.toString())))
-            .getSingleOrNull();
-    return result?.rekordboxSongId;
-  }
-
   /// Gets all mappings as a map of SpotifyTrackId -> RekordboxSongId.
   Future<Map<SpotifyTrackId, String>> getAllMappings() async {
     final results = await select(syncTrackMappings).get();
@@ -410,20 +267,6 @@ class SyncMappingsDao extends DatabaseAccessor<AppDatabase>
       for (final result in results)
         SpotifyTrackId(result.spotifyTrackId): result.rekordboxSongId,
     };
-  }
-
-  /// Sets a mapping.
-  Future<void> setMapping(
-    SpotifyTrackId spotifyTrackId,
-    String rekordboxSongId,
-  ) async {
-    await into(syncTrackMappings).insertOnConflictUpdate(
-      SyncTrackMappingsCompanion.insert(
-        spotifyTrackId: spotifyTrackId.toString(),
-        rekordboxSongId: rekordboxSongId,
-        createdAt: DateTime.now(),
-      ),
-    );
   }
 
   /// Batch sets multiple mappings from Spotify track IDs to Rekordbox song IDs.
@@ -465,58 +308,57 @@ class SyncMissingTracksDao extends DatabaseAccessor<AppDatabase>
     with _$SyncMissingTracksDaoMixin {
   SyncMissingTracksDao(super.attachedDatabase);
 
-  /// Adds or updates a missing track.
-  Future<void> insertMissingTrack({
-    required SpotifyTrackId spotifyTrackId,
-    required String artist,
-    required String title,
-    required DateTime lastInsertedAt,
-    String? itunesUrl,
-  }) async {
-    await into(syncMissingTracks).insertOnConflictUpdate(
-      SyncMissingTracksCompanion.insert(
-        spotifyTrackId: spotifyTrackId.toString(),
-        artist: artist,
-        title: title,
-        itunesUrl: Value(itunesUrl),
-        lastInsertedAt: lastInsertedAt,
-      ),
-    );
+  /// Gets missing tracks by latest source-playlist addition, then title.
+  Future<List<SyncMissingTrack>> getMissingTracksBySourceDate() {
+    return (select(syncMissingTracks)..orderBy([
+          (t) => OrderingTerm.desc(t.sourceAddedAt),
+          (t) => OrderingTerm.asc(t.title),
+          (t) => OrderingTerm.asc(t.spotifyTrackId),
+        ]))
+        .get();
   }
 
-  /// Gets all missing tracks.
-  Future<List<SyncMissingTrack>> getAllMissingTracks() async {
-    return select(syncMissingTracks).get();
-  }
-
-  /// Gets all missing tracks ordered by most recently inserted first.
-  Future<List<SyncMissingTrack>> getAllMissingTracksNewestFirst() {
-    return (select(
-      syncMissingTracks,
-    )..orderBy([(t) => OrderingTerm.desc(t.lastInsertedAt)])).get();
-  }
-
-  /// Batch inserts multiple missing tracks.
+  /// Save missing tracks without discarding an earlier source date or buy link.
   Future<void> insertMissingTracksBatch(
-    List<({SpotifyTrackId id, String artist, String title, DateTime addedAt})>
+    List<
+      ({
+        SpotifyTrackId id,
+        String artist,
+        String title,
+        DateTime? sourceAddedAt,
+      })
+    >
     tracks,
   ) async {
     if (tracks.isEmpty) return;
 
-    await batch((batch) {
-      batch.insertAllOnConflictUpdate(
-        syncMissingTracks,
-        [
-          for (final track in tracks)
-            SyncMissingTracksCompanion.insert(
-              spotifyTrackId: track.id.toString(),
-              artist: track.artist,
-              title: track.title,
-              itunesUrl: const Value(null),
-              lastInsertedAt: track.addedAt,
-            ),
-        ],
-      );
+    await transaction(() async {
+      for (final track in tracks) {
+        await customStatement(
+          '''
+          INSERT INTO sync_missing_tracks
+            (spotify_track_id, artist, title, source_added_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(spotify_track_id) DO UPDATE SET
+            artist = excluded.artist,
+            title = excluded.title,
+            source_added_at = CASE
+              WHEN excluded.source_added_at IS NULL
+                THEN sync_missing_tracks.source_added_at
+              WHEN sync_missing_tracks.source_added_at IS NULL
+                OR excluded.source_added_at > sync_missing_tracks.source_added_at
+                THEN excluded.source_added_at
+              ELSE sync_missing_tracks.source_added_at
+            END
+        ''',
+          [
+            track.id.toString(),
+            track.artist,
+            track.title,
+            track.sourceAddedAt?.toUtc().toIso8601String(),
+          ],
+        );
+      }
     });
   }
 
@@ -614,6 +456,7 @@ class SyncPlaylistsDao extends DatabaseAccessor<AppDatabase>
             name: track.name,
             artistNames: jsonEncode(track.artistNames),
             orderIndex: i,
+            addedAt: Value(track.addedAt),
           ),
         );
       }

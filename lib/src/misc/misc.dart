@@ -18,5 +18,6 @@ export 'system_launcher.dart';
 export 'terminal_style.dart';
 export 'time_utils.dart';
 export 'with_teardown.dart';
+export 'yaml_config.dart';
 export 'yaml_map_extensions.dart';
 export 'zonable.dart';

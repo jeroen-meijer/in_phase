@@ -2,8 +2,19 @@ import 'package:in_phase/src/cli/commands/curate/curate.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:nocterm/nocterm.dart';
 
-/// Max target playlist key (1-9).
-const _maxTargetKey = 9;
+/// Keys 1 to 9 add the current track to the target playlist with that number.
+final List<LogicalKey> _targetDigitKeys = [
+  LogicalKey.digit1,
+  LogicalKey.digit2,
+  LogicalKey.digit3,
+  LogicalKey.digit4,
+  LogicalKey.digit5,
+  LogicalKey.digit6,
+  LogicalKey.digit7,
+  LogicalKey.digit8,
+  LogicalKey.digit9,
+];
+final int _maxTargetKey = _targetDigitKeys.length;
 
 /// Handles keyboard events during curate playback (Nocterm [KeyboardEvent]).
 class CurateKeyHandler {
@@ -106,6 +117,10 @@ class CurateKeyHandler {
       return KeyResultNext();
     }
 
+    if (ch == 'p') {
+      return KeyResultPrevious();
+    }
+
     if (ch == 'r') {
       final newState = TrackPlaybackState(
         positionMs: config.startPositionMs.clamp(0, currentTrack.durationMs),
@@ -167,34 +182,8 @@ class CurateKeyHandler {
   }
 
   int? _digitFromLogicalKey(LogicalKey key) {
-    if (key == LogicalKey.digit1) {
-      return 1;
-    }
-    if (key == LogicalKey.digit2) {
-      return 2;
-    }
-    if (key == LogicalKey.digit3) {
-      return 3;
-    }
-    if (key == LogicalKey.digit4) {
-      return 4;
-    }
-    if (key == LogicalKey.digit5) {
-      return 5;
-    }
-    if (key == LogicalKey.digit6) {
-      return 6;
-    }
-    if (key == LogicalKey.digit7) {
-      return 7;
-    }
-    if (key == LogicalKey.digit8) {
-      return 8;
-    }
-    if (key == LogicalKey.digit9) {
-      return 9;
-    }
-    return null;
+    final index = _targetDigitKeys.indexOf(key);
+    return index == -1 ? null : index + 1;
   }
 
   Future<KeyResult> _handleArrowSeek(

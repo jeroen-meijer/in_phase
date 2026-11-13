@@ -42,9 +42,7 @@ memory_cues_to_hot_cues: false
 sync_art: true
 ```
 
-Flags override the config: `--dry-run`, `--no-prune`,
-`--memory-cues-to-hot-cues`, and `--config`/`-c` for an alternative config
-file path.
+Flags override the config: `--dry-run`, `--[no-]prune`, `--[no-]memory-cues-to-hot-cues`, and `--config`/`-c` for an alternative config file path.
 
 ## What gets synced
 
@@ -80,8 +78,7 @@ path. The sync is idempotent: unchanged tracks are detected and skipped.
 ## Safety
 
 - The command refuses to run while Rekordbox or Engine DJ is running.
-- Before every write run, `m.db` (plus WAL/SHM sidecars) is backed up to
-  `~/.in_phase/build/engine_sync_backups/<timestamp>/`.
+- Before every write run, `m.db` (plus WAL/SHM sidecars) is backed up to `~/.in_phase/backups/engine/<timestamp>/`. `in_phase cache clean` does not touch this folder. Backups made by version 1.4.1 and earlier are in `~/.in_phase/build/engine_sync_backups/` until you run `cache clean`.
 - `--dry-run` prints the full change report without opening the database
   for writing.
 - The Engine database schema is validated (`Information.schemaVersion`

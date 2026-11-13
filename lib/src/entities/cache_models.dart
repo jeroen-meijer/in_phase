@@ -1,3 +1,4 @@
+import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -41,7 +42,6 @@ class CachedPlaylistTrack {
 
   Map<String, dynamic> toJson() => _$CachedPlaylistTrackToJson(this);
 
-  @JsonKey(fromJson: _spotifyTrackIdFromJson, toJson: _spotifyTrackIdToJson)
   final SpotifyTrackId trackId;
 
   final String uri;
@@ -49,11 +49,7 @@ class CachedPlaylistTrack {
   final List<String> artistNames;
   final DateTime addedAt;
 
-  @JsonKey(
-    includeIfNull: false,
-    fromJson: _spotifyAlbumIdFromJson,
-    toJson: _spotifyAlbumIdToJson,
-  )
+  @JsonKey(includeIfNull: false)
   final SpotifyAlbumId? albumId;
 }
 
@@ -74,10 +70,6 @@ class CachedAlbum {
 
   Map<String, dynamic> toJson() => _$CachedAlbumToJson(this);
 
-  @JsonKey(
-    fromJson: _spotifyAlbumIdFromJsonRequired,
-    toJson: _spotifyAlbumIdToJsonRequired,
-  )
   final SpotifyAlbumId id;
 
   final String name;
@@ -107,10 +99,6 @@ class CachedArtist {
 
   Map<String, dynamic> toJson() => _$CachedArtistToJson(this);
 
-  @JsonKey(
-    fromJson: _spotifyArtistIdFromJsonRequired,
-    toJson: _spotifyArtistIdToJsonRequired,
-  )
   final SpotifyArtistId id;
 
   final String name;
@@ -137,32 +125,14 @@ class CachedArtistAlbums {
 
   Map<String, dynamic> toJson() => _$CachedArtistAlbumsToJson(this);
 
-  @JsonKey(
-    fromJson: _spotifyArtistIdFromJsonRequired,
-    toJson: _spotifyArtistIdToJsonRequired,
-  )
   final SpotifyArtistId artistId;
 
-  @JsonKey(
-    fromJson: _albumIdListFromJson,
-    toJson: _albumIdListToJson,
-  )
   final List<SpotifyAlbumId> albumIds;
 
   final DateTime cachedAt;
 
   /// Returns true if the cache was created today.
-  bool get isFreshToday {
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      cachedAt.year,
-      cachedAt.month,
-      cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
+  bool get isFreshToday => isToday(cachedAt);
 }
 
 /// Cached track from label search.
@@ -183,20 +153,12 @@ class CachedLabelTrack {
 
   Map<String, dynamic> toJson() => _$CachedLabelTrackToJson(this);
 
-  @JsonKey(
-    fromJson: _spotifyTrackIdFromJsonRequired,
-    toJson: _spotifyTrackIdToJsonRequired,
-  )
   final SpotifyTrackId trackId;
 
   final String uri;
   final String name;
   final List<String> artistNames;
 
-  @JsonKey(
-    fromJson: _spotifyAlbumIdFromJson,
-    toJson: _spotifyAlbumIdToJson,
-  )
   final SpotifyAlbumId? albumId;
 
   final String? albumName;
@@ -222,51 +184,8 @@ class CachedLabelSearch {
   final DateTime cachedAt;
 
   /// Returns true if the cache was created today.
-  bool get isFreshToday {
-    final now = DateTime.now();
-    final cacheDate = DateTime(
-      cachedAt.year,
-      cachedAt.month,
-      cachedAt.day,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-    return cacheDate.isAtSameMomentAs(today) ||
-        cacheDate.isAfter(today.subtract(const Duration(days: 1)));
-  }
+  bool get isFreshToday => isToday(cachedAt);
 }
-
-// Conversion functions for extension types
-
-SpotifyTrackId _spotifyTrackIdFromJson(Object json) =>
-    SpotifyTrackId(json as String);
-
-String _spotifyTrackIdToJson(SpotifyTrackId id) => id.toString();
-
-SpotifyTrackId _spotifyTrackIdFromJsonRequired(Object json) =>
-    SpotifyTrackId(json as String);
-
-String _spotifyTrackIdToJsonRequired(SpotifyTrackId id) => id.toString();
-
-SpotifyAlbumId? _spotifyAlbumIdFromJson(Object? json) =>
-    json == null ? null : SpotifyAlbumId(json as String);
-
-SpotifyAlbumId _spotifyAlbumIdFromJsonRequired(Object json) =>
-    SpotifyAlbumId(json as String);
-
-String _spotifyAlbumIdToJsonRequired(SpotifyAlbumId id) => id.toString();
-
-String? _spotifyAlbumIdToJson(SpotifyAlbumId? id) => id?.toString();
-
-SpotifyArtistId _spotifyArtistIdFromJsonRequired(Object json) =>
-    SpotifyArtistId(json as String);
-
-String _spotifyArtistIdToJsonRequired(SpotifyArtistId id) => id.toString();
-
-List<SpotifyAlbumId> _albumIdListFromJson(List<dynamic> json) =>
-    json.map((e) => SpotifyAlbumId(e as String)).toList();
-
-List<String> _albumIdListToJson(List<SpotifyAlbumId> ids) =>
-    ids.map((id) => id.toString()).toList();
 
 // ============================================================================
 // SYNC CACHE MODELS

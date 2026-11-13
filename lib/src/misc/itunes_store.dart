@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:in_phase/src/misc/fuzzy_search.dart';
+
 /// iTunes Store URL helpers and lightweight lookup.
 class ItunesStore {
   /// Looks up a track URL in the iTunes Search API and returns an `itmss://`
@@ -27,7 +29,7 @@ class ItunesStore {
       final results = decoded['results'];
       if (results is! List || results.isEmpty) return null;
 
-      final bestWebUrl = _selectBestTrackWebUrl(
+      final bestWebUrl = bestTrackWebUrl(
         artist: artist,
         title: title,
         rawResults: results,
@@ -69,42 +71,43 @@ class ItunesStore {
     ).toString();
   }
 
-  static String? _selectBestTrackWebUrl({
+  /// Picks the iTunes Search API result that best matches [artist] and
+  /// [title], or null when no result matches both.
+  ///
+  /// A field matches when the normalized strings are equal or one contains
+  /// the other; equal matches rank higher.
+  static String? bestTrackWebUrl({
     required String artist,
     required String title,
     required List<dynamic> rawResults,
   }) {
-    final normalizedArtist = _normalizeForMatch(artist);
-    final normalizedTitle = _normalizeForMatch(title);
+    final normalizedArtist = normalizeForMatch(artist);
+    final normalizedTitle = normalizeForMatch(title);
 
-    var bestScore = -1;
+    int? fieldScore(String wanted, String candidate) {
+      if (candidate.isEmpty) return null;
+      if (candidate == wanted) return 2;
+      if (candidate.contains(wanted) || wanted.contains(candidate)) return 1;
+      return null;
+    }
+
+    var bestScore = 0;
     String? bestUrl;
-
-    for (final result in rawResults) {
-      if (result is! Map<String, dynamic>) continue;
-
+    for (final result in rawResults.whereType<Map<String, dynamic>>()) {
       final trackViewUrl = result['trackViewUrl'] as String?;
       if (trackViewUrl == null || trackViewUrl.isEmpty) continue;
 
-      final candidateArtist = _normalizeForMatch(
-        (result['artistName'] as String?) ?? '',
+      final artistScore = fieldScore(
+        normalizedArtist,
+        normalizeForMatch((result['artistName'] as String?) ?? ''),
       );
-      final candidateTitle = _normalizeForMatch(
-        (result['trackName'] as String?) ?? '',
+      final titleScore = fieldScore(
+        normalizedTitle,
+        normalizeForMatch((result['trackName'] as String?) ?? ''),
       );
+      if (artistScore == null || titleScore == null) continue;
 
-      var score = 0;
-      if (candidateArtist == normalizedArtist) score += 3;
-      if (candidateTitle == normalizedTitle) score += 3;
-      if (candidateArtist.contains(normalizedArtist) ||
-          normalizedArtist.contains(candidateArtist)) {
-        score += 1;
-      }
-      if (candidateTitle.contains(normalizedTitle) ||
-          normalizedTitle.contains(candidateTitle)) {
-        score += 1;
-      }
-
+      final score = artistScore + titleScore;
       if (score > bestScore) {
         bestScore = score;
         bestUrl = trackViewUrl;
@@ -122,13 +125,5 @@ class ItunesStore {
     if (idSegment == null) return null;
     final value = idSegment.replaceFirst('id', '');
     return value.isEmpty ? null : value;
-  }
-
-  static String _normalizeForMatch(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 }

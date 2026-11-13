@@ -285,6 +285,50 @@ void main() {
       expect(second, 7);
       expect(calls, 2);
     });
+
+    test('ttl Duration.zero after a failed request does not cache', () async {
+      final pool = RequestPool(
+        maxRetries: 0,
+        defaultTtl: const Duration(seconds: 5),
+      );
+      addTearDown(pool.clear);
+
+      var calls = 0;
+      Future<int> fetch() async {
+        calls++;
+        if (calls == 1) throw Exception('first call fails');
+        return calls;
+      }
+
+      await expectLater(pool.request(fetch, identifier: 'id'), throwsException);
+      expect(
+        await pool.request(fetch, identifier: 'id', ttl: Duration.zero),
+        2,
+      );
+      expect(
+        await pool.request(fetch, identifier: 'id', ttl: Duration.zero),
+        3,
+      );
+    });
+
+    test('clear fails running requests and keeps counts at zero', () async {
+      final pool = RequestPool(maxConcurrent: 1);
+      final gate = Completer<int>();
+
+      final running = pool.request(() => gate.future, identifier: 'running');
+      final queued = pool.request(() async => 2, identifier: 'queued');
+      expect(pool.runningRequestCount, 1);
+
+      pool.clear();
+      await expectLater(running, throwsStateError);
+      await expectLater(queued, throwsStateError);
+
+      gate.complete(1);
+      await Future<void>.delayed(Duration.zero);
+      expect(pool.runningRequestCount, 0);
+      expect(await pool.request(() async => 3, identifier: 'after'), 3);
+      pool.clear();
+    });
   });
 
   group('remainingSpotifyPageOffsets', () {

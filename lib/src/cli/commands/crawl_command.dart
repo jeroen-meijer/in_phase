@@ -10,6 +10,7 @@ import 'package:in_phase/src/reports/reports.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:io/io.dart';
 import 'package:path/path.dart' as path;
+import 'package:simple_date/simple_date.dart';
 import 'package:spotify/spotify.dart';
 
 class CrawlCommand extends Command<int> {
@@ -36,7 +37,7 @@ class CrawlCommand extends Command<int> {
         'start-date',
         help:
             'Custom start date (YYYY-MM-DD). '
-            'Overrides the job added_between_days setting.',
+            'Overrides the job date_range setting.',
         valueHelp: 'YYYY-MM-DD',
       )
       ..addOption(
@@ -59,191 +60,157 @@ class CrawlCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final teardown = <Future<void> Function()>[];
     final commandStartTime = DateTime.now();
-    final jobReports = <CrawlJobReport>[];
 
-    try {
-      // Load configuration
-      final customConfigPath = argResults!['config'] as String?;
-      final usesCustomConfigPath = customConfigPath != null;
+    final customConfigPath = argResults!['config'] as String?;
+    final usesCustomConfigPath = customConfigPath != null;
+    final configFile = usesCustomConfigPath
+        ? resolveConfigPath(customConfigPath)
+        : Constants.crawlConfigFile;
 
-      final configFile = usesCustomConfigPath
-          ? resolveConfigPath(customConfigPath)
-          : Constants.crawlConfigFile;
+    log.info('Loading crawl config from: ${configFile.path}');
+    final config = await CrawlConfig.fromFile(configFile);
 
-      log.info('Loading crawl config from: ${configFile.path}');
-      final config = await CrawlConfig.fromFile(
-        configFile,
-        createFileIfNotExists: !usesCustomConfigPath,
-      );
+    if (config.jobs.isEmpty) {
+      log.warning('No jobs found in configuration');
+      return ExitCode.config.code;
+    }
 
-      if (config.jobs.isEmpty) {
-        log.warning('No jobs found in configuration');
+    for (final job in config.jobs) {
+      try {
+        DateRangeResolver.validate(job.filters);
+      } catch (e) {
+        log.error('Invalid date_range configuration in job "${job.name}": $e');
         return ExitCode.config.code;
       }
+    }
 
-      // Validate all job filters before processing
-      for (final job in config.jobs) {
-        try {
-          DateRangeResolver.validate(job.filters);
-        } catch (e) {
-          log.error(
-            'Invalid date_range configuration in job "${job.name}": $e',
-          );
-          return ExitCode.config.code;
-        }
-      }
+    final requestedJobs = argResults!['job'] as List<String>;
+    final jobsToRun = requestedJobs.isEmpty
+        ? config.jobs
+        : config.jobs.where((job) => requestedJobs.contains(job.name)).toList();
+    if (jobsToRun.isEmpty) {
+      usageException('No matching jobs found for: ${requestedJobs.join(', ')}');
+    }
 
-      // Login to Spotify
+    final customStartDate = _parseDateOption('start-date');
+    final customEndDate = _parseDateOption('end-date');
+    if (customStartDate != null &&
+        customEndDate != null &&
+        customStartDate.isAfter(customEndDate)) {
+      usageException('Start date must be before or equal to end date');
+    }
+
+    final isDryRun = argResults!['dry-run'] as bool;
+
+    return withTeardown((addTeardown) async {
       final api = await spotifyLogin();
+      addTeardown(() => closeSpotifyApi(api));
 
-      // TODO(jeroen-meijer): Create issue for this lint ignore and refactor
-      // ignore: invalid_use_of_visible_for_testing_member
-      teardown.add(() async => (await api.client).close());
-
-      // Initialize request pool
       final requestPool = Zonable.fromZone<RequestPool>();
-      teardown.add(() async => requestPool.clear());
+      addTeardown(requestPool.clear);
 
-      // Get current user
       final user = await api.me.get();
-      log.info('Logged in as: ${user.displayName}');
-
-      // Filter jobs if specific ones were requested
-      final requestedJobs = argResults!['job'] as List<String>;
-      var jobsToRun = config.jobs;
-      if (requestedJobs.isNotEmpty) {
-        jobsToRun = config.jobs
-            .where((job) => requestedJobs.contains(job.name))
-            .toList();
-
-        if (jobsToRun.isEmpty) {
-          usageException(
-            'No matching jobs found for: ${requestedJobs.join(', ')}',
-          );
-        }
-      }
-
       log
+        ..info('Logged in as: ${user.displayName}')
         ..info('Found ${jobsToRun.length} job(s) to process')
         ..info('');
 
-      // Parse custom dates if provided
-      DateTime? customStartDate;
-      DateTime? customEndDate;
-
-      final startDateStr = argResults!['start-date'] as String?;
-      final endDateStr = argResults!['end-date'] as String?;
-
-      if (startDateStr != null) {
-        try {
-          customStartDate = DateTime.parse(startDateStr);
-          log.info('Using custom start date: ${formatDate(customStartDate)}');
-        } catch (e) {
-          usageException(
-            'Invalid start date format: $startDateStr. Expected YYYY-MM-DD',
-          );
-        }
-      }
-
-      if (endDateStr != null) {
-        try {
-          customEndDate = DateTime.parse(endDateStr);
-          log.info('Using custom end date: ${formatDate(customEndDate)}');
-        } catch (e) {
-          usageException(
-            'Invalid end date format: $endDateStr. Expected YYYY-MM-DD',
-          );
-        }
-      }
-
-      if (customStartDate != null && customEndDate != null) {
-        if (customStartDate.isAfter(customEndDate)) {
-          usageException(
-            'Start date must be before or equal to end date',
-          );
-        }
-      }
-
-      // Check if dry run
-      final isDryRun = argResults!['dry-run'] as bool;
       if (isDryRun) {
         log
           ..info('🔍 DRY RUN MODE - No playlists will be created')
           ..info('');
       }
 
-      // Process each job
+      final jobReports = <CrawlJobReport>[];
+      final failedJobs = <String>[];
       for (final (index, job) in jobsToRun.indexed) {
         log.info(
           '🔄 Processing job ${index + 1}/${jobsToRun.length}: ${job.name}',
         );
 
-        final jobReport = await _processJob(
-          api: api,
-          user: user,
-          job: job,
-          requestPool: requestPool,
-          isDryRun: isDryRun,
-          configFile: configFile,
-          customStartDate: customStartDate,
-          customEndDate: customEndDate,
-        );
-
-        if (jobReport != null) {
-          jobReports.add(jobReport);
+        try {
+          jobReports.add(
+            await _processJob(
+              api: api,
+              job: job,
+              requestPool: requestPool,
+              isDryRun: isDryRun,
+              configFile: configFile,
+              customStartDate: customStartDate,
+              customEndDate: customEndDate,
+            ),
+          );
+        } on Exception catch (e, stackTrace) {
+          failedJobs.add(job.name);
+          log
+            ..error('  ❌ Job "${job.name}" failed: $e')
+            ..error('     The output playlist was not changed.')
+            ..debug('Stack trace: $stackTrace');
         }
 
         log.info('');
       }
 
-      log.info('✅ Crawl complete!');
-
-      // Generate report
       if (jobReports.isNotEmpty) {
         try {
           log.info('📊 Generating crawl report...');
-          final commandEndTime = DateTime.now();
-          final report = CrawlReport(
-            startTime: commandStartTime,
-            endTime: commandEndTime,
-            jobReports: jobReports,
-          );
-
           final reportPath = await CrawlReportGenerator.generateReport(
-            report,
+            CrawlReport(
+              startTime: commandStartTime,
+              endTime: DateTime.now(),
+              jobReports: jobReports,
+            ),
             Constants.buildDir,
           );
-
           log.info('✅ Report generated: $reportPath');
         } catch (e, stackTrace) {
           log
             ..error('❌ Error generating report: $e')
             ..debug('Stack trace: $stackTrace');
-          // Don't fail the command if report generation fails
         }
       }
 
+      final jobsWithFailedSources = jobReports.where(
+        (report) => report.failedSources.isNotEmpty,
+      );
+      if (jobsWithFailedSources.isNotEmpty) {
+        log.warning(
+          '⚠️  Some sources failed and were left out: '
+          '${jobsWithFailedSources.map((r) => r.jobName).join(', ')}',
+        );
+      }
+
+      if (failedJobs.isNotEmpty) {
+        log.error(
+          '❌ ${failedJobs.length} job(s) failed: ${failedJobs.join(', ')}',
+        );
+        return ExitCode.software.code;
+      }
+
+      log.info('✅ Crawl complete!');
       return ExitCode.success.code;
-    } catch (e, stackTrace) {
-      log
-        ..error('❌ Fatal error: $e')
-        ..debug('Stack trace: $stackTrace');
-      return ExitCode.software.code;
-    } finally {
-      await Future.wait([
-        for (final fn in teardown)
-          fn().catchError((Object e) {
-            log.error('Error in teardown: $e');
-          }),
-      ]);
-    }
+    });
   }
 
-  Future<CrawlJobReport?> _processJob({
+  DateTime? _parseDateOption(String name) {
+    final value = argResults![name] as String?;
+    if (value == null) return null;
+    final date = DateTime.tryParse(value);
+    if (date == null) {
+      usageException('Invalid $name format: $value. Expected YYYY-MM-DD');
+    }
+    log.info('Using custom $name: ${formatDate(date)}');
+    return date;
+  }
+
+  /// Collects tracks for [job] and writes them to its output playlist.
+  ///
+  /// Sources that fail are left out and listed in the report. Throws when
+  /// every source or the output playlist cannot be read, before anything is
+  /// written to Spotify.
+  Future<CrawlJobReport> _processJob({
     required SpotifyApi api,
-    required User user,
     required CrawlJob job,
     required RequestPool requestPool,
     required bool isDryRun,
@@ -253,7 +220,6 @@ class CrawlCommand extends Command<int> {
   }) async {
     final jobStartTime = DateTime.now();
 
-    // Resolve date range using DateRangeResolver
     final resolved = DateRangeResolver.resolve(
       job.filters,
       referenceDate: DateTime.now(),
@@ -267,24 +233,17 @@ class CrawlCommand extends Command<int> {
     final inclusiveStart = resolved.start;
     final cutoffDate = inclusiveStart.subtract(days: 1);
 
-    if (customStartDate != null || customEndDate != null) {
-      log.info(
-        '  📅 Using custom date range: '
-        '${formatSimpleDate(resolved.start)} '
-        'to ${formatSimpleDate(inclusiveEnd)}',
-      );
-    } else {
-      log.info(
-        '  📅 Date range: '
-        '${formatSimpleDate(resolved.start)} '
-        'to ${formatSimpleDate(inclusiveEnd)}',
-      );
-    }
-
-    // Log the date range type for context
+    final rangeLabel = customStartDate != null || customEndDate != null
+        ? 'Using custom date range'
+        : 'Date range';
+    log.info(
+      '  📅 $rangeLabel: ${formatSimpleDate(inclusiveStart)} '
+      'to ${formatSimpleDate(inclusiveEnd)}',
+    );
     if (job.filters.dateRange != null) {
-      final rangeType = _describeDateRange(job.filters.dateRange!);
-      log.info('  📅 Range type: $rangeType');
+      log.info(
+        '  📅 Range type: ${_describeDateRange(job.filters.dateRange!)}',
+      );
       // ignore: deprecated_member_use_from_same_package
     } else if (job.filters.addedBetweenDays != null) {
       // ignore: deprecated_member_use_from_same_package
@@ -292,218 +251,37 @@ class CrawlCommand extends Command<int> {
     }
     log.info('');
 
-    // Initialize track collector
-    final collector = TrackCollector(
-      api: api,
-      requestPool: requestPool,
-      cacheAdapter: getCacheAdapter(),
+    final (tracks: allTracks, :failedSources) = await _collectTracks(
+      job: job,
+      collector: TrackCollector(
+        api: api,
+        requestPool: requestPool,
+        cacheAdapter: getCacheAdapter(),
+      ),
+      inclusiveStart: inclusiveStart,
+      inclusiveEnd: inclusiveEnd,
     );
 
-    // Collect tracks from all sources (all started immediately for max pool
-    // use)
-    final allTracks = <CollectedTrack>[];
-    final dateMode =
-        job.options?.addPlaylistTracksBasedOn ??
-        PlaylistTrackDateMode.releaseDate;
-    final includeAppearances = job.options?.includeArtistAppearances ?? true;
-
-    final playlistIds = job.inputs.playlists ?? [];
-    final artistIds = job.inputs.artists ?? [];
-    final labelNames = job.inputs.labels ?? [];
-    final youtubeChannelIds = job.inputs.youtubeChannels ?? [];
-
-    final identifiers = <String>[
-      ...playlistIds,
-      ...artistIds,
-      ...labelNames,
-      ...youtubeChannelIds,
-    ];
-
-    final display = identifiers.isNotEmpty
-        ? CrawlProgressDisplay(identifiers: identifiers)
-        : null;
-
-    if (display != null) {
-      display.start();
-    }
-
-    final collectionFutures = <Future<List<CollectedTrack>>>[];
-    var sourceIndex = 0;
-
-    for (final playlistId in playlistIds) {
-      final idx = sourceIndex++;
-      final progress = display?.reporterFor(idx);
-      collectionFutures.add(
-        collector
-            .collectFromPlaylist(
-              playlistId,
-              inclusiveStart,
-              inclusiveEnd,
-              dateMode,
-              progress: progress,
-            )
-            .then((tracks) {
-              display?.setDone(idx, tracks.length);
-              return tracks;
-            })
-            .catchError((Object e) {
-              if (display != null) {
-                display.setError(idx);
-              } else {
-                log.error(
-                  '    ❌ Error collecting from playlist $playlistId: $e',
-                );
-              }
-              return <CollectedTrack>[];
-            }),
-      );
-    }
-
-    for (final artistId in artistIds) {
-      final idx = sourceIndex++;
-      final progress = display?.reporterFor(idx);
-      collectionFutures.add(
-        collector
-            .collectFromArtist(
-              artistId,
-              inclusiveStart,
-              inclusiveEnd,
-              includeAppearances: includeAppearances,
-              progress: progress,
-            )
-            .then((tracks) {
-              display?.setDone(idx, tracks.length);
-              return tracks;
-            })
-            .catchError((Object e) {
-              if (display != null) {
-                display.setError(idx);
-              } else {
-                log.error('    ❌ Error collecting from artist $artistId: $e');
-              }
-              return <CollectedTrack>[];
-            }),
-      );
-    }
-
-    for (final labelName in labelNames) {
-      final idx = sourceIndex++;
-      final progress = display?.reporterFor(idx);
-      collectionFutures.add(
-        collector
-            .collectFromLabel(
-              labelName,
-              inclusiveStart,
-              inclusiveEnd,
-              progress: progress,
-            )
-            .then((tracks) {
-              display?.setDone(idx, tracks.length);
-              return tracks;
-            })
-            .catchError((Object e) {
-              if (display != null) {
-                display.setError(idx);
-              } else {
-                log.error('    ❌ Error collecting from label $labelName: $e');
-              }
-              return <CollectedTrack>[];
-            }),
-      );
-    }
-
-    for (final channelId in youtubeChannelIds) {
-      final idx = sourceIndex++;
-      final progress = display?.reporterFor(idx);
-      collectionFutures.add(
-        collector
-            .collectFromYoutubeChannel(
-              channelId,
-              inclusiveStart,
-              inclusiveEnd,
-              progress: progress,
-            )
-            .then((tracks) {
-              display?.setDone(idx, tracks.length);
-              return tracks;
-            })
-            .catchError((Object e) {
-              if (display != null) {
-                display.setError(idx);
-              } else {
-                log.error(
-                  '    ❌ Error collecting from YouTube channel $channelId: $e',
-                );
-              }
-              return <CollectedTrack>[];
-            }),
-      );
-    }
-
-    if (display == null) {
-      if (playlistIds.isNotEmpty) {
-        log.info('  📜 Collecting from ${playlistIds.length} playlist(s)...');
-      }
-      if (artistIds.isNotEmpty) {
-        log.info('  🎤 Collecting from ${artistIds.length} artist(s)...');
-      }
-      if (labelNames.isNotEmpty) {
-        log.info('  🏷️  Collecting from ${labelNames.length} label(s)...');
-      }
-      if (youtubeChannelIds.isNotEmpty) {
-        log.info(
-          '  📺 Collecting from ${youtubeChannelIds.length} '
-          'YouTube channel(s)...',
-        );
-      }
-      if (collectionFutures.isNotEmpty) {
-        log.info('');
-      }
-    }
-
-    final collectionResults = await Future.wait(collectionFutures);
-
-    display?.stop();
-    collectionResults.forEach(allTracks.addAll);
-
     log.info('  📊 Collected ${allTracks.length} total tracks');
-
-    if (allTracks.isEmpty) {
-      log.warning('  ⚠️  No tracks found for this job');
-      final jobEndTime = DateTime.now();
-      return CrawlJobReport(
-        jobName: job.name,
-        startTime: jobStartTime,
-        endTime: jobEndTime,
-        trackEntries: [],
-      );
-    }
-
-    // Show date range info for debugging
     if (allTracks.isNotEmpty) {
-      final oldestTrack = allTracks.reduce(
-        (a, b) => a.addedAt.isBefore(b.addedAt) ? a : b,
-      );
-      final newestTrack = allTracks.reduce(
-        (a, b) => a.addedAt.isAfter(b.addedAt) ? a : b,
-      );
+      final addedDates = allTracks.map((t) => t.addedAt);
       log
         ..debug(
           '  🕒 Track date range: '
-          '${formatDate(oldestTrack.addedAt)} to '
-          '${formatDate(newestTrack.addedAt)}',
+          '${formatDate(addedDates.reduce((a, b) => a.isBefore(b) ? a : b))} '
+          'to ${formatDate(addedDates.reduce((a, b) => a.isAfter(b) ? a : b))}',
         )
         ..debug(
           '  🎯 Filter range: '
           '${formatSimpleDate(inclusiveStart)} to '
           '${formatSimpleDate(inclusiveEnd)}',
         );
+    } else {
+      log.warning('  ⚠️  No tracks found for this job');
     }
 
-    // Deduplicate tracks
     final deduplicateMode = job.options?.deduplicate;
     final dedupedTracks = deduplicate(allTracks, deduplicateMode);
-
     if (deduplicateMode != null && dedupedTracks.length < allTracks.length) {
       log.info(
         '  🔄 Deduplicated: ${allTracks.length} → '
@@ -511,40 +289,20 @@ class CrawlCommand extends Command<int> {
       );
     }
 
-    // Calculate real stats from collected tracks
-    final realStats = _calculateRealStats(dedupedTracks);
-
-    // Generate playlist name and description
     const templateEngine = TemplateEngine();
-    final playlistName = templateEngine.render(
-      job.outputPlaylist.name,
+    final templateContext = TemplateContext.fromTracks(
       job: job,
       cutoffDate: cutoffDate,
       endDate: inclusiveEnd,
-      trackCount: dedupedTracks.length,
-      realArtistCount: realStats.artistCount,
-      realAlbumCount: realStats.albumCount,
-      realPlaylistCount: realStats.playlistCount,
-      realArtistSourceCount: realStats.artistSourceCount,
-      realLabelCount: realStats.labelCount,
-      realYoutubeChannelCount: realStats.youtubeChannelCount,
+      tracks: dedupedTracks,
     );
-
-    final playlistDescription = job.outputPlaylist.description != null
-        ? templateEngine.render(
-            job.outputPlaylist.description!,
-            job: job,
-            cutoffDate: cutoffDate,
-            endDate: inclusiveEnd,
-            trackCount: dedupedTracks.length,
-            realArtistCount: realStats.artistCount,
-            realAlbumCount: realStats.albumCount,
-            realPlaylistCount: realStats.playlistCount,
-            realArtistSourceCount: realStats.artistSourceCount,
-            realLabelCount: realStats.labelCount,
-            realYoutubeChannelCount: realStats.youtubeChannelCount,
-          )
-        : null;
+    final playlistName = templateEngine.render(
+      job.outputPlaylist.name,
+      templateContext,
+    );
+    final playlistDescription = job.outputPlaylist.description.let(
+      (description) => templateEngine.render(description, templateContext),
+    );
 
     log.info('  📝 Playlist name: $playlistName');
     if (playlistDescription != null) {
@@ -553,45 +311,24 @@ class CrawlCommand extends Command<int> {
 
     // Generate cover image if configured (even in dry-run mode)
     String? generatedCoverPath;
-    if (job.cover != null) {
+    if (job.cover case final cover?) {
       log.info('  🎨 Generating cover image...');
-
-      // Render caption using template engine
-      final caption = job.cover!.caption ?? playlistName;
-      final renderedCaption = templateEngine.render(
-        caption,
-        job: job,
-        cutoffDate: cutoffDate,
-        endDate: inclusiveEnd,
-        trackCount: dedupedTracks.length,
-        realArtistCount: realStats.artistCount,
-        realAlbumCount: realStats.albumCount,
-        realPlaylistCount: realStats.playlistCount,
-        realArtistSourceCount: realStats.artistSourceCount,
-        realLabelCount: realStats.labelCount,
-        realYoutubeChannelCount: realStats.youtubeChannelCount,
-      );
-
-      // Generate cover (but don't upload yet)
-      final configDir = configFile.parent.path;
-      final imagePath = job.cover!.image;
-      final outputFilename = '${job.name}_cover.jpg';
       final outputPath = path.join(
         Constants.generatedCoversDir.path,
-        outputFilename,
+        '${job.name}_cover.jpg',
       );
-
-      await Directory(
-        Constants.generatedCoversDir.path,
-      ).create(recursive: true);
+      await Constants.generatedCoversDir.create(recursive: true);
 
       final generatedImage = await generatePlaylistCover(
-        imagePath: imagePath,
-        caption: renderedCaption,
+        imagePath: cover.image,
+        caption: templateEngine.render(
+          cover.caption ?? playlistName,
+          templateContext,
+        ),
         outputPath: outputPath,
-        assetsDir: configDir,
+        assetsDir: configFile.parent.path,
         size: 512,
-        fontPath: job.cover!.font,
+        fontPath: cover.font,
       );
 
       if (generatedImage != null) {
@@ -602,9 +339,9 @@ class CrawlCommand extends Command<int> {
       }
     }
 
-    // Warn if append mode is set but no output_playlist.id is specified
     final updateMode = job.options?.updateMode ?? CrawlUpdateMode.replace;
-    if (updateMode == CrawlUpdateMode.append && job.outputPlaylist.id == null) {
+    final targetPlaylistInput = job.outputPlaylist.id;
+    if (updateMode == CrawlUpdateMode.append && targetPlaylistInput == null) {
       log.warning(
         '  ⚠️  update_mode is set to "append" but no output_playlist.id is '
         'specified. A new playlist will be created, so append mode has no '
@@ -612,181 +349,99 @@ class CrawlCommand extends Command<int> {
       );
     }
 
-    // Resolve target playlist if specified, otherwise create new
-    PlaylistSimple playlist;
-    final targetPlaylistId = job.outputPlaylist.id;
+    CrawlJobReport buildReport() => CrawlJobReport(
+      jobName: job.name,
+      startTime: jobStartTime,
+      endTime: DateTime.now(),
+      trackEntries: _buildTrackEntries(dedupedTracks, job),
+      failedSources: failedSources,
+    );
 
-    if (targetPlaylistId != null) {
-      log
-        ..info('  🎯 Resolving target playlist: $targetPlaylistId')
-        ..info('    🔍 Fetching user playlists to resolve by name...');
-      final userPlaylists = await requestPool.fetchAllPages(
-        api.me.playlists.saved(),
-        limit: 50,
-        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
-      );
+    PlaylistSimple? targetPlaylist;
+    if (targetPlaylistInput != null) {
+      log.info('  🎯 Resolving target playlist: $targetPlaylistInput');
       final resolvedTarget = await resolvePlaylistTarget(
         api: api,
-        input: targetPlaylistId,
-        userPlaylists: userPlaylists,
+        input: targetPlaylistInput,
+        userPlaylists: await fetchSavedPlaylists(
+          api: api,
+          requestPool: requestPool,
+        ),
       );
-      final resolved = switch (resolvedTarget) {
+      targetPlaylist = switch (resolvedTarget) {
         PlaylistSpotifyTarget(:final playlist) => playlist,
-        _ => null,
+        _ => throw Exception(
+          'Could not resolve target playlist "$targetPlaylistInput"',
+        ),
       };
+      log.info(
+        '  ✅ Target playlist: "${targetPlaylist.name}" '
+        '(${targetPlaylist.id})',
+      );
+    }
 
-      if (resolved == null) {
-        throw Exception(
-          'Failed to resolve target playlist "$targetPlaylistId" for job '
-          '"${job.name}". See errors above.',
-        );
+    if (isDryRun) {
+      log.info(
+        targetPlaylist == null
+            ? '  🔍 DRY RUN: Would create playlist with '
+                  '${dedupedTracks.length} tracks'
+            : '  🔍 DRY RUN: Would ${updateMode.name} '
+                  'target playlist with ${dedupedTracks.length} tracks',
+      );
+      if (generatedCoverPath != null) {
+        log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
       }
+      return buildReport();
+    }
 
-      playlist = resolved;
-      log.info('  ✅ Target playlist: "${playlist.name}" (${playlist.id})');
+    final PlaylistSimple playlist;
+    if (targetPlaylist != null) {
+      playlist = targetPlaylist;
     } else {
-      if (isDryRun) {
-        log.info(
-          '  🔍 DRY RUN: Would create playlist with '
-          '${dedupedTracks.length} tracks',
-        );
-        if (generatedCoverPath != null) {
-          log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
-        }
-        final jobEndTime = DateTime.now();
-        final trackEntries = _buildTrackEntries(dedupedTracks, job);
-        return CrawlJobReport(
-          jobName: job.name,
-          startTime: jobStartTime,
-          endTime: jobEndTime,
-          trackEntries: trackEntries,
-        );
-      }
-
-      // Create the playlist
-      log.info('  📝 Creating playlist on Spotify...');
       final isPublic = job.outputPlaylist.public;
-      log.info('  🔒 Playlist visibility: ${isPublic ? "public" : "private"}');
+      log.info(
+        '  📝 Creating ${isPublic ? 'public' : 'private'} playlist on '
+        'Spotify...',
+      );
       playlist = await api.me.playlists.create(
         playlistName,
         public: isPublic,
         description: playlistDescription,
       );
-
       log.info('  ✅ Created playlist: ${playlist.id}');
     }
+    final playlistId = SpotifyPlaylistId(playlist.id!);
 
-    if (isDryRun && targetPlaylistId != null) {
-      final modeDescription = updateMode == CrawlUpdateMode.append
-          ? 'append to'
-          : 'replace tracks in';
-      log.info(
-        '  🔍 DRY RUN: Would $modeDescription target playlist with '
-        '${dedupedTracks.length} tracks',
-      );
-      if (generatedCoverPath != null) {
-        log.info('  🔍 DRY RUN: Would upload cover from $generatedCoverPath');
-      }
-      final jobEndTime = DateTime.now();
-      final trackEntries = _buildTrackEntries(dedupedTracks, job);
-      return CrawlJobReport(
-        jobName: job.name,
-        startTime: jobStartTime,
-        endTime: jobEndTime,
-        trackEntries: trackEntries,
-      );
+    for (final track in dedupedTracks) {
+      log
+        ..info('    🎵 ${track.artistNames.join(', ')} - ${track.name}')
+        ..info('      📍 Source: ${_getTrackSourceInfo(track, job)}')
+        ..info('      📅 Date: ${formatDate(track.addedAt)}');
     }
 
-    // Update playlist tracks
-    if (dedupedTracks.isNotEmpty) {
-      final isReplaceMode = updateMode == CrawlUpdateMode.replace;
-      final modeDescription = isReplaceMode ? 'replacing' : 'appending to';
-      log.info(
-        '  📤 $modeDescription playlist with ${dedupedTracks.length} tracks...',
-      );
-
-      // Log each track with its source and inclusion reason
-      for (final track in dedupedTracks) {
-        final sourceInfo = _getTrackSourceInfo(track, job);
-        log
-          ..info('    🎵 ${track.artistNames.join(', ')} - ${track.name}')
-          ..info('      📍 Source: $sourceInfo')
-          ..info('      📅 Date: ${formatDate(track.addedAt)}');
-      }
-
-      List<String> trackUris;
-
-      if (isReplaceMode) {
-        // Clear existing tracks first
-        log.info('  🗑️  Clearing existing tracks...');
-        await api.playlists.clear(playlist.id!);
-        trackUris = dedupedTracks.map((t) => t.uri).toList();
-      } else {
-        // Append mode: check existing tracks and filter duplicates
-        log.info('  🔍 Checking existing tracks in playlist...');
-        final existingPlaylistTracks = await requestPool.fetchAllPages(
-          api.playlists.getPlaylistTracks(playlist.id!),
-          limit: 50,
-          pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-            SpotifyPlaylistId(playlist.id!),
-            offset,
-          ),
-        );
-
-        // Extract existing track IDs
-        final existingTrackIds = <String>{};
-        for (final playlistTrack in existingPlaylistTracks) {
-          if (playlistTrack.track?.id != null) {
-            existingTrackIds.add(playlistTrack.track!.id!);
-          }
-        }
-
-        log.info('  📊 Found ${existingTrackIds.length} existing track(s)');
-
-        // Filter out tracks that are already in the playlist
-        final newTracks = dedupedTracks
-            .where((track) => !existingTrackIds.contains(track.id.toString()))
-            .toList();
-
-        final skippedCount = dedupedTracks.length - newTracks.length;
-        if (skippedCount > 0) {
-          log.info(
-            '  ⏭️  Skipping $skippedCount track(s) already in playlist',
-          );
-        }
-
-        if (newTracks.isEmpty) {
-          log.info('  ✅ All tracks already in playlist, nothing to add');
-          trackUris = [];
-        } else {
-          log.info(
-            '  ➕ Adding ${newTracks.length} new track(s) to playlist',
-          );
-          trackUris = newTracks.map((t) => t.uri).toList();
-        }
-      }
-
-      // Add tracks in batches of 100
-      if (trackUris.isNotEmpty) {
-        for (var i = 0; i < trackUris.length; i += 100) {
-          final batch = trackUris.skip(i).take(100).toList();
-          await api.playlists.addTracks(batch, playlist.id!);
-        }
-        log.info('  ✅ Updated playlist tracks');
-      }
+    final uris = dedupedTracks.map((t) => t.uri).toList();
+    if (updateMode == CrawlUpdateMode.replace) {
+      log.info('  📤 Replacing playlist with ${uris.length} tracks...');
+      await replacePlaylistTracks(api: api, playlistId: playlistId, uris: uris);
     } else {
-      // Even if no tracks, clear the playlist if replacing existing
-      if (targetPlaylistId != null && updateMode == CrawlUpdateMode.replace) {
-        log.info('  🗑️  Clearing playlist (no tracks to add)...');
-        await api.playlists.clear(playlist.id!);
-      }
+      log.info('  📤 Appending to playlist...');
+      final added = await appendNewPlaylistTracks(
+        api: api,
+        requestPool: requestPool,
+        playlistId: playlistId,
+        uris: uris,
+      );
+      log.info(
+        '  ➕ Added ${added.length} new track(s), '
+        '${uris.length - added.length} already in playlist',
+      );
     }
-
-    // Update playlist name and description
-    log.info('  📝 Updating playlist name and description...');
+    log
+      ..info('  ✅ Updated playlist tracks')
+      ..info('  📝 Updating playlist name and description...');
     try {
       await api.playlists.updatePlaylist(
-        playlist.id!,
+        playlistId,
         playlistName,
         description: playlistDescription,
       );
@@ -795,36 +450,105 @@ class CrawlCommand extends Command<int> {
       log.warning('  ⚠️  Failed to update playlist name/description: $e');
     }
 
-    // Upload cover image if it was generated
     if (generatedCoverPath != null) {
       log.info('  📤 Uploading cover image...');
       // ignore: invalid_use_of_visible_for_testing_member
       final client = await api.client;
       final uploadSuccess = await uploadPlaylistImage(
         spotifyClient: client,
-        playlistId: playlist.id!,
+        playlistId: playlistId,
         imagePath: generatedCoverPath,
       );
-
       if (!uploadSuccess) {
         log.warning('  ⚠️  Failed to upload cover image');
       }
     }
 
-    // Show playlist URL
     if (playlist.externalUrls?.spotify != null) {
       log.info('  🔗 Playlist URL: ${playlist.externalUrls!.spotify}');
     }
 
-    final jobEndTime = DateTime.now();
-    final trackEntries = _buildTrackEntries(dedupedTracks, job);
+    return buildReport();
+  }
 
-    return CrawlJobReport(
-      jobName: job.name,
-      startTime: jobStartTime,
-      endTime: jobEndTime,
-      trackEntries: trackEntries,
-    );
+  /// Collects tracks from every input of [job] concurrently.
+  ///
+  /// See [collectFromSources] for how failing sources are handled.
+  Future<CrawlSourcesResult> _collectTracks({
+    required CrawlJob job,
+    required TrackCollector collector,
+    required SimpleDate inclusiveStart,
+    required SimpleDate inclusiveEnd,
+  }) async {
+    final dateMode =
+        job.options?.addPlaylistTracksBasedOn ??
+        PlaylistTrackDateMode.releaseDate;
+    final includeAppearances = job.options?.includeArtistAppearances ?? true;
+
+    final sources = <CrawlSource>[
+      for (final id in job.inputs.playlists ?? <String>[])
+        (
+          label: 'playlist $id',
+          collect: (progress) => collector.collectFromPlaylist(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            dateMode,
+            progress: progress,
+          ),
+        ),
+      for (final id in job.inputs.artists ?? <String>[])
+        (
+          label: 'artist $id',
+          collect: (progress) => collector.collectFromArtist(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            includeAppearances: includeAppearances,
+            progress: progress,
+          ),
+        ),
+      for (final name in job.inputs.labels ?? <String>[])
+        (
+          label: 'label $name',
+          collect: (progress) => collector.collectFromLabel(
+            name,
+            inclusiveStart,
+            inclusiveEnd,
+            progress: progress,
+          ),
+        ),
+      for (final id in job.inputs.youtubeChannels ?? <String>[])
+        (
+          label: 'YouTube channel $id',
+          collect: (progress) => collector.collectFromYoutubeChannel(
+            id,
+            inclusiveStart,
+            inclusiveEnd,
+            progress: progress,
+          ),
+        ),
+    ];
+    final display = CrawlProgressDisplay(
+      identifiers: [
+        ...?job.inputs.playlists,
+        ...?job.inputs.artists,
+        ...?job.inputs.labels,
+        ...?job.inputs.youtubeChannels,
+      ],
+    )..start();
+
+    final CrawlSourcesResult result;
+    try {
+      result = await collectFromSources(sources, display: display);
+    } finally {
+      display.stop();
+    }
+
+    for (final failure in result.failedSources) {
+      log.warning('  ⚠️  Skipped $failure');
+    }
+    return result;
   }
 
   /// Builds track entries for the report from collected tracks.
@@ -932,64 +656,4 @@ class CrawlCommand extends Command<int> {
         '${formatSimpleDate(start)} to ${formatSimpleDate(end)}',
     };
   }
-
-  /// Calculates real statistics from collected tracks.
-  _RealStats _calculateRealStats(List<CollectedTrack> tracks) {
-    final uniqueArtists = <String>{};
-    final uniqueAlbums = <SpotifyAlbumId>{};
-    final uniquePlaylists = <String>{};
-    final uniqueArtistSources = <String>{};
-    final uniqueLabels = <String>{};
-    final uniqueYoutubeChannels = <String>{};
-
-    for (final track in tracks) {
-      // Count unique artists
-      uniqueArtists.addAll(track.artistNames);
-
-      // Count unique albums
-      if (track.albumId != null) {
-        uniqueAlbums.add(track.albumId!);
-      }
-
-      // Count unique sources
-      switch (track.source) {
-        case CollectedTrackSourcePlaylist(:final id):
-          uniquePlaylists.add(id);
-        case CollectedTrackSourceArtist(:final id):
-          uniqueArtistSources.add(id);
-        case CollectedTrackSourceLabel(:final name):
-          uniqueLabels.add(name);
-        case CollectedTrackSourceYoutubeChannel(:final id):
-          uniqueYoutubeChannels.add(id);
-      }
-    }
-
-    return _RealStats(
-      artistCount: uniqueArtists.length,
-      albumCount: uniqueAlbums.length,
-      playlistCount: uniquePlaylists.length,
-      artistSourceCount: uniqueArtistSources.length,
-      labelCount: uniqueLabels.length,
-      youtubeChannelCount: uniqueYoutubeChannels.length,
-    );
-  }
-}
-
-/// Real statistics calculated from collected tracks.
-class _RealStats {
-  const _RealStats({
-    required this.artistCount,
-    required this.albumCount,
-    required this.playlistCount,
-    required this.artistSourceCount,
-    required this.labelCount,
-    required this.youtubeChannelCount,
-  });
-
-  final int artistCount;
-  final int albumCount;
-  final int playlistCount;
-  final int artistSourceCount;
-  final int labelCount;
-  final int youtubeChannelCount;
 }

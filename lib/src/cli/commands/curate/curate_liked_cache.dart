@@ -52,10 +52,8 @@ class CurateLikedTracksCache {
   }
 
   Future<void> _fetchAllSavedIds() async {
-    const pageSize = 50;
     final saved = await _requestPool.fetchAllPages(
       _api.me.tracks.saved(),
-      limit: pageSize,
       pageIdentifier: SpotifyCacheIdentifier.savedTracksPage,
     );
     _ids.addAll(saved.map((ts) => ts.track?.id).nonNulls);

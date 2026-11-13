@@ -33,7 +33,7 @@ Future<KeyResult> curateAddTrackToPlaylist({
     );
     _markAdded(context, playlistId, trackId);
 
-    return _finishAddOrMove(
+    return await _finishAddOrMove(
       context: context,
       currentTrack: currentTrack,
       status: '✓ Added to $playlistName',
@@ -102,7 +102,7 @@ Future<KeyResult> curateMoveTrackToPlaylist({
         ? 'Already in $playlistName — removed from $sourceName'
         : '✓ Moved to $playlistName (from $sourceName)';
 
-    return _finishAddOrMove(
+    return await _finishAddOrMove(
       context: context,
       currentTrack: currentTrack,
       status: status,

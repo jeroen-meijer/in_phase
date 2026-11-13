@@ -1,5 +1,6 @@
 import 'package:in_phase/src/crawl/crawl.dart';
 import 'package:in_phase/src/entities/entities.dart';
+import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:simple_date/simple_date.dart';
 
 /// Valid template variables for playlist names and descriptions.
@@ -109,32 +110,7 @@ class TemplateEngine {
   /// Renders a template string with the given context.
   ///
   /// Throws [FormatException] if the template contains invalid placeholders.
-  String render(
-    String template, {
-    required CrawlJob job,
-    required SimpleDate cutoffDate,
-    required SimpleDate endDate,
-    required int trackCount,
-    required int realArtistCount,
-    required int realAlbumCount,
-    required int realPlaylistCount,
-    required int realArtistSourceCount,
-    required int realLabelCount,
-    required int realYoutubeChannelCount,
-  }) {
-    final context = _TemplateContext(
-      job: job,
-      cutoffDate: cutoffDate,
-      endDate: endDate,
-      trackCount: trackCount,
-      realArtistCount: realArtistCount,
-      realAlbumCount: realAlbumCount,
-      realPlaylistCount: realPlaylistCount,
-      realArtistSourceCount: realArtistSourceCount,
-      realLabelCount: realLabelCount,
-      realYoutubeChannelCount: realYoutubeChannelCount,
-    );
-
+  String render(String template, TemplateContext context) {
     return template.replaceAllMapped(_placeholderPattern, (match) {
       final placeholder = match.group(1)!;
       final variable = TemplateVariable.tryParse(placeholder);
@@ -154,7 +130,7 @@ class TemplateEngine {
   }
 
   /// Resolves a template variable to its value.
-  String _resolveVariable(TemplateVariable variable, _TemplateContext ctx) {
+  String _resolveVariable(TemplateVariable variable, TemplateContext ctx) {
     switch (variable) {
       // Date and time variables
       case TemplateVariable.weekNum:
@@ -384,9 +360,54 @@ class TemplateEngine {
   }
 }
 
-/// Internal context holder for template rendering.
-class _TemplateContext {
-  _TemplateContext({
+/// Values a crawl job's name, description and cover caption can refer to.
+class TemplateContext {
+  /// Builds the context for [job] from the tracks it collected.
+  factory TemplateContext.fromTracks({
+    required CrawlJob job,
+    required SimpleDate cutoffDate,
+    required SimpleDate endDate,
+    required List<CollectedTrack> tracks,
+  }) {
+    final artists = <String>{};
+    final albums = <SpotifyAlbumId>{};
+    final playlists = <String>{};
+    final artistSources = <String>{};
+    final labels = <String>{};
+    final youtubeChannels = <String>{};
+
+    for (final track in tracks) {
+      artists.addAll(track.artistNames);
+      if (track.albumId case final albumId?) {
+        albums.add(albumId);
+      }
+      switch (track.source) {
+        case CollectedTrackSourcePlaylist(:final id):
+          playlists.add(id);
+        case CollectedTrackSourceArtist(:final id):
+          artistSources.add(id);
+        case CollectedTrackSourceLabel(:final name):
+          labels.add(name);
+        case CollectedTrackSourceYoutubeChannel(:final id):
+          youtubeChannels.add(id);
+      }
+    }
+
+    return TemplateContext._(
+      job: job,
+      cutoffDate: cutoffDate,
+      endDate: endDate,
+      trackCount: tracks.length,
+      realArtistCount: artists.length,
+      realAlbumCount: albums.length,
+      realPlaylistCount: playlists.length,
+      realArtistSourceCount: artistSources.length,
+      realLabelCount: labels.length,
+      realYoutubeChannelCount: youtubeChannels.length,
+    );
+  }
+
+  TemplateContext._({
     required this.job,
     required this.cutoffDate,
     required this.endDate,

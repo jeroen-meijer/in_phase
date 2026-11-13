@@ -18,6 +18,14 @@ String formatCurateTrackLine({
   return '[$position/$total] $progress/$duration  ${track.name} — $artists';
 }
 
+/// Origin playlists line, e.g. `From: A · B`.
+String formatCurateOriginsLine(List<CurateResolvedTarget> origins) {
+  if (origins.isEmpty) {
+    return 'From: ?';
+  }
+  return 'From: ${origins.map((o) => o.name).join(' · ')}';
+}
+
 /// One cell: ✓ if [isIn] is true, space if false, dim space if unknown.
 TextSpan _librarySlot(bool? isIn) {
   if (isIn == true) {
@@ -105,7 +113,7 @@ RichText curateFooterKeysRow(
     ),
     _librarySlot(inLikes),
     const TextSpan(
-      text: ' like  [n/s] next  ',
+      text: ' like  [n/s] next  [p] prev  ',
       style: TextStyle(color: Colors.cyan),
     ),
     const TextSpan(

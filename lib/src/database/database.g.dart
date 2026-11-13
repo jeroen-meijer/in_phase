@@ -1238,228 +1238,6 @@ class CachedAlbumsCompanion extends UpdateCompanion<CachedAlbum> {
   }
 }
 
-class $TrackAlbumMappingsTable extends TrackAlbumMappings
-    with TableInfo<$TrackAlbumMappingsTable, TrackAlbumMapping> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $TrackAlbumMappingsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _trackIdMeta = const VerificationMeta(
-    'trackId',
-  );
-  @override
-  late final GeneratedColumn<String> trackId = GeneratedColumn<String>(
-    'track_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _albumIdMeta = const VerificationMeta(
-    'albumId',
-  );
-  @override
-  late final GeneratedColumn<String> albumId = GeneratedColumn<String>(
-    'album_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [trackId, albumId];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'track_album_mappings';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<TrackAlbumMapping> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('track_id')) {
-      context.handle(
-        _trackIdMeta,
-        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_trackIdMeta);
-    }
-    if (data.containsKey('album_id')) {
-      context.handle(
-        _albumIdMeta,
-        albumId.isAcceptableOrUnknown(data['album_id']!, _albumIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_albumIdMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {trackId, albumId};
-  @override
-  TrackAlbumMapping map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return TrackAlbumMapping(
-      trackId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}track_id'],
-      )!,
-      albumId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}album_id'],
-      )!,
-    );
-  }
-
-  @override
-  $TrackAlbumMappingsTable createAlias(String alias) {
-    return $TrackAlbumMappingsTable(attachedDatabase, alias);
-  }
-}
-
-class TrackAlbumMapping extends DataClass
-    implements Insertable<TrackAlbumMapping> {
-  /// Spotify track ID.
-  final String trackId;
-
-  /// Spotify album ID.
-  final String albumId;
-  const TrackAlbumMapping({required this.trackId, required this.albumId});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['track_id'] = Variable<String>(trackId);
-    map['album_id'] = Variable<String>(albumId);
-    return map;
-  }
-
-  TrackAlbumMappingsCompanion toCompanion(bool nullToAbsent) {
-    return TrackAlbumMappingsCompanion(
-      trackId: Value(trackId),
-      albumId: Value(albumId),
-    );
-  }
-
-  factory TrackAlbumMapping.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return TrackAlbumMapping(
-      trackId: serializer.fromJson<String>(json['trackId']),
-      albumId: serializer.fromJson<String>(json['albumId']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'trackId': serializer.toJson<String>(trackId),
-      'albumId': serializer.toJson<String>(albumId),
-    };
-  }
-
-  TrackAlbumMapping copyWith({String? trackId, String? albumId}) =>
-      TrackAlbumMapping(
-        trackId: trackId ?? this.trackId,
-        albumId: albumId ?? this.albumId,
-      );
-  TrackAlbumMapping copyWithCompanion(TrackAlbumMappingsCompanion data) {
-    return TrackAlbumMapping(
-      trackId: data.trackId.present ? data.trackId.value : this.trackId,
-      albumId: data.albumId.present ? data.albumId.value : this.albumId,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('TrackAlbumMapping(')
-          ..write('trackId: $trackId, ')
-          ..write('albumId: $albumId')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(trackId, albumId);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is TrackAlbumMapping &&
-          other.trackId == this.trackId &&
-          other.albumId == this.albumId);
-}
-
-class TrackAlbumMappingsCompanion extends UpdateCompanion<TrackAlbumMapping> {
-  final Value<String> trackId;
-  final Value<String> albumId;
-  final Value<int> rowid;
-  const TrackAlbumMappingsCompanion({
-    this.trackId = const Value.absent(),
-    this.albumId = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  TrackAlbumMappingsCompanion.insert({
-    required String trackId,
-    required String albumId,
-    this.rowid = const Value.absent(),
-  }) : trackId = Value(trackId),
-       albumId = Value(albumId);
-  static Insertable<TrackAlbumMapping> custom({
-    Expression<String>? trackId,
-    Expression<String>? albumId,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (trackId != null) 'track_id': trackId,
-      if (albumId != null) 'album_id': albumId,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  TrackAlbumMappingsCompanion copyWith({
-    Value<String>? trackId,
-    Value<String>? albumId,
-    Value<int>? rowid,
-  }) {
-    return TrackAlbumMappingsCompanion(
-      trackId: trackId ?? this.trackId,
-      albumId: albumId ?? this.albumId,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (trackId.present) {
-      map['track_id'] = Variable<String>(trackId.value);
-    }
-    if (albumId.present) {
-      map['album_id'] = Variable<String>(albumId.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('TrackAlbumMappingsCompanion(')
-          ..write('trackId: $trackId, ')
-          ..write('albumId: $albumId, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $CachedArtistsTable extends CachedArtists
     with TableInfo<$CachedArtistsTable, CachedArtist> {
   @override
@@ -2996,266 +2774,6 @@ class CachedLabelTracksCompanion extends UpdateCompanion<CachedLabelTrack> {
   }
 }
 
-class $CacheMetadataTable extends CacheMetadata
-    with TableInfo<$CacheMetadataTable, CacheMetadataData> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $CacheMetadataTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _createdMeta = const VerificationMeta(
-    'created',
-  );
-  @override
-  late final GeneratedColumn<DateTime> created = GeneratedColumn<DateTime>(
-    'created',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
-    'lastUpdated',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
-    'last_updated',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [id, created, lastUpdated];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'cache_metadata';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<CacheMetadataData> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('created')) {
-      context.handle(
-        _createdMeta,
-        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
-      );
-    }
-    if (data.containsKey('last_updated')) {
-      context.handle(
-        _lastUpdatedMeta,
-        lastUpdated.isAcceptableOrUnknown(
-          data['last_updated']!,
-          _lastUpdatedMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  CacheMetadataData map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return CacheMetadataData(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      created: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created'],
-      ),
-      lastUpdated: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_updated'],
-      ),
-    );
-  }
-
-  @override
-  $CacheMetadataTable createAlias(String alias) {
-    return $CacheMetadataTable(attachedDatabase, alias);
-  }
-}
-
-class CacheMetadataData extends DataClass
-    implements Insertable<CacheMetadataData> {
-  /// Single row ID.
-  final int id;
-
-  /// When cache was created.
-  final DateTime? created;
-
-  /// When cache was last updated.
-  final DateTime? lastUpdated;
-  const CacheMetadataData({required this.id, this.created, this.lastUpdated});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    if (!nullToAbsent || created != null) {
-      map['created'] = Variable<DateTime>(created);
-    }
-    if (!nullToAbsent || lastUpdated != null) {
-      map['last_updated'] = Variable<DateTime>(lastUpdated);
-    }
-    return map;
-  }
-
-  CacheMetadataCompanion toCompanion(bool nullToAbsent) {
-    return CacheMetadataCompanion(
-      id: Value(id),
-      created: created == null && nullToAbsent
-          ? const Value.absent()
-          : Value(created),
-      lastUpdated: lastUpdated == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lastUpdated),
-    );
-  }
-
-  factory CacheMetadataData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return CacheMetadataData(
-      id: serializer.fromJson<int>(json['id']),
-      created: serializer.fromJson<DateTime?>(json['created']),
-      lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'created': serializer.toJson<DateTime?>(created),
-      'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
-    };
-  }
-
-  CacheMetadataData copyWith({
-    int? id,
-    Value<DateTime?> created = const Value.absent(),
-    Value<DateTime?> lastUpdated = const Value.absent(),
-  }) => CacheMetadataData(
-    id: id ?? this.id,
-    created: created.present ? created.value : this.created,
-    lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
-  );
-  CacheMetadataData copyWithCompanion(CacheMetadataCompanion data) {
-    return CacheMetadataData(
-      id: data.id.present ? data.id.value : this.id,
-      created: data.created.present ? data.created.value : this.created,
-      lastUpdated: data.lastUpdated.present
-          ? data.lastUpdated.value
-          : this.lastUpdated,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('CacheMetadataData(')
-          ..write('id: $id, ')
-          ..write('created: $created, ')
-          ..write('lastUpdated: $lastUpdated')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, created, lastUpdated);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is CacheMetadataData &&
-          other.id == this.id &&
-          other.created == this.created &&
-          other.lastUpdated == this.lastUpdated);
-}
-
-class CacheMetadataCompanion extends UpdateCompanion<CacheMetadataData> {
-  final Value<int> id;
-  final Value<DateTime?> created;
-  final Value<DateTime?> lastUpdated;
-  const CacheMetadataCompanion({
-    this.id = const Value.absent(),
-    this.created = const Value.absent(),
-    this.lastUpdated = const Value.absent(),
-  });
-  CacheMetadataCompanion.insert({
-    this.id = const Value.absent(),
-    this.created = const Value.absent(),
-    this.lastUpdated = const Value.absent(),
-  });
-  static Insertable<CacheMetadataData> custom({
-    Expression<int>? id,
-    Expression<DateTime>? created,
-    Expression<DateTime>? lastUpdated,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (created != null) 'created': created,
-      if (lastUpdated != null) 'last_updated': lastUpdated,
-    });
-  }
-
-  CacheMetadataCompanion copyWith({
-    Value<int>? id,
-    Value<DateTime?>? created,
-    Value<DateTime?>? lastUpdated,
-  }) {
-    return CacheMetadataCompanion(
-      id: id ?? this.id,
-      created: created ?? this.created,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (created.present) {
-      map['created'] = Variable<DateTime>(created.value);
-    }
-    if (lastUpdated.present) {
-      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('CacheMetadataCompanion(')
-          ..write('id: $id, ')
-          ..write('created: $created, ')
-          ..write('lastUpdated: $lastUpdated')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $SyncTrackMappingsTable extends SyncTrackMappings
     with TableInfo<$SyncTrackMappingsTable, SyncTrackMapping> {
   @override
@@ -3591,17 +3109,17 @@ class $SyncMissingTracksTable extends SyncMissingTracks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _lastInsertedAtMeta = const VerificationMeta(
-    'lastInsertedAt',
+  static const VerificationMeta _sourceAddedAtMeta = const VerificationMeta(
+    'sourceAddedAt',
   );
   @override
-  late final GeneratedColumn<DateTime> lastInsertedAt =
+  late final GeneratedColumn<DateTime> sourceAddedAt =
       GeneratedColumn<DateTime>(
-        'last_inserted_at',
+        'source_added_at',
         aliasedName,
-        false,
+        true,
         type: DriftSqlType.dateTime,
-        requiredDuringInsert: true,
+        requiredDuringInsert: false,
       );
   @override
   List<GeneratedColumn> get $columns => [
@@ -3609,7 +3127,7 @@ class $SyncMissingTracksTable extends SyncMissingTracks
     artist,
     title,
     itunesUrl,
-    lastInsertedAt,
+    sourceAddedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3656,16 +3174,14 @@ class $SyncMissingTracksTable extends SyncMissingTracks
         itunesUrl.isAcceptableOrUnknown(data['itunes_url']!, _itunesUrlMeta),
       );
     }
-    if (data.containsKey('last_inserted_at')) {
+    if (data.containsKey('source_added_at')) {
       context.handle(
-        _lastInsertedAtMeta,
-        lastInsertedAt.isAcceptableOrUnknown(
-          data['last_inserted_at']!,
-          _lastInsertedAtMeta,
+        _sourceAddedAtMeta,
+        sourceAddedAt.isAcceptableOrUnknown(
+          data['source_added_at']!,
+          _sourceAddedAtMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_lastInsertedAtMeta);
     }
     return context;
   }
@@ -3692,10 +3208,10 @@ class $SyncMissingTracksTable extends SyncMissingTracks
         DriftSqlType.string,
         data['${effectivePrefix}itunes_url'],
       ),
-      lastInsertedAt: attachedDatabase.typeMapping.read(
+      sourceAddedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
-        data['${effectivePrefix}last_inserted_at'],
-      )!,
+        data['${effectivePrefix}source_added_at'],
+      ),
     );
   }
 
@@ -3719,14 +3235,14 @@ class SyncMissingTrack extends DataClass
   /// iTunes URL (nullable).
   final String? itunesUrl;
 
-  /// Latest Spotify playlist-added date seen while this track was missing.
-  final DateTime lastInsertedAt;
+  /// Latest addition to a source playlist (excluding collect targets).
+  final DateTime? sourceAddedAt;
   const SyncMissingTrack({
     required this.spotifyTrackId,
     required this.artist,
     required this.title,
     this.itunesUrl,
-    required this.lastInsertedAt,
+    this.sourceAddedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3737,7 +3253,9 @@ class SyncMissingTrack extends DataClass
     if (!nullToAbsent || itunesUrl != null) {
       map['itunes_url'] = Variable<String>(itunesUrl);
     }
-    map['last_inserted_at'] = Variable<DateTime>(lastInsertedAt);
+    if (!nullToAbsent || sourceAddedAt != null) {
+      map['source_added_at'] = Variable<DateTime>(sourceAddedAt);
+    }
     return map;
   }
 
@@ -3749,7 +3267,9 @@ class SyncMissingTrack extends DataClass
       itunesUrl: itunesUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(itunesUrl),
-      lastInsertedAt: Value(lastInsertedAt),
+      sourceAddedAt: sourceAddedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceAddedAt),
     );
   }
 
@@ -3763,7 +3283,7 @@ class SyncMissingTrack extends DataClass
       artist: serializer.fromJson<String>(json['artist']),
       title: serializer.fromJson<String>(json['title']),
       itunesUrl: serializer.fromJson<String?>(json['itunesUrl']),
-      lastInsertedAt: serializer.fromJson<DateTime>(json['lastInsertedAt']),
+      sourceAddedAt: serializer.fromJson<DateTime?>(json['sourceAddedAt']),
     );
   }
   @override
@@ -3774,7 +3294,7 @@ class SyncMissingTrack extends DataClass
       'artist': serializer.toJson<String>(artist),
       'title': serializer.toJson<String>(title),
       'itunesUrl': serializer.toJson<String?>(itunesUrl),
-      'lastInsertedAt': serializer.toJson<DateTime>(lastInsertedAt),
+      'sourceAddedAt': serializer.toJson<DateTime?>(sourceAddedAt),
     };
   }
 
@@ -3783,13 +3303,15 @@ class SyncMissingTrack extends DataClass
     String? artist,
     String? title,
     Value<String?> itunesUrl = const Value.absent(),
-    DateTime? lastInsertedAt,
+    Value<DateTime?> sourceAddedAt = const Value.absent(),
   }) => SyncMissingTrack(
     spotifyTrackId: spotifyTrackId ?? this.spotifyTrackId,
     artist: artist ?? this.artist,
     title: title ?? this.title,
     itunesUrl: itunesUrl.present ? itunesUrl.value : this.itunesUrl,
-    lastInsertedAt: lastInsertedAt ?? this.lastInsertedAt,
+    sourceAddedAt: sourceAddedAt.present
+        ? sourceAddedAt.value
+        : this.sourceAddedAt,
   );
   SyncMissingTrack copyWithCompanion(SyncMissingTracksCompanion data) {
     return SyncMissingTrack(
@@ -3799,9 +3321,9 @@ class SyncMissingTrack extends DataClass
       artist: data.artist.present ? data.artist.value : this.artist,
       title: data.title.present ? data.title.value : this.title,
       itunesUrl: data.itunesUrl.present ? data.itunesUrl.value : this.itunesUrl,
-      lastInsertedAt: data.lastInsertedAt.present
-          ? data.lastInsertedAt.value
-          : this.lastInsertedAt,
+      sourceAddedAt: data.sourceAddedAt.present
+          ? data.sourceAddedAt.value
+          : this.sourceAddedAt,
     );
   }
 
@@ -3812,14 +3334,14 @@ class SyncMissingTrack extends DataClass
           ..write('artist: $artist, ')
           ..write('title: $title, ')
           ..write('itunesUrl: $itunesUrl, ')
-          ..write('lastInsertedAt: $lastInsertedAt')
+          ..write('sourceAddedAt: $sourceAddedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(spotifyTrackId, artist, title, itunesUrl, lastInsertedAt);
+      Object.hash(spotifyTrackId, artist, title, itunesUrl, sourceAddedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3828,7 +3350,7 @@ class SyncMissingTrack extends DataClass
           other.artist == this.artist &&
           other.title == this.title &&
           other.itunesUrl == this.itunesUrl &&
-          other.lastInsertedAt == this.lastInsertedAt);
+          other.sourceAddedAt == this.sourceAddedAt);
 }
 
 class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
@@ -3836,14 +3358,14 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
   final Value<String> artist;
   final Value<String> title;
   final Value<String?> itunesUrl;
-  final Value<DateTime> lastInsertedAt;
+  final Value<DateTime?> sourceAddedAt;
   final Value<int> rowid;
   const SyncMissingTracksCompanion({
     this.spotifyTrackId = const Value.absent(),
     this.artist = const Value.absent(),
     this.title = const Value.absent(),
     this.itunesUrl = const Value.absent(),
-    this.lastInsertedAt = const Value.absent(),
+    this.sourceAddedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncMissingTracksCompanion.insert({
@@ -3851,18 +3373,17 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     required String artist,
     required String title,
     this.itunesUrl = const Value.absent(),
-    required DateTime lastInsertedAt,
+    this.sourceAddedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : spotifyTrackId = Value(spotifyTrackId),
        artist = Value(artist),
-       title = Value(title),
-       lastInsertedAt = Value(lastInsertedAt);
+       title = Value(title);
   static Insertable<SyncMissingTrack> custom({
     Expression<String>? spotifyTrackId,
     Expression<String>? artist,
     Expression<String>? title,
     Expression<String>? itunesUrl,
-    Expression<DateTime>? lastInsertedAt,
+    Expression<DateTime>? sourceAddedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3870,7 +3391,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
       if (artist != null) 'artist': artist,
       if (title != null) 'title': title,
       if (itunesUrl != null) 'itunes_url': itunesUrl,
-      if (lastInsertedAt != null) 'last_inserted_at': lastInsertedAt,
+      if (sourceAddedAt != null) 'source_added_at': sourceAddedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3880,7 +3401,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     Value<String>? artist,
     Value<String>? title,
     Value<String?>? itunesUrl,
-    Value<DateTime>? lastInsertedAt,
+    Value<DateTime?>? sourceAddedAt,
     Value<int>? rowid,
   }) {
     return SyncMissingTracksCompanion(
@@ -3888,7 +3409,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
       artist: artist ?? this.artist,
       title: title ?? this.title,
       itunesUrl: itunesUrl ?? this.itunesUrl,
-      lastInsertedAt: lastInsertedAt ?? this.lastInsertedAt,
+      sourceAddedAt: sourceAddedAt ?? this.sourceAddedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3908,8 +3429,8 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
     if (itunesUrl.present) {
       map['itunes_url'] = Variable<String>(itunesUrl.value);
     }
-    if (lastInsertedAt.present) {
-      map['last_inserted_at'] = Variable<DateTime>(lastInsertedAt.value);
+    if (sourceAddedAt.present) {
+      map['source_added_at'] = Variable<DateTime>(sourceAddedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -3924,7 +3445,7 @@ class SyncMissingTracksCompanion extends UpdateCompanion<SyncMissingTrack> {
           ..write('artist: $artist, ')
           ..write('title: $title, ')
           ..write('itunesUrl: $itunesUrl, ')
-          ..write('lastInsertedAt: $lastInsertedAt, ')
+          ..write('sourceAddedAt: $sourceAddedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4319,6 +3840,17 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     playlistId,
@@ -4326,6 +3858,7 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     name,
     artistNames,
     orderIndex,
+    addedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4382,6 +3915,12 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
     } else if (isInserting) {
       context.missing(_orderIndexMeta);
     }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -4411,6 +3950,10 @@ class $SyncPlaylistTracksTable extends SyncPlaylistTracks
         DriftSqlType.int,
         data['${effectivePrefix}order_index'],
       )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      ),
     );
   }
 
@@ -4436,12 +3979,16 @@ class SyncPlaylistTrack extends DataClass
 
   /// Position in the playlist.
   final int orderIndex;
+
+  /// When Spotify added the track to this playlist.
+  final DateTime? addedAt;
   const SyncPlaylistTrack({
     required this.playlistId,
     required this.trackId,
     required this.name,
     required this.artistNames,
     required this.orderIndex,
+    this.addedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4451,6 +3998,9 @@ class SyncPlaylistTrack extends DataClass
     map['name'] = Variable<String>(name);
     map['artist_names'] = Variable<String>(artistNames);
     map['order_index'] = Variable<int>(orderIndex);
+    if (!nullToAbsent || addedAt != null) {
+      map['added_at'] = Variable<DateTime>(addedAt);
+    }
     return map;
   }
 
@@ -4461,6 +4011,9 @@ class SyncPlaylistTrack extends DataClass
       name: Value(name),
       artistNames: Value(artistNames),
       orderIndex: Value(orderIndex),
+      addedAt: addedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(addedAt),
     );
   }
 
@@ -4475,6 +4028,7 @@ class SyncPlaylistTrack extends DataClass
       name: serializer.fromJson<String>(json['name']),
       artistNames: serializer.fromJson<String>(json['artistNames']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      addedAt: serializer.fromJson<DateTime?>(json['addedAt']),
     );
   }
   @override
@@ -4486,6 +4040,7 @@ class SyncPlaylistTrack extends DataClass
       'name': serializer.toJson<String>(name),
       'artistNames': serializer.toJson<String>(artistNames),
       'orderIndex': serializer.toJson<int>(orderIndex),
+      'addedAt': serializer.toJson<DateTime?>(addedAt),
     };
   }
 
@@ -4495,12 +4050,14 @@ class SyncPlaylistTrack extends DataClass
     String? name,
     String? artistNames,
     int? orderIndex,
+    Value<DateTime?> addedAt = const Value.absent(),
   }) => SyncPlaylistTrack(
     playlistId: playlistId ?? this.playlistId,
     trackId: trackId ?? this.trackId,
     name: name ?? this.name,
     artistNames: artistNames ?? this.artistNames,
     orderIndex: orderIndex ?? this.orderIndex,
+    addedAt: addedAt.present ? addedAt.value : this.addedAt,
   );
   SyncPlaylistTrack copyWithCompanion(SyncPlaylistTracksCompanion data) {
     return SyncPlaylistTrack(
@@ -4515,6 +4072,7 @@ class SyncPlaylistTrack extends DataClass
       orderIndex: data.orderIndex.present
           ? data.orderIndex.value
           : this.orderIndex,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
     );
   }
 
@@ -4525,14 +4083,15 @@ class SyncPlaylistTrack extends DataClass
           ..write('trackId: $trackId, ')
           ..write('name: $name, ')
           ..write('artistNames: $artistNames, ')
-          ..write('orderIndex: $orderIndex')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('addedAt: $addedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(playlistId, trackId, name, artistNames, orderIndex);
+      Object.hash(playlistId, trackId, name, artistNames, orderIndex, addedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4541,7 +4100,8 @@ class SyncPlaylistTrack extends DataClass
           other.trackId == this.trackId &&
           other.name == this.name &&
           other.artistNames == this.artistNames &&
-          other.orderIndex == this.orderIndex);
+          other.orderIndex == this.orderIndex &&
+          other.addedAt == this.addedAt);
 }
 
 class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
@@ -4550,6 +4110,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
   final Value<String> name;
   final Value<String> artistNames;
   final Value<int> orderIndex;
+  final Value<DateTime?> addedAt;
   final Value<int> rowid;
   const SyncPlaylistTracksCompanion({
     this.playlistId = const Value.absent(),
@@ -4557,6 +4118,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     this.name = const Value.absent(),
     this.artistNames = const Value.absent(),
     this.orderIndex = const Value.absent(),
+    this.addedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncPlaylistTracksCompanion.insert({
@@ -4565,6 +4127,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     required String name,
     required String artistNames,
     required int orderIndex,
+    this.addedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : playlistId = Value(playlistId),
        trackId = Value(trackId),
@@ -4577,6 +4140,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     Expression<String>? name,
     Expression<String>? artistNames,
     Expression<int>? orderIndex,
+    Expression<DateTime>? addedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4585,6 +4149,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
       if (name != null) 'name': name,
       if (artistNames != null) 'artist_names': artistNames,
       if (orderIndex != null) 'order_index': orderIndex,
+      if (addedAt != null) 'added_at': addedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4595,6 +4160,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     Value<String>? name,
     Value<String>? artistNames,
     Value<int>? orderIndex,
+    Value<DateTime?>? addedAt,
     Value<int>? rowid,
   }) {
     return SyncPlaylistTracksCompanion(
@@ -4603,6 +4169,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
       name: name ?? this.name,
       artistNames: artistNames ?? this.artistNames,
       orderIndex: orderIndex ?? this.orderIndex,
+      addedAt: addedAt ?? this.addedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4625,6 +4192,9 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
     if (orderIndex.present) {
       map['order_index'] = Variable<int>(orderIndex.value);
     }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4639,6 +4209,7 @@ class SyncPlaylistTracksCompanion extends UpdateCompanion<SyncPlaylistTrack> {
           ..write('name: $name, ')
           ..write('artistNames: $artistNames, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('addedAt: $addedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4654,8 +4225,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CachedPlaylistTracksTable cachedPlaylistTracks =
       $CachedPlaylistTracksTable(this);
   late final $CachedAlbumsTable cachedAlbums = $CachedAlbumsTable(this);
-  late final $TrackAlbumMappingsTable trackAlbumMappings =
-      $TrackAlbumMappingsTable(this);
   late final $CachedArtistsTable cachedArtists = $CachedArtistsTable(this);
   late final $CachedArtistAlbumListsTable cachedArtistAlbumLists =
       $CachedArtistAlbumListsTable(this);
@@ -4665,7 +4234,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CachedLabelSearchesTable(this);
   late final $CachedLabelTracksTable cachedLabelTracks =
       $CachedLabelTracksTable(this);
-  late final $CacheMetadataTable cacheMetadata = $CacheMetadataTable(this);
   late final $SyncTrackMappingsTable syncTrackMappings =
       $SyncTrackMappingsTable(this);
   late final $SyncMissingTracksTable syncMissingTracks =
@@ -4675,8 +4243,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $SyncPlaylistTracksTable(this);
   late final PlaylistsDao playlistsDao = PlaylistsDao(this as AppDatabase);
   late final AlbumsDao albumsDao = AlbumsDao(this as AppDatabase);
-  late final TrackAlbumMappingsDao trackAlbumMappingsDao =
-      TrackAlbumMappingsDao(this as AppDatabase);
   late final ArtistsDao artistsDao = ArtistsDao(this as AppDatabase);
   late final ArtistAlbumsDao artistAlbumsDao = ArtistAlbumsDao(
     this as AppDatabase,
@@ -4684,7 +4250,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final LabelSearchesDao labelSearchesDao = LabelSearchesDao(
     this as AppDatabase,
   );
-  late final MetadataDao metadataDao = MetadataDao(this as AppDatabase);
   late final SyncMappingsDao syncMappingsDao = SyncMappingsDao(
     this as AppDatabase,
   );
@@ -4702,13 +4267,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     cachedPlaylists,
     cachedPlaylistTracks,
     cachedAlbums,
-    trackAlbumMappings,
     cachedArtists,
     cachedArtistAlbumLists,
     artistAlbumRelationships,
     cachedLabelSearches,
     cachedLabelTracks,
-    cacheMetadata,
     syncTrackMappings,
     syncMissingTracks,
     syncPlaylists,
@@ -5387,162 +4950,6 @@ typedef $$CachedAlbumsTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $CachedAlbumsTable, CachedAlbum>,
       ),
       CachedAlbum,
-      PrefetchHooks Function()
-    >;
-typedef $$TrackAlbumMappingsTableCreateCompanionBuilder =
-    TrackAlbumMappingsCompanion Function({
-      required String trackId,
-      required String albumId,
-      Value<int> rowid,
-    });
-typedef $$TrackAlbumMappingsTableUpdateCompanionBuilder =
-    TrackAlbumMappingsCompanion Function({
-      Value<String> trackId,
-      Value<String> albumId,
-      Value<int> rowid,
-    });
-
-class $$TrackAlbumMappingsTableFilterComposer
-    extends Composer<_$AppDatabase, $TrackAlbumMappingsTable> {
-  $$TrackAlbumMappingsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get trackId => $composableBuilder(
-    column: $table.trackId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$TrackAlbumMappingsTableOrderingComposer
-    extends Composer<_$AppDatabase, $TrackAlbumMappingsTable> {
-  $$TrackAlbumMappingsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get trackId => $composableBuilder(
-    column: $table.trackId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get albumId => $composableBuilder(
-    column: $table.albumId,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$TrackAlbumMappingsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TrackAlbumMappingsTable> {
-  $$TrackAlbumMappingsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get trackId =>
-      $composableBuilder(column: $table.trackId, builder: (column) => column);
-
-  GeneratedColumn<String> get albumId =>
-      $composableBuilder(column: $table.albumId, builder: (column) => column);
-}
-
-class $$TrackAlbumMappingsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $TrackAlbumMappingsTable,
-          TrackAlbumMapping,
-          $$TrackAlbumMappingsTableFilterComposer,
-          $$TrackAlbumMappingsTableOrderingComposer,
-          $$TrackAlbumMappingsTableAnnotationComposer,
-          $$TrackAlbumMappingsTableCreateCompanionBuilder,
-          $$TrackAlbumMappingsTableUpdateCompanionBuilder,
-          (
-            TrackAlbumMapping,
-            BaseReferences<
-              _$AppDatabase,
-              $TrackAlbumMappingsTable,
-              TrackAlbumMapping
-            >,
-          ),
-          TrackAlbumMapping,
-          PrefetchHooks Function()
-        > {
-  $$TrackAlbumMappingsTableTableManager(
-    _$AppDatabase db,
-    $TrackAlbumMappingsTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$TrackAlbumMappingsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$TrackAlbumMappingsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$TrackAlbumMappingsTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
-          updateCompanionCallback:
-              ({
-                Value<String> trackId = const Value.absent(),
-                Value<String> albumId = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => TrackAlbumMappingsCompanion(
-                trackId: trackId,
-                albumId: albumId,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String trackId,
-                required String albumId,
-                Value<int> rowid = const Value.absent(),
-              }) => TrackAlbumMappingsCompanion.insert(
-                trackId: trackId,
-                albumId: albumId,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$TrackAlbumMappingsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $TrackAlbumMappingsTable,
-      TrackAlbumMapping,
-      $$TrackAlbumMappingsTableFilterComposer,
-      $$TrackAlbumMappingsTableOrderingComposer,
-      $$TrackAlbumMappingsTableAnnotationComposer,
-      $$TrackAlbumMappingsTableCreateCompanionBuilder,
-      $$TrackAlbumMappingsTableUpdateCompanionBuilder,
-      (
-        TrackAlbumMapping,
-        BaseReferences<
-          _$AppDatabase,
-          $TrackAlbumMappingsTable,
-          TrackAlbumMapping
-        >,
-      ),
-      TrackAlbumMapping,
       PrefetchHooks Function()
     >;
 typedef $$CachedArtistsTableCreateCompanionBuilder =
@@ -6485,168 +5892,6 @@ typedef $$CachedLabelTracksTableProcessedTableManager =
       CachedLabelTrack,
       PrefetchHooks Function()
     >;
-typedef $$CacheMetadataTableCreateCompanionBuilder =
-    CacheMetadataCompanion Function({
-      Value<int> id,
-      Value<DateTime?> created,
-      Value<DateTime?> lastUpdated,
-    });
-typedef $$CacheMetadataTableUpdateCompanionBuilder =
-    CacheMetadataCompanion Function({
-      Value<int> id,
-      Value<DateTime?> created,
-      Value<DateTime?> lastUpdated,
-    });
-
-class $$CacheMetadataTableFilterComposer
-    extends Composer<_$AppDatabase, $CacheMetadataTable> {
-  $$CacheMetadataTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get created => $composableBuilder(
-    column: $table.created,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$CacheMetadataTableOrderingComposer
-    extends Composer<_$AppDatabase, $CacheMetadataTable> {
-  $$CacheMetadataTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get created => $composableBuilder(
-    column: $table.created,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$CacheMetadataTableAnnotationComposer
-    extends Composer<_$AppDatabase, $CacheMetadataTable> {
-  $$CacheMetadataTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get created =>
-      $composableBuilder(column: $table.created, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => column,
-  );
-}
-
-class $$CacheMetadataTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $CacheMetadataTable,
-          CacheMetadataData,
-          $$CacheMetadataTableFilterComposer,
-          $$CacheMetadataTableOrderingComposer,
-          $$CacheMetadataTableAnnotationComposer,
-          $$CacheMetadataTableCreateCompanionBuilder,
-          $$CacheMetadataTableUpdateCompanionBuilder,
-          (
-            CacheMetadataData,
-            BaseReferences<
-              _$AppDatabase,
-              $CacheMetadataTable,
-              CacheMetadataData
-            >,
-          ),
-          CacheMetadataData,
-          PrefetchHooks Function()
-        > {
-  $$CacheMetadataTableTableManager(_$AppDatabase db, $CacheMetadataTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$CacheMetadataTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$CacheMetadataTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$CacheMetadataTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<DateTime?> created = const Value.absent(),
-                Value<DateTime?> lastUpdated = const Value.absent(),
-              }) => CacheMetadataCompanion(
-                id: id,
-                created: created,
-                lastUpdated: lastUpdated,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<DateTime?> created = const Value.absent(),
-                Value<DateTime?> lastUpdated = const Value.absent(),
-              }) => CacheMetadataCompanion.insert(
-                id: id,
-                created: created,
-                lastUpdated: lastUpdated,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$CacheMetadataTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $CacheMetadataTable,
-      CacheMetadataData,
-      $$CacheMetadataTableFilterComposer,
-      $$CacheMetadataTableOrderingComposer,
-      $$CacheMetadataTableAnnotationComposer,
-      $$CacheMetadataTableCreateCompanionBuilder,
-      $$CacheMetadataTableUpdateCompanionBuilder,
-      (
-        CacheMetadataData,
-        BaseReferences<_$AppDatabase, $CacheMetadataTable, CacheMetadataData>,
-      ),
-      CacheMetadataData,
-      PrefetchHooks Function()
-    >;
 typedef $$SyncTrackMappingsTableCreateCompanionBuilder =
     SyncTrackMappingsCompanion Function({
       required String spotifyTrackId,
@@ -6832,7 +6077,7 @@ typedef $$SyncMissingTracksTableCreateCompanionBuilder =
       required String artist,
       required String title,
       Value<String?> itunesUrl,
-      required DateTime lastInsertedAt,
+      Value<DateTime?> sourceAddedAt,
       Value<int> rowid,
     });
 typedef $$SyncMissingTracksTableUpdateCompanionBuilder =
@@ -6841,7 +6086,7 @@ typedef $$SyncMissingTracksTableUpdateCompanionBuilder =
       Value<String> artist,
       Value<String> title,
       Value<String?> itunesUrl,
-      Value<DateTime> lastInsertedAt,
+      Value<DateTime?> sourceAddedAt,
       Value<int> rowid,
     });
 
@@ -6874,8 +6119,8 @@ class $$SyncMissingTracksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  ColumnFilters<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6909,8 +6154,8 @@ class $$SyncMissingTracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  ColumnOrderings<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -6938,8 +6183,8 @@ class $$SyncMissingTracksTableAnnotationComposer
   GeneratedColumn<String> get itunesUrl =>
       $composableBuilder(column: $table.itunesUrl, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get lastInsertedAt => $composableBuilder(
-    column: $table.lastInsertedAt,
+  GeneratedColumn<DateTime> get sourceAddedAt => $composableBuilder(
+    column: $table.sourceAddedAt,
     builder: (column) => column,
   );
 }
@@ -6988,14 +6233,14 @@ class $$SyncMissingTracksTableTableManager
                 Value<String> artist = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String?> itunesUrl = const Value.absent(),
-                Value<DateTime> lastInsertedAt = const Value.absent(),
+                Value<DateTime?> sourceAddedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMissingTracksCompanion(
                 spotifyTrackId: spotifyTrackId,
                 artist: artist,
                 title: title,
                 itunesUrl: itunesUrl,
-                lastInsertedAt: lastInsertedAt,
+                sourceAddedAt: sourceAddedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7004,14 +6249,14 @@ class $$SyncMissingTracksTableTableManager
                 required String artist,
                 required String title,
                 Value<String?> itunesUrl = const Value.absent(),
-                required DateTime lastInsertedAt,
+                Value<DateTime?> sourceAddedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMissingTracksCompanion.insert(
                 spotifyTrackId: spotifyTrackId,
                 artist: artist,
                 title: title,
                 itunesUrl: itunesUrl,
-                lastInsertedAt: lastInsertedAt,
+                sourceAddedAt: sourceAddedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7235,6 +6480,7 @@ typedef $$SyncPlaylistTracksTableCreateCompanionBuilder =
       required String name,
       required String artistNames,
       required int orderIndex,
+      Value<DateTime?> addedAt,
       Value<int> rowid,
     });
 typedef $$SyncPlaylistTracksTableUpdateCompanionBuilder =
@@ -7244,6 +6490,7 @@ typedef $$SyncPlaylistTracksTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> artistNames,
       Value<int> orderIndex,
+      Value<DateTime?> addedAt,
       Value<int> rowid,
     });
 
@@ -7278,6 +6525,11 @@ class $$SyncPlaylistTracksTableFilterComposer
 
   ColumnFilters<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7315,6 +6567,11 @@ class $$SyncPlaylistTracksTableOrderingComposer
     column: $table.orderIndex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncPlaylistTracksTableAnnotationComposer
@@ -7346,6 +6603,9 @@ class $$SyncPlaylistTracksTableAnnotationComposer
     column: $table.orderIndex,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
 }
 
 class $$SyncPlaylistTracksTableTableManager
@@ -7393,6 +6653,7 @@ class $$SyncPlaylistTracksTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> artistNames = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
+                Value<DateTime?> addedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncPlaylistTracksCompanion(
                 playlistId: playlistId,
@@ -7400,6 +6661,7 @@ class $$SyncPlaylistTracksTableTableManager
                 name: name,
                 artistNames: artistNames,
                 orderIndex: orderIndex,
+                addedAt: addedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7409,6 +6671,7 @@ class $$SyncPlaylistTracksTableTableManager
                 required String name,
                 required String artistNames,
                 required int orderIndex,
+                Value<DateTime?> addedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncPlaylistTracksCompanion.insert(
                 playlistId: playlistId,
@@ -7416,6 +6679,7 @@ class $$SyncPlaylistTracksTableTableManager
                 name: name,
                 artistNames: artistNames,
                 orderIndex: orderIndex,
+                addedAt: addedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7457,8 +6721,6 @@ class $AppDatabaseManager {
       $$CachedPlaylistTracksTableTableManager(_db, _db.cachedPlaylistTracks);
   $$CachedAlbumsTableTableManager get cachedAlbums =>
       $$CachedAlbumsTableTableManager(_db, _db.cachedAlbums);
-  $$TrackAlbumMappingsTableTableManager get trackAlbumMappings =>
-      $$TrackAlbumMappingsTableTableManager(_db, _db.trackAlbumMappings);
   $$CachedArtistsTableTableManager get cachedArtists =>
       $$CachedArtistsTableTableManager(_db, _db.cachedArtists);
   $$CachedArtistAlbumListsTableTableManager get cachedArtistAlbumLists =>
@@ -7475,8 +6737,6 @@ class $AppDatabaseManager {
       $$CachedLabelSearchesTableTableManager(_db, _db.cachedLabelSearches);
   $$CachedLabelTracksTableTableManager get cachedLabelTracks =>
       $$CachedLabelTracksTableTableManager(_db, _db.cachedLabelTracks);
-  $$CacheMetadataTableTableManager get cacheMetadata =>
-      $$CacheMetadataTableTableManager(_db, _db.cacheMetadata);
   $$SyncTrackMappingsTableTableManager get syncTrackMappings =>
       $$SyncTrackMappingsTableTableManager(_db, _db.syncTrackMappings);
   $$SyncMissingTracksTableTableManager get syncMissingTracks =>

@@ -1,8 +1,6 @@
 import 'dart:async';
 
-final class Zonable<T> {
-  T call() => fromZone<T>();
-
+abstract final class Zonable {
   static T fromZone<T>() {
     return Zone.current[T] as T? ??
         (throw StateError('No instance of $T found in zone'));

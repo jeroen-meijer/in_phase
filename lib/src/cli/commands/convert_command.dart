@@ -88,6 +88,7 @@ class ConvertCommand extends Command<int> {
               classified.hasWatchAndList);
 
       final api = await spotifyLogin();
+      addTeardown(() => closeSpotifyApi(api));
       final requestPool = Zonable.fromZone<RequestPool>();
       addTeardown(requestPool.clear);
 
@@ -234,10 +235,9 @@ class ConvertCommand extends Command<int> {
       ResolvedSpotifyTarget? resolvedTarget;
       if (addTarget != null) {
         log.info('🎯 Resolving target: $addTarget');
-        final userPlaylists = await requestPool.fetchAllPages(
-          api.me.playlists.saved(),
-          limit: 50,
-          pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+        final userPlaylists = await fetchSavedPlaylists(
+          api: api,
+          requestPool: requestPool,
         );
         resolvedTarget = await resolvePlaylistTarget(
           api: api,
@@ -285,45 +285,26 @@ class ConvertCommand extends Command<int> {
     required List<Track> tracks,
     required bool replace,
   }) async {
-    var tracksToAdd = tracks;
+    final playlistId = SpotifyPlaylistId(playlist.id!);
+    final uris = tracks.map((t) => t.uri!).toList();
 
     if (replace) {
-      log.info('  🗑️  Clearing existing tracks...');
-      await api.playlists.clear(playlist.id!);
-    } else {
-      final existing = await requestPool.fetchAllPages(
-        api.playlists.getPlaylistTracks(playlist.id!),
-        limit: 50,
-        pageIdentifier: (offset) => SpotifyCacheIdentifier.playlistTracksPage(
-          SpotifyPlaylistId(playlist.id!),
-          offset,
-        ),
-      );
-      final existingIds = existing
-          .map((t) => t.track?.id)
-          .whereType<String>()
-          .toSet();
-      final before = tracksToAdd.length;
-      tracksToAdd = tracksToAdd
-          .where((t) => !existingIds.contains(t.id))
-          .toList();
-      final skipped = before - tracksToAdd.length;
-      if (skipped > 0) {
-        log.info('  ⏭️  Skipping $skipped duplicate track(s)');
-      }
-    }
-
-    if (tracksToAdd.isEmpty) {
-      log.info('  ✅ Nothing new to add');
+      await replacePlaylistTracks(api: api, playlistId: playlistId, uris: uris);
+      log.info('  ✅ Replaced playlist with ${uris.length} track(s)');
       return;
     }
 
-    final uris = tracksToAdd.map((t) => t.uri!).toList();
-    for (var i = 0; i < uris.length; i += 100) {
-      final batch = uris.skip(i).take(100).toList();
-      await api.playlists.addTracks(batch, playlist.id!);
+    final added = await appendNewPlaylistTracks(
+      api: api,
+      requestPool: requestPool,
+      playlistId: playlistId,
+      uris: uris,
+    );
+    final skipped = uris.length - added.length;
+    if (skipped > 0) {
+      log.info('  ⏭️  Skipping $skipped duplicate track(s)');
     }
-    log.info('  ✅ Added ${tracksToAdd.length} track(s)');
+    log.info('  ✅ Added ${added.length} track(s)');
   }
 
   String _playlistName({

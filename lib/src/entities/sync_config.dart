@@ -5,8 +5,6 @@ import 'package:in_phase/src/entities/entities.dart';
 import 'package:in_phase/src/misc/misc.dart';
 import 'package:in_phase/src/spotify/spotify.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_codec/yaml_codec.dart';
 
 part 'sync_config.g.dart';
 
@@ -34,35 +32,19 @@ class SyncConfig {
   ///
   /// Throws if YAML is invalid, if the root value is not a map, or if the data
   /// does not match the sync config schema (same rules as `fromJson`).
-  factory SyncConfig.fromYamlString(String content) {
-    final decoded = yamlDecode(content);
-    if (decoded is! YamlMap) {
-      throw const FormatException('Expected YAML map at the root');
-    }
-    return SyncConfig.fromJson(decoded.toMap());
-  }
+  factory SyncConfig.fromYamlString(String content) => parseYamlConfig(
+    content,
+    fromJson: SyncConfig.fromJson,
+    defaults: const SyncConfig.empty(),
+  );
 
   Map<String, dynamic> toJson() => _$SyncConfigToJson(this);
 
-  static Future<SyncConfig> fromFile(
-    File file, {
-    bool createFileIfNotExists = true,
-  }) async {
-    // ignore: avoid_slow_async_io
-    if (!await file.exists()) {
-      if (createFileIfNotExists) {
-        await file.create(recursive: true);
-        const config = SyncConfig.empty();
-        await config.write(file);
-        return config;
-      } else {
-        throw Exception('Sync config file not found at ${file.path}');
-      }
-    }
-
-    final content = await file.readAsString();
-    return SyncConfig.fromYamlString(content);
-  }
+  static Future<SyncConfig> fromFile(File file) => readYamlConfig(
+    file,
+    fromJson: SyncConfig.fromJson,
+    defaults: const SyncConfig.empty(),
+  );
 
   /// Every [CustomTrack.rekordboxId] and [CustomTrack.target] in
   /// [customTracks].
@@ -77,11 +59,6 @@ class SyncConfig {
     return ids;
   }
 
-  Future<void> write(File file) async {
-    await file.create(recursive: true);
-    await file.writeAsString(yamlEncode(toJson()));
-  }
-
   @JsonKey(fromJson: _globListFromJson, toJson: _globListToJson)
   final List<Glob> playlists;
 
@@ -89,7 +66,8 @@ class SyncConfig {
 
   final bool overwriteSongKeys;
 
-  @JsonKey(fromJson: _customTracksFromJson, toJson: _customTracksToJson)
+  @JsonKey(defaultValue: <SpotifyPlaylistId, List<CustomTrack>>{})
+  @_CustomTracksConverter()
   final Map<SpotifyPlaylistId, List<CustomTrack>> customTracks;
 }
 
@@ -148,7 +126,7 @@ class CustomTrack {
 
   Map<String, dynamic> toJson() => _$CustomTrackToJson(this);
 
-  @JsonKey(fromJson: _rekordboxSongIdFromJson, toJson: _rekordboxSongIdToJson)
+  @_RekordboxSongIdConverter()
   final RekordboxSongId rekordboxId;
 
   final CustomTrackType type;
@@ -160,48 +138,51 @@ class CustomTrack {
   final int? position;
 
   /// Target Rekordbox track ID for relative positioning.
-  @JsonKey(
-    fromJson: _nullableRekordboxSongIdFromJson,
-    toJson: _nullableRekordboxSongIdToJson,
-  )
+  @_RekordboxSongIdConverter()
   final RekordboxSongId? target;
 }
 
-RekordboxSongId _rekordboxSongIdFromJson(Object json) => switch (json) {
-  num() || String() => RekordboxSongId(json.toString()),
-  _ => throw ArgumentError(
-    'Invalid Rekordbox song ID: $json. Expected a number or string.',
-  ),
-};
+/// Reads a [RekordboxSongId] that YAML may give as a number or a string.
+class _RekordboxSongIdConverter
+    implements JsonConverter<RekordboxSongId, Object> {
+  const _RekordboxSongIdConverter();
 
-String _rekordboxSongIdToJson(RekordboxSongId id) => id.toString();
+  @override
+  RekordboxSongId fromJson(Object json) => switch (json) {
+    num() || String() => RekordboxSongId(json.toString()),
+    _ => throw ArgumentError(
+      'Invalid Rekordbox song ID: $json. Expected a number or string.',
+    ),
+  };
 
-RekordboxSongId? _nullableRekordboxSongIdFromJson(Object? json) =>
-    json == null ? null : _rekordboxSongIdFromJson(json);
+  @override
+  Object toJson(RekordboxSongId id) => id;
+}
 
-String? _nullableRekordboxSongIdToJson(RekordboxSongId? id) =>
-    id == null ? null : _rekordboxSongIdToJson(id);
+class _CustomTracksConverter
+    implements
+        JsonConverter<
+          Map<SpotifyPlaylistId, List<CustomTrack>>,
+          Map<String, dynamic>
+        > {
+  const _CustomTracksConverter();
 
-Map<SpotifyPlaylistId, List<CustomTrack>> _customTracksFromJson(
-  Map<dynamic, dynamic>? json,
-) {
-  if (json == null) return {};
-
-  return json.map(
+  @override
+  Map<SpotifyPlaylistId, List<CustomTrack>> fromJson(
+    Map<String, dynamic> json,
+  ) => json.map(
     (key, value) => MapEntry(
-      SpotifyPlaylistId(key as String),
+      SpotifyPlaylistId(key),
       (value as List<dynamic>)
           .map((e) => CustomTrack.fromJson(e as Map<String, dynamic>))
           .toList(),
     ),
   );
-}
 
-Map<String, dynamic> _customTracksToJson(
-  Map<SpotifyPlaylistId, List<CustomTrack>> data,
-) => data.map(
-  (key, value) => MapEntry(
-    key.toString(),
-    value.map((e) => e.toJson()).toList(),
-  ),
-);
+  @override
+  Map<String, dynamic> toJson(
+    Map<SpotifyPlaylistId, List<CustomTrack>> data,
+  ) => data.map(
+    (key, value) => MapEntry(key, value.map((e) => e.toJson()).toList()),
+  );
+}

@@ -36,7 +36,8 @@ void Function(String message, {Object? id, bool? isReturning}) _createLogger(
 /// The RequestPool:
 /// - Deduplicates requests using provided identifiers
 /// - Manages concurrent execution with a configurable limit
-/// - Retries failed requests with exponential backoff
+/// - Retries failed requests after [retryDelay], or after Spotify's
+///   Retry-After when rate limited
 /// - Returns Futures that resolve when requests complete or fail after max
 ///   retries
 final class RequestPool {
@@ -182,7 +183,7 @@ final class RequestPool {
     }
 
     final key = identifier;
-    _ttlTimers[key]?.cancel();
+    _ttlTimers.remove(key)?.cancel();
     if (ttl != Duration.zero) {
       _ttlTimers[key] = Timer(ttl, () {
         log('TTL expired', id: key);
@@ -258,7 +259,15 @@ final class RequestPool {
       pendingRequest
           .requestFn()
           .then((result) {
-            final v = _states[pendingRequest.identifier]?.version;
+            final state = _states[pendingRequest.identifier];
+            if (state == null) {
+              log(
+                'request completed after clear',
+                id: pendingRequest.identifier,
+              );
+              return;
+            }
+            final v = state.version;
             if (v == pendingRequest.version) {
               log(
                 'request completed successfully',
@@ -278,7 +287,12 @@ final class RequestPool {
             }
           })
           .catchError((Object error, StackTrace stackTrace) {
-            final v = _states[pendingRequest.identifier]?.version;
+            final state = _states[pendingRequest.identifier];
+            if (state == null) {
+              log('request failed after clear', id: pendingRequest.identifier);
+              return;
+            }
+            final v = state.version;
             if (v != pendingRequest.version) {
               log(
                 'request failed but outdated, currentVersion=$v, '
@@ -322,7 +336,15 @@ final class RequestPool {
                 id: pendingRequest.identifier,
               );
               Timer(delay, () {
-                final vr = _states[pendingRequest.identifier]?.version;
+                final retryState = _states[pendingRequest.identifier];
+                if (retryState == null) {
+                  log(
+                    'retry dropped after clear',
+                    id: pendingRequest.identifier,
+                  );
+                  return;
+                }
+                final vr = retryState.version;
                 if (vr == pendingRequest.version) {
                   log(
                     'retrying request',
@@ -415,15 +437,15 @@ final class RequestPool {
   ///
   /// Loads the first page, then queues any remaining pages in parallel (subject
   /// to [maxConcurrent]). Each page is fetched via [request] with the
-  /// [pageIdentifier] for that page's offset.
+  /// [pageIdentifier] for that page's offset. Every page holds
+  /// [spotifyPageSize] items, so an identifier always names the same request.
   Future<List<T>> fetchAllPages<T>(
     Pages<T> pages, {
     required Object Function(int offset) pageIdentifier,
-    int limit = defaultLimit,
     Duration? ttl,
   }) async {
     final firstPage = await request(
-      () => pages.getPage(limit),
+      () => pages.getPage(spotifyPageSize),
       identifier: pageIdentifier(0),
       ttl: ttl,
     );
@@ -439,7 +461,7 @@ final class RequestPool {
       [
         for (final offset in remainingOffsets)
           request(
-            () => pages.getPage(limit, offset),
+            () => pages.getPage(spotifyPageSize, offset),
             identifier: pageIdentifier(offset),
             ttl: ttl,
           ),
@@ -451,19 +473,24 @@ final class RequestPool {
     return allItems;
   }
 
-  /// Clears all pending requests and cancels active ones.
-  /// NOTE(jeroen-meijer): Use with caution - this will cause all pending
-  /// and active requests to complete with a StateError.
+  /// Drops all queued and running requests.
+  ///
+  /// Their futures complete with a [StateError]; results of requests that are
+  /// still in flight are discarded when they arrive.
   void clear() {
     final log = _createLogger('clear');
     log('clearing all requests');
-    while (_pendingQueue.isNotEmpty) {
-      final pending = _pendingQueue.removeFirst();
-      pending.completer.completeError(
-        StateError('RequestPool was cleared'),
-      );
+    for (final future in _activeRequests.values) {
+      future.ignore();
+    }
+    for (final state in _states.values) {
+      if (!state.completer.isCompleted) {
+        state.completer.completeError(StateError('RequestPool was cleared'));
+      }
     }
 
+    _pendingQueue.clear();
+    _states.clear();
     _activeRequests.clear();
     _failedRequests.clear();
     _successRequests.clear();
@@ -504,6 +531,9 @@ final class _RequestState {
   final Completer<Object?> completer;
   int version;
 }
+
+/// Items per page for every [RequestPool.fetchAllPages] request.
+const spotifyPageSize = 50;
 
 /// Offsets for pages after [firstPage], using Spotify paging metadata.
 List<int> remainingSpotifyPageOffsets(Page<dynamic> firstPage) {

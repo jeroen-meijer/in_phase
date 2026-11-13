@@ -22,7 +22,7 @@ class BuyCommand extends Command<int> {
   @override
   Future<int> run() async {
     final missingTracks = await db().syncMissingTracksDao
-        .getAllMissingTracksNewestFirst();
+        .getMissingTracksBySourceDate();
 
     if (missingTracks.isEmpty) {
       log.info('No missing tracks found.');
@@ -51,24 +51,17 @@ class BuyCommand extends Command<int> {
         continue;
       }
 
-      if (!await _openItunesUrl(itunesUrl)) {
-        return ExitCode.software.code;
-      }
-
-      final action = _readPromptAction();
-      if (action == _PromptAction.quit) {
-        log.info('Stopped.');
-        break;
-      }
-      if (action == _PromptAction.reopen) {
+      _PromptAction action;
+      do {
         if (!await _openItunesUrl(itunesUrl)) {
           return ExitCode.software.code;
         }
-        final afterReopenAction = _readPromptAction();
-        if (afterReopenAction == _PromptAction.quit) {
-          log.info('Stopped.');
-          break;
-        }
+        action = _readPromptAction();
+      } while (action == _PromptAction.reopen);
+
+      if (action == _PromptAction.quit) {
+        log.info('Stopped.');
+        break;
       }
     }
 

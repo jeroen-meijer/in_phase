@@ -15,12 +15,19 @@ class CrawlReportGenerator extends BaseReportGenerator {
     Directory buildDir,
   ) async {
     final generator = CrawlReportGenerator();
-    final file = await generator._generateReport(report, buildDir);
+    final file = await generator.writeReportToFile(
+      reportType: 'crawl',
+      startTime: report.startTime,
+      content: generator._render(report),
+    );
     return file.path;
   }
 
-  /// Internal method to generate the report.
-  Future<File> _generateReport(CrawlReport report, Directory buildDir) async {
+  /// Renders [report] as markdown.
+  static String render(CrawlReport report) =>
+      CrawlReportGenerator()._render(report).toString();
+
+  StringBuffer _render(CrawlReport report) {
     final buffer = StringBuffer();
 
     // Header with basic metadata
@@ -32,12 +39,7 @@ class CrawlReportGenerator extends BaseReportGenerator {
       buffer.write('\n');
     }
 
-    // Write to file using base class
-    return writeReportToFile(
-      reportType: 'crawl',
-      startTime: report.startTime,
-      content: buffer,
-    );
+    return buffer;
   }
 
   /// Generates a section for a single job report.
@@ -51,6 +53,19 @@ class CrawlReportGenerator extends BaseReportGenerator {
         'Runtime: ${MarkdownGenerator.bold(MarkdownGenerator.formatDuration(report.runtime))}',
       ],
     );
+
+    if (report.failedSources.isNotEmpty) {
+      buffer
+        ..write(MarkdownGenerator.header('Failed Sources', level: 3))
+        ..writeln()
+        ..write(
+          MarkdownGenerator.list([
+            for (final failure in report.failedSources)
+              failure.replaceAll(RegExp(r'\s*\n\s*'), ' '),
+          ]),
+        )
+        ..writeln();
+    }
 
     // Use base class for tracks table
     final headers = ['Track Name', 'Artists', 'Source', 'Reason'];

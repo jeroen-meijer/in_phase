@@ -31,10 +31,9 @@ class CurateUserPlaylistsCache {
         return;
       }
 
-      final saved = await requestPool.fetchAllPages(
-        api.me.playlists.saved(),
-        limit: 50,
-        pageIdentifier: SpotifyCacheIdentifier.savedPlaylistsPage,
+      final saved = await fetchSavedPlaylists(
+        api: api,
+        requestPool: requestPool,
       );
 
       final editable = saved

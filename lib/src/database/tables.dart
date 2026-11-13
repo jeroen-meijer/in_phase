@@ -69,18 +69,6 @@ class CachedAlbums extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Mapping of tracks to their albums.
-class TrackAlbumMappings extends Table {
-  /// Spotify track ID.
-  TextColumn get trackId => text()();
-
-  /// Spotify album ID.
-  TextColumn get albumId => text().references(CachedAlbums, #id)();
-
-  @override
-  Set<Column> get primaryKey => {trackId, albumId};
-}
-
 /// Cached artists table.
 class CachedArtists extends Table {
   /// Spotify artist ID (primary key).
@@ -166,21 +154,6 @@ class CachedLabelTracks extends Table {
   Set<Column> get primaryKey => {trackId, labelName};
 }
 
-/// Cache metadata table.
-class CacheMetadata extends Table {
-  /// Single row ID.
-  IntColumn get id => integer()();
-
-  /// When cache was created.
-  DateTimeColumn get created => dateTime().nullable()();
-
-  /// When cache was last updated.
-  DateTimeColumn get lastUpdated => dateTime().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 // ============================================================================
 // SYNC CACHE TABLES
 // ============================================================================
@@ -214,8 +187,8 @@ class SyncMissingTracks extends Table {
   /// iTunes URL (nullable).
   TextColumn get itunesUrl => text().nullable()();
 
-  /// Latest Spotify playlist-added date seen while this track was missing.
-  DateTimeColumn get lastInsertedAt => dateTime()();
+  /// Latest addition to a source playlist (excluding collect targets).
+  DateTimeColumn get sourceAddedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {spotifyTrackId};
@@ -255,6 +228,9 @@ class SyncPlaylistTracks extends Table {
 
   /// Position in the playlist.
   IntColumn get orderIndex => integer()();
+
+  /// When Spotify added the track to this playlist.
+  DateTimeColumn get addedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {playlistId, trackId, orderIndex};
